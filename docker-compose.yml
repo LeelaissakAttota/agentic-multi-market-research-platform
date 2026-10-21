@@ -1,0 +1,35 @@
+# Local v1.0.0 release-candidate Compose configuration.
+# PostgreSQL and Redis are intentionally absent: those integrations are not
+# implemented yet. Do not interpret this file as claiming database readiness.
+# Market data is fixture-backed in-process; no live quote services are started.
+
+services:
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: agentic-financial-intelligence:1.0.0
+    ports:
+      # Bound to loopback only (F06): APP_ENV=development below bypasses both
+      # API-key authentication and ALLOWED_HOSTS enforcement, so this must not
+      # be reachable from the LAN. Host port is configurable because local
+      # port 8000 may already be occupied.
+      - "127.0.0.1:${API_HOST_PORT:-8000}:8000"
+    environment:
+      APP_ENV: development
+      LOG_LEVEL: INFO
+      ALLOWED_HOSTS: localhost,127.0.0.1
+      API_MAX_REQUEST_BODY_BYTES: "1048576"
+      ALLOW_PAID_MODELS: "false"
+      PRIMARY_FREE_MODEL: ""
+      FALLBACK_FREE_MODEL_1: ""
+      FALLBACK_FREE_MODEL_2: ""
+      OPENROUTER_API_KEY: ""
+      DATABASE_URL: ""
+      REDIS_URL: ""
+    # No .env file is copied into the image. Mount secrets only when needed.
+    read_only: true
+    tmpfs:
+      - /tmp
+    security_opt:
+      - no-new-privileges:true

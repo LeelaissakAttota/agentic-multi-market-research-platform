@@ -1,0 +1,62 @@
+[build-system]
+requires = ["setuptools>=75,<81"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "agentic-financial-intelligence"
+version = "1.0.0"
+description = "Evidence-first agentic financial intelligence and equity research platform."
+readme = "README.md"
+requires-python = ">=3.12,<3.14"
+license = "MIT"
+authors = [{ name = "attota leelaissak", email = "leelaissak@users.noreply.github.com" }]
+keywords = ["financial-research", "equity-research", "evidence", "agentic-ai"]
+classifiers = [
+  "Development Status :: 4 - Beta",
+  "Programming Language :: Python :: 3.12",
+  "Programming Language :: Python :: 3.13",
+  "Typing :: Typed",
+]
+dependencies = [
+  "fastapi>=0.115,<1",
+  "pydantic>=2.10,<3",
+  "pydantic-settings>=2.7,<3",
+  "uvicorn[standard]>=0.34,<1",
+  "tzdata>=2025.1; platform_system == 'Windows'",
+]
+
+[project.optional-dependencies]
+dev = [
+  "httpx>=0.28,<1",
+  "mypy>=1.15,<2",
+  "pytest>=8.3,<9",
+  "pytest-asyncio>=0.25,<2",
+  "ruff>=0.11,<1",
+]
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.pytest.ini_options]
+addopts = "-ra --strict-config --strict-markers"
+testpaths = ["tests"]
+pythonpath = ["src"]
+asyncio_mode = "auto"
+asyncio_default_fixture_loop_scope = "function"
+
+[tool.ruff]
+target-version = "py312"
+line-length = 100
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B", "SIM", "RUF"]
+
+[tool.mypy]
+python_version = "3.12"
+strict = true
+packages = ["financial_intelligence"]
+plugins = ["pydantic.mypy"]
+
+[[tool.mypy.overrides]]
+module = ["uvicorn", "uvicorn.*"]
+ignore_missing_imports = true

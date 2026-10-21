@@ -1,0 +1,106 @@
+"""Phase-boundary absence checks for later-phase capabilities."""
+
+from __future__ import annotations
+
+from pathlib import Path
+from tomllib import load
+from unittest import TestCase
+
+ROOT = Path(__file__).resolve().parents[2]
+PACKAGE = ROOT / "src" / "financial_intelligence"
+
+FORBIDDEN_CONTENT_MARKERS = (
+    "langgraph",
+    "ChatOpenAI",
+    "streamlit",
+    "MetaTrader",
+    "pgvector",
+)
+
+
+class PhaseBoundaryTests(TestCase):
+    """Confirm only owner-authorized phase capabilities are present."""
+
+    def test_no_forbidden_runtime_dependencies(self) -> None:
+        with (ROOT / "pyproject.toml").open("rb") as handle:
+            metadata = load(handle)
+        joined = " ".join(metadata["project"]["dependencies"]).lower()
+        for marker in ("langgraph", "langchain", "openai", "streamlit", "redis", "psycopg"):
+            self.assertNotIn(marker, joined)
+
+    def test_source_tree_has_no_forbidden_markers(self) -> None:
+        violations: list[str] = []
+        for path in PACKAGE.rglob("*.py"):
+            text = path.read_text(encoding="utf-8").lower()
+            for marker in FORBIDDEN_CONTENT_MARKERS:
+                if marker.lower() in text:
+                    violations.append(f"{path.relative_to(ROOT)}:{marker}")
+        self.assertEqual(violations, [])
+
+    def test_rag_advanced_artifacts_and_trading_remain_absent(self) -> None:
+        """RAG, advanced artifact systems, UI, and trading markers remain absent.
+
+        Phase 7 introduced workflow foundation modules and Phase 8 introduced
+        deterministic verification. Phase 9 Prompts 1-2 add structured synthesis
+        and Prompt 3 adds minimal in-memory DOCX, but RAG, PDF, UI, and trading stay locked.
+        """
+        phase7_markers = (
+            "synthesis agent",
+            "embedding_pipeline",
+            "docx_report",
+            "streamlit_app",
+            "pgvector_store",
+            "broker_execution",
+        )
+        violations: list[str] = []
+        for path in PACKAGE.rglob("*.py"):
+            text = path.read_text(encoding="utf-8").lower()
+            for marker in phase7_markers:
+                if marker in text:
+                    violations.append(f"{path.relative_to(ROOT)}:{marker}")
+        self.assertEqual(violations, [])
+
+    def test_phase8_verification_foundation_is_present(self) -> None:
+        """The authorized deterministic verification foundation must remain wired."""
+        verification_module = PACKAGE / "domain" / "verification" / "engine.py"
+        composition = (PACKAGE / "composition" / "__init__.py").read_text(encoding="utf-8")
+
+        self.assertTrue(verification_module.is_file())
+        self.assertIn("VerificationEngine", composition)
+        self.assertIn("VerifyClaimUseCase", composition)
+
+    def test_phase9_prompt2_synthesis_and_bounded_reporting_are_present(self) -> None:
+        """Authorized deterministic synthesis and in-memory reporting are wired."""
+        synthesis_module = PACKAGE / "domain" / "synthesis" / "policy.py"
+        synthesis_route = PACKAGE / "api" / "routes" / "synthesis.py"
+        composition = (PACKAGE / "composition" / "__init__.py").read_text(encoding="utf-8")
+
+        self.assertTrue(synthesis_module.is_file())
+        self.assertTrue(synthesis_route.is_file())
+        self.assertIn("GenerateResearchSynthesis", composition)
+        renderer = PACKAGE / "infrastructure" / "reporting" / "deterministic.py"
+        self.assertTrue(renderer.is_file())
+        renderer_source = renderer.read_text(encoding="utf-8").lower()
+        self.assertNotIn("python-docx", renderer_source)
+        self.assertNotIn("docx.document", renderer_source)
+        self.assertNotIn("open(", renderer_source)
+
+    def test_llm_foundation_phase3_openrouter_adapter_is_present(self) -> None:
+        """LLM Foundation Phase 3 authorizes a single-call OpenRouter adapter only.
+
+        The endpoint is now confined to ``infrastructure/llm/openrouter_adapter.py``
+        and reached exclusively through ``BoundedHttpClient.post_json`` (Phase 2);
+        it must never appear in domain or application modules.
+        """
+        adapter_module = PACKAGE / "infrastructure" / "llm" / "openrouter_adapter.py"
+        composition = (PACKAGE / "composition" / "__init__.py").read_text(encoding="utf-8")
+
+        self.assertTrue(adapter_module.is_file())
+        self.assertIn("openrouter.ai", adapter_module.read_text(encoding="utf-8"))
+        self.assertIn("OpenRouterAdapter", composition)
+        self.assertIn("DisabledLlmRouterAdapter", composition)
+
+        for path in (PACKAGE / "domain").rglob("*.py"):
+            self.assertNotIn("openrouter.ai", path.read_text(encoding="utf-8").lower())
+        for path in (PACKAGE / "application").rglob("*.py"):
+            self.assertNotIn("openrouter.ai", path.read_text(encoding="utf-8").lower())
