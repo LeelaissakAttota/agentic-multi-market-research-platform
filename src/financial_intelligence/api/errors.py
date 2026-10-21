@@ -15,7 +15,7 @@ from financial_intelligence.observability.correlation import (
     get_correlation_id,
     resolve_correlation_id,
 )
-from financial_intelligence.observability.logging import get_logger
+from financial_intelligence.observability.logging import exception_where, get_logger
 
 logger = get_logger("financial_intelligence.api.errors")
 
@@ -67,6 +67,20 @@ def _request_operation(request: Request) -> str:
     return route_path if isinstance(route_path, str) else "unmatched"
 
 
+def _log_client_error(request: Request, status_code: int, code: str) -> None:
+    """Log a 4xx with route, method and status only (no body, query or headers)."""
+
+    logger.warning(
+        "http_client_error",
+        extra={
+            "route": _request_operation(request),
+            "method": request.method,
+            "status_code": status_code,
+            "error_code": code,
+        },
+    )
+
+
 def build_error_response(
     *,
     code: str,
@@ -97,6 +111,7 @@ def register_exception_handlers(app: FastAPI) -> None:
         exc: AuthenticationError,
     ) -> JSONResponse:
         correlation_id = _correlation_id_from_request(request)
+        _log_client_error(request, status.HTTP_401_UNAUTHORIZED, "authentication_required")
         return build_error_response(
             code="authentication_required",
             message="Authentication required",
@@ -118,9 +133,18 @@ def register_exception_handlers(app: FastAPI) -> None:
             }
             for error in exc.errors()
         ]
-        logger.info(
+        # Field names and reasons only - submitted values are never logged.
+        logger.warning(
             "request_validation_failed",
-            extra={"correlation_id": correlation_id, "error_count": len(safe_details)},
+            extra={
+                "correlation_id": correlation_id,
+                "route": _request_operation(request),
+                "method": request.method,
+                "status_code": HTTP_422_UNPROCESSABLE_CONTENT,
+                "error_count": len(safe_details),
+                "fields": [".".join(detail["loc"]) for detail in safe_details],
+                "reasons": [detail["type"] for detail in safe_details],
+            },
         )
         return build_error_response(
             code="validation_error",
@@ -137,6 +161,8 @@ def register_exception_handlers(app: FastAPI) -> None:
     ) -> JSONResponse:
         correlation_id = _correlation_id_from_request(request)
         message = _SAFE_HTTP_MESSAGES.get(exc.status_code, "Request failed")
+        if 400 <= exc.status_code < 500:
+            _log_client_error(request, exc.status_code, "http_error")
         return build_error_response(
             code="http_error",
             message=message,
@@ -155,7 +181,9 @@ def register_exception_handlers(app: FastAPI) -> None:
             extra={
                 "correlation_id": correlation_id,
                 "operation": _request_operation(request),
+                "method": request.method,
                 "error_type": type(exc).__name__,
+                "exception_where": exception_where(exc.__traceback__),
             },
         )
         return build_error_response(

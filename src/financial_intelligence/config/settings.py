@@ -55,6 +55,7 @@ class Settings(BaseSettings):
         ),
     )
     log_level: LogLevel = Field(default="INFO", alias="LOG_LEVEL")
+    log_format: Literal["json", "text"] = Field(default="json", alias="LOG_FORMAT")
     service_name: str = Field(default=SERVICE_NAME, alias="SERVICE_NAME")
     allowed_hosts: str = Field(
         default="localhost,127.0.0.1",

@@ -46,7 +46,10 @@ def create_app(
     """Create a FastAPI application with explicit composition and lifecycle."""
 
     resolved_container = container if container is not None else build_container(settings)
-    configure_logging(resolved_container.settings.log_level)
+    configure_logging(
+        resolved_container.settings.log_level,
+        log_format=resolved_container.settings.log_format,
+    )
     logger = get_logger("financial_intelligence.api")
 
     @asynccontextmanager
