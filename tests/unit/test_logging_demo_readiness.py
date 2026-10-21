@@ -6,7 +6,6 @@ import json
 import logging
 
 import pytest
-from fastapi.testclient import TestClient
 
 from financial_intelligence.api import create_app
 from financial_intelligence.config.settings import Settings
@@ -17,6 +16,7 @@ from financial_intelligence.observability.logging import (
     redact_text,
     reset_logging_configuration,
 )
+from tests.support.asgi_client import TestClient
 
 FAKE_OPENROUTER = "sk-or-v1-" + "a1b2c3d4e5f6a7b8c9d0"
 
