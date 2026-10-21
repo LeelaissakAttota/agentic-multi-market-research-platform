@@ -1,0 +1,11 @@
+{
+  "method": "POST",
+  "path": "/research/workflows",
+  "expect_status": 200,
+  "body": {
+    "q": "TCS",
+    "country": "IN",
+    "objective": "market_analysis",
+    "require_approval": true
+  }
+}

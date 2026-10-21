@@ -1,0 +1,10 @@
+{
+  "method": "POST",
+  "path": "/research/plans",
+  "expect_status": 200,
+  "body": {
+    "q": "Apple",
+    "country": "US",
+    "objective": "company_overview"
+  }
+}

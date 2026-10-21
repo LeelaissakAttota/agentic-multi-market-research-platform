@@ -1,0 +1,10 @@
+{
+  "method": "POST",
+  "path": "/research/execute",
+  "expect_status": 200,
+  "body": {
+    "q": "Infosys",
+    "exchange": "NSE",
+    "objective": "financial_analysis"
+  }
+}

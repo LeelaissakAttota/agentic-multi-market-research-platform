@@ -1,0 +1,9 @@
+{
+  "method": "GET",
+  "path": "/industry/context/snapshot",
+  "expect_status": 200,
+  "query": {
+    "q": "TCS",
+    "country": "IN"
+  }
+}

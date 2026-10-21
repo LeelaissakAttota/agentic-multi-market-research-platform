@@ -1,0 +1,9 @@
+{
+  "method": "POST",
+  "path": "/research/plans",
+  "expect_status": 400,
+  "body": {
+    "q": "Apple",
+    "objective": "predict_price_tomorrow"
+  }
+}

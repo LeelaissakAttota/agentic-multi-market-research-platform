@@ -1,0 +1,12 @@
+q,country,exchange,expected_status,kind
+Apple,US,,RESOLVED,real
+Microsoft,US,,RESOLVED,real
+Reliance,IN,NSE,RESOLVED,real
+TCS,IN,NSE,RESOLVED,real
+Infosys,IN,NSE,RESOLVED,real
+HDFC Bank,IN,NSE,RESOLVED,real
+Zentrix Dynamics,,,NOT_FOUND,fictional
+Bluepeak Lithium Corp,US,,NOT_FOUND,fictional
+Kaveri Quantum Foods,IN,,NOT_FOUND,fictional
+Moonlit Robotics,,,NOT_FOUND,fictional
+Zentrix Robotics,,,NOT_FOUND,fictional

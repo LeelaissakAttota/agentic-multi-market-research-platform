@@ -1,0 +1,8 @@
+{
+  "method": "GET",
+  "path": "/research/workflows",
+  "expect_status": 200,
+  "query": {
+    "limit": 10
+  }
+}

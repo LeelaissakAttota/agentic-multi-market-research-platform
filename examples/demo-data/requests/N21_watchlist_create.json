@@ -1,0 +1,22 @@
+{
+  "method": "POST",
+  "path": "/watchlists",
+  "expect_status": 200,
+  "body": {
+    "name": "Leela demo watchlist",
+    "entries": [
+      {
+        "q": "Apple"
+      },
+      {
+        "q": "Reliance",
+        "exchange": "NSE"
+      },
+      {
+        "q": "Infosys",
+        "exchange": "NSE"
+      }
+    ],
+    "interval_hours": 24
+  }
+}

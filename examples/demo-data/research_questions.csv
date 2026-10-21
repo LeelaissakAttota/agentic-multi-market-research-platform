@@ -1,0 +1,9 @@
+id,company,country,objective,question
+Q01,Apple,US,company_overview,What does the company do and where is it listed?
+Q02,Infosys,IN,financial_analysis,How did revenue and net income change over the last fiscal years?
+Q03,Reliance,IN,market_analysis,What is the recent price trend and moving average?
+Q04,Apple,US,news_and_events,What material news events happened recently?
+Q05,TCS,IN,industry_analysis,Which industry is it in and who are the peers?
+Q06,Apple,US,regulatory_analysis,Are there recent regulatory filings or actions?
+Q07,HDFC Bank,IN,comprehensive_equity_research,Give an evidence-linked research summary.
+Q08,Zentrix Dynamics,,company_overview,"Fictional company - should return NOT_FOUND, not invented data."

@@ -1,0 +1,5 @@
+{
+  "method": "GET",
+  "path": "/does-not-exist",
+  "expect_status": 404
+}

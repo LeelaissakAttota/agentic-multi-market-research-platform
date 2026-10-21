@@ -1,0 +1,9 @@
+{
+  "method": "GET",
+  "path": "/financials/snapshot",
+  "expect_status": 200,
+  "query": {
+    "q": "Infosys",
+    "exchange": "NSE"
+  }
+}

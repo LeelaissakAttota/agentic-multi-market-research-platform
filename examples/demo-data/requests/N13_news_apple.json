@@ -1,0 +1,10 @@
+{
+  "method": "GET",
+  "path": "/news/events/snapshot",
+  "expect_status": 200,
+  "query": {
+    "q": "Apple",
+    "country": "US",
+    "limit": 5
+  }
+}

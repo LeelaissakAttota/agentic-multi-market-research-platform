@@ -1,0 +1,10 @@
+{
+  "method": "GET",
+  "path": "/market/snapshot",
+  "expect_status": 200,
+  "query": {
+    "q": "Apple",
+    "country": "US"
+  },
+  "note": "offline sample prices may show stale - not an error"
+}

@@ -1,0 +1,9 @@
+{
+  "method": "GET",
+  "path": "/v1/companies/resolve",
+  "expect_status": 422,
+  "query": {
+    "q": "Apple",
+    "country": "USA"
+  }
+}

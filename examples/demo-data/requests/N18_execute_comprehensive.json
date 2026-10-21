@@ -1,0 +1,10 @@
+{
+  "method": "POST",
+  "path": "/research/execute",
+  "expect_status": 200,
+  "body": {
+    "q": "Apple",
+    "country": "US",
+    "objective": "comprehensive_equity_research"
+  }
+}

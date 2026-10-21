@@ -1,0 +1,10 @@
+{
+  "method": "POST",
+  "path": "/watchlists",
+  "expect_status": 422,
+  "body": {
+    "name": "x",
+    "entries": [],
+    "hacker": true
+  }
+}
