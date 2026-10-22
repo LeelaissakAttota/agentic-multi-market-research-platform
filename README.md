@@ -14,6 +14,32 @@ python -m pytest
 python -m uvicorn financial_intelligence.main:app --reload   # then open http://127.0.0.1:8000/docs
 ```
 
+## Dashboard (simple web UI)
+
+A small dashboard sits on top of the existing REST and control APIs (no backend rewrite).
+
+```powershell
+# Windows, from the repo root (installs the dashboard requirement once)
+.\scripts\start-dashboard.ps1        # opens http://127.0.0.1:8501 ; Ctrl+C stops everything
+```
+
+It starts the REST API (`:8000`), the control API (`:8712`, random per-session token, no
+password to type) and the dashboard (`:8501`), all on `127.0.0.1`. Logs go to `logs/`.
+
+| Page | What you get |
+|---|---|
+| **Research** | One box: type a company and a question. The company and the research objective are detected automatically; results appear on their own: analyst summary, key figures, news, regulatory items, Markdown download. Example chips: Apple, Reliance, TCS, Tata Motors demerger, Comprehensive research. Several matching companies (e.g. after the Tata Motors demerger) are shown as buttons to pick. |
+| Approval | Comprehensive research shows an **Approval needed** banner with Approve / Reject; nothing runs until you approve. |
+| **Step-by-step** | Every research step waits for Approve / Reject, failed or rejected steps can be retried, with a live log (control API). |
+| **Settings** | Guided provider setup (OpenRouter, OpenAI, Anthropic, Gemini, Groq, custom OpenAI-compatible): the fields each needs, **Test connection**, **Save** (write-only, only the last 4 characters are shown). Automatic model choice preview (free first; shows why). Live-data toggles (applied on next start). |
+| **Health** | Version, provider health and recent research runs. |
+
+Every section carries a badge: **LIVE**, **LIVE (cached)**, **SAMPLE DATA** or **NOT AVAILABLE**.
+
+Notes: research summaries still use **free OpenRouter models only** (`ALLOW_PAID_MODELS=false`,
+see `MODEL_POLICY.md`); keys for the other providers are stored for later use. The UI helpers live
+in `src/financial_intelligence/dashboard/` (stdlib only, tested); the UI itself is `dashboard/app.py`.
+
 ## Live vs sample data
 
 Everything runs offline on bundled, explicitly labelled fixture data by default. Live adapters are opt-in.
