@@ -167,3 +167,25 @@ def test_prefs_roundtrip_and_env(tmp_path: Path) -> None:
     assert env["MARKET_DATA_LIVE_ENABLED"] == "true"
     assert env["LIVE_REGULATORY_ENABLED"] == "false"
     assert env["SEC_USER_AGENT"] == "Me me@example.com"
+
+
+def test_launch_applies_prefs_only_when_saved_and_never_overrides_env_keys(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    from financial_intelligence.control.secrets_store import SecretStore
+    from financial_intelligence.dashboard import launch
+
+    monkeypatch.setenv("XDG_CONFIG_HOME", str(tmp_path))
+    env: dict[str, str] = {}
+    assert launch.apply_saved_settings(env) == []
+    cfg = tmp_path / "equity-research"
+    save_prefs({"news": True}, cfg / "dashboard_settings.json")
+    SecretStore(cfg / "secrets.json", ("OPENROUTER_API_KEY",)).set(
+        "OPENROUTER_API_KEY", "sk-or-test-abcdefgh1234"
+    )
+    names = launch.apply_saved_settings(env)
+    assert env["LIVE_NEWS_ENABLED"] == "true" and env["MARKET_DATA_LIVE_ENABLED"] == "false"
+    assert "OPENROUTER_API_KEY" in names and env["OPENROUTER_API_KEY"].endswith("1234")
+    env2 = {"OPENROUTER_API_KEY": "from-env"}
+    launch.apply_saved_settings(env2)
+    assert env2["OPENROUTER_API_KEY"] == "from-env"

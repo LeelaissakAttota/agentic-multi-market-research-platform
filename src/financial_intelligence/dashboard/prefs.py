@@ -55,14 +55,3 @@ def env_from_prefs(values: dict[str, object]) -> dict[str, str]:
         if values.get(key):
             env[var] = str(values[key])
     return env
-
-
-def main() -> None:
-    """Print KEY=VALUE lines for the start script (no secrets are stored here)."""
-
-    for key, value in env_from_prefs(load_prefs()).items():
-        print(f"{key}={value}")
-
-
-if __name__ == "__main__":
-    main()
