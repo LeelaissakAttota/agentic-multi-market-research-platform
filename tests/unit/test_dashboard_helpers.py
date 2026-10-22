@@ -78,6 +78,14 @@ def test_choose_model_prefers_free_then_cheapest() -> None:
             "pricing": {"prompt": "-1", "completion": "-1"},
         },
     ]
+    models.append(
+        {
+            "id": "free/music",
+            "context_length": 999999,
+            "pricing": {"prompt": "0", "completion": "0"},
+            "architecture": {"output_modalities": ["text", "audio"]},
+        }
+    )
     free = choose_model(models, "report")
     assert free.model_id == "free/big" and free.free and "free" in free.reason
     no_free = [m for m in models if not str(m["id"]).startswith("free")]

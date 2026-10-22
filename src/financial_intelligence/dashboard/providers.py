@@ -127,6 +127,18 @@ def _price(model: dict[str, Any]) -> float | None:
     return (prompt + completion) * 1_000_000
 
 
+def _text_only(model: dict[str, Any]) -> bool:
+    """Chat models only: text output (skip image/audio/music generators)."""
+
+    arch = model.get("architecture")
+    if not isinstance(arch, dict):
+        return True
+    outputs = arch.get("output_modalities")
+    if isinstance(outputs, list):
+        return outputs == ["text"]
+    return str(arch.get("modality", "->text")).endswith("->text")
+
+
 def choose_model(
     models: list[dict[str, Any]], task: str = "summary", *, allow_paid: bool = False
 ) -> ModelChoice:
@@ -138,6 +150,7 @@ def choose_model(
         for m in models
         if isinstance(m, dict)
         and m.get("id")
+        and _text_only(m)
         and int(m.get("context_length") or 0) >= need
         and _price(m) is not None
     ]

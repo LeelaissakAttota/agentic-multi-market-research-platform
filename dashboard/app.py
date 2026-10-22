@@ -81,7 +81,9 @@ def start_research(question: str, pick: dict[str, str] | None = None) -> None:
             res = resolve_company(API, intent.candidates)
         if res is None:
             ss.error = (
-                "I couldn't find a listed company in that question. Try e.g. 'Apple' or 'TCS'."
+                "I couldn't find a listed company in that question. Try e.g. 'Apple' or "
+                "'TCS', or turn on live data in Settings for companies outside the offline "
+                "sample set."
             )
             return
         if res["status"] == "AMBIGUOUS":
@@ -196,9 +198,6 @@ def research_page() -> None:
             placeholder="e.g. Is Reliance's growth holding up, and what are the risks?",
         )
         submitted = st.form_submit_button("🔍 Research", type="primary")
-    for key in ("error", "info"):
-        if key in ss:
-            getattr(st, key)(ss.pop(key))
     try:
         if clicked or (submitted and question.strip()):
             start_research(clicked or question.strip())
@@ -231,6 +230,9 @@ def research_page() -> None:
             render_result()
     except ApiError as exc:
         st.error(f"Something went wrong: {exc.message}")
+    for key in ("error", "info"):
+        if key in ss:
+            getattr(st, key)(ss.pop(key))
 
 
 # ---------------------------------------------------------------- step-by-step
