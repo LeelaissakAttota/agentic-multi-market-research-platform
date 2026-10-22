@@ -10,6 +10,7 @@ from __future__ import annotations
 import csv
 import io
 import json
+import re
 import threading
 from collections.abc import Iterable
 from dataclasses import dataclass
@@ -369,3 +370,48 @@ def _num(value: Any) -> float | None:
         return None if value is None else float(value)
     except (TypeError, ValueError):
         return None
+
+
+_NUM = re.compile(r"-?\d[\d,]*\.?\d*")
+_SCALE = {"k": 1e3, "m": 1e6, "mn": 1e6, "b": 1e9, "bn": 1e9, "t": 1e12, "cr": 1e7, "l": 1e5}
+
+
+def _amount(text: str) -> float | None:
+    m = _NUM.search(text or "")
+    if not m:
+        return None
+    try:
+        value = float(m.group().replace(",", ""))
+    except ValueError:
+        return None
+    unit = (text[m.end() :].strip().split() or [""])[0].lower().rstrip(".")
+    return value * _SCALE.get(unit, 1.0)
+
+
+def revenue_profit_series(rows: Iterable[dict[str, Any]]) -> list[tuple[str, str, float]]:
+    """[(period, series, amount)] for absolute revenue and net profit figures.
+
+    Uses each figure's ``detail`` as its period. Returns [] unless both series
+    have at least two periods, so callers fall back to the price chart.
+    """
+
+    out: dict[str, dict[str, float]] = {"Revenue": {}, "Net Profit": {}}
+    for r in rows:
+        if not isinstance(r, dict):
+            continue
+        label = str(r.get("label", "")).lower()
+        if any(w in label for w in ("growth", "margin", "ratio", "per share", "%")):
+            continue
+        if label in ("revenue", "total revenue", "revenues"):
+            key = "Revenue"
+        elif label in ("net income", "net profit", "profit after tax"):
+            key = "Net Profit"
+        else:
+            continue
+        period = str(r.get("detail") or "").strip()
+        amount = _amount(str(r.get("value") or ""))
+        if period and amount is not None:
+            out[key][period] = amount
+    if min(len(v) for v in out.values()) < 2:
+        return []
+    return [(per, k, v) for k, d in out.items() for per, v in sorted(d.items())]

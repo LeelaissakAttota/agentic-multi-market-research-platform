@@ -13,9 +13,12 @@ import os
 import time
 from typing import Any
 
+import altair as alt
+import pandas as pd
 import streamlit as st
 from theme import (  # type: ignore[import-not-found]  # dashboard/theme.py
     CSS,
+    NAV_ICON_CSS,
     SIDE_FOOT,
     TOPBAR,
     asset_uri,
@@ -66,6 +69,7 @@ from financial_intelligence.dashboard.views import (
     provider_cards,
     record_history,
     remove_from_watchlist,
+    revenue_profit_series,
     split_approvals,
     step_states,
     to_csv,
@@ -224,6 +228,59 @@ def flash() -> None:
             getattr(st, key)(ss.pop(key))
 
 
+def _style(chart: Any) -> Any:
+    return (
+        chart.properties(height=215, background="transparent")
+        .configure_view(strokeWidth=0)
+        .configure_axis(
+            labelColor="#9FB2D6",
+            titleColor="#9FB2D6",
+            gridColor="#0D2B55",
+            domainColor="#0D2B55",
+            tickColor="#0D2B55",
+            labelFontSize=11,
+        )
+        .configure_legend(labelColor="#C9D4EA", orient="top", title=None, labelFontSize=11)
+    )
+
+
+def revenue_chart(pairs: list[tuple[str, str, float]]) -> Any:
+    data = [{"Period": p, "Series": k, "Amount": v} for p, k, v in pairs]
+    return _style(
+        alt.Chart(pd.DataFrame(data))
+        .mark_bar(cornerRadiusTopLeft=3, cornerRadiusTopRight=3)
+        .encode(
+            x=alt.X("Period:N", title=None, axis=alt.Axis(labelAngle=0)),
+            xOffset="Series:N",
+            y=alt.Y("Amount:Q", title=None, axis=alt.Axis(format="~s")),
+            color=alt.Color(
+                "Series:N",
+                scale=alt.Scale(domain=["Revenue", "Net Profit"], range=["#2F7BFF", "#22D3A0"]),
+            ),
+            tooltip=["Period:N", "Series:N", alt.Tooltip("Amount:Q", format=",.0f")],
+        )
+    )
+
+
+def price_chart(series: list[tuple[str, float]]) -> Any:
+    data = [{"Date": d, "Close": v} for d, v in series]
+    lo = min(v for _, v in series)
+    hi = max(v for _, v in series)
+    pad = (hi - lo) * 0.15 or hi * 0.02
+    return _style(
+        alt.Chart(pd.DataFrame(data))
+        .mark_bar(cornerRadiusTopLeft=3, cornerRadiusTopRight=3, color="#2F7BFF")
+        .encode(
+            x=alt.X("Date:O", title=None, axis=alt.Axis(labelAngle=0, labelOverlap=True)),
+            y=alt.Y(
+                "Close:Q", title=None, scale=alt.Scale(domain=[lo - pad, hi + pad], nice=False)
+            ),
+            y2=alt.datum(lo - pad),
+            tooltip=["Date:O", alt.Tooltip("Close:Q", format=",.2f")],
+        )
+    )
+
+
 def search_box(key: str, button: str = "Start Research", objective: str = "") -> None:
     with st.form(f"ask_{key}", clear_on_submit=False, border=False):
         c1, c2 = st.columns([5, 1])
@@ -232,6 +289,7 @@ def search_box(key: str, button: str = "Start Research", objective: str = "") ->
             value=ss.get(f"prefill_{key}", ""),
             placeholder="Enter company name or ticker… e.g. Reliance, TCS, Apple (AAPL)",
             label_visibility="collapsed",
+            key=f"askin_{key}",
         )
         sent = c2.form_submit_button(button, type="primary", use_container_width=True)
     if sent and q.strip():
@@ -722,8 +780,11 @@ def report_page() -> None:
                 + "</div>",
                 unsafe_allow_html=True,
             )
-            if series:
-                st.bar_chart({"close": {d: v for d, v in series}}, height=210, color="#2F7BFF")
+            pairs = revenue_profit_series(frows)
+            if pairs:
+                st.altair_chart(revenue_chart(pairs), use_container_width=True)
+            elif series:
+                st.altair_chart(price_chart(series), use_container_width=True)
             else:
                 st.markdown(f'<div class="na">Price history: {NA}</div>', unsafe_allow_html=True)
         with c3.container(border=True):
@@ -1175,24 +1236,24 @@ def settings_page() -> None:
 
 # ---------------------------------------------------------------- shell
 PAGES = {
-    "Home": ("⌂", home_page),
-    "Research": ("⌕", research_page),
-    "Workflow Approvals": ("☑", approvals_page),
-    "Research Report": ("▤", report_page),
-    "Reports": ("▦", reports_page),
-    "Watchlist": ("☆", watchlist_page),
-    "Provider Health": ("♡", health_page),
-    "Settings": ("⚙", settings_page),
+    "Home": ("home", home_page),
+    "Research": ("research", research_page),
+    "Workflow Approvals": ("approvals", approvals_page),
+    "Research Report": ("report", report_page),
+    "Reports": ("reports", reports_page),
+    "Watchlist": ("watchlist", watchlist_page),
+    "Provider Health": ("health", health_page),
+    "Settings": ("settings", settings_page),
 }
 ss.setdefault("nav", "Home")
 with st.sidebar:
-    st.markdown(logo_html(), unsafe_allow_html=True)
+    st.markdown(logo_html() + NAV_ICON_CSS, unsafe_allow_html=True)
     pending_n = workflow_stats(all_workflows()).pending
-    for name, (icon, _) in PAGES.items():
+    for name, (slug, _) in PAGES.items():
         badge = f"  :red-badge[{pending_n}]" if name == "Workflow Approvals" and pending_n else ""
         if st.button(
-            f"{icon}\u2003{name}{badge}",
-            key=f"nav_{name}",
+            f"{name}{badge}",
+            key=f"nav_{slug}",
             use_container_width=True,
             type="primary" if ss.nav == name else "secondary",
         ):

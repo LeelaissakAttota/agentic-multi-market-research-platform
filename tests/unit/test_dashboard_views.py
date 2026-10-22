@@ -131,3 +131,20 @@ def test_provider_cards_never_invent_latency() -> None:
     assert cards[0]["successes"] == 3.0
     assert cards[0]["last_success"] == "2026-10-22 18:00 UTC"
     assert v.provider_cards(None) == []
+
+
+def test_revenue_profit_series_needs_two_periods_each() -> None:
+    from financial_intelligence.dashboard.views import revenue_profit_series
+
+    rows = [
+        {"label": "Revenue", "value": "USD 383.3 B", "detail": "FY2023"},
+        {"label": "Revenue", "value": "USD 391.0 B", "detail": "FY2024"},
+        {"label": "Net income", "value": "USD 97.0 B", "detail": "FY2023"},
+        {"label": "Net income", "value": "USD 93.7 B", "detail": "FY2024"},
+        {"label": "Revenue growth", "value": "2.0%", "detail": "FY2024"},
+    ]
+    out = revenue_profit_series(rows)
+    assert ("FY2024", "Revenue", 391.0e9) in out
+    assert len(out) == 4
+    assert revenue_profit_series(rows[:3]) == []
+    assert revenue_profit_series([]) == []

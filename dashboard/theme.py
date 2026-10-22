@@ -100,3 +100,41 @@ TOPBAR = (
     '<div class="topbar"><span class="dark"><i></i>Dark</span><span class="avatar">'
     '<span class="c">LI</span>Leela ▾</span></div>'
 )
+
+
+# Line icons (24x24, stroke only) drawn for the sidebar nav; rendered via CSS masks.
+_NAV_SVG = {
+    "home": '<path d="M3 11l9-7 9 7"/><path d="M5 10v10h5v-6h4v6h5V10"/>',
+    "research": '<circle cx="11" cy="11" r="6.5"/><path d="M16 16l5 5"/>',
+    "approvals": '<rect x="4" y="4" width="16" height="16" rx="3"/><path d="M8 12l3 3 5-6"/>',
+    "report": '<path d="M6 3h9l4 4v14H6z"/><path d="M14 3v5h5M9 13h7M9 17h7"/>',
+    "reports": '<path d="M4 20V10M10 20V4M16 20v-7M21 20H3"/>',
+    "watchlist": (
+        '<path d="M12 3.5l2.6 5.4 5.9.8-4.3 4.1 1 5.8-5.2-2.8-5.2 2.8 1-5.8-4.3-4.1 5.9-.8z"/>'
+    ),
+    "health": '<path d="M3 12h4l2-5 4 10 2-5h6"/>',
+    "settings": (
+        '<circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3'
+        'M4.9 4.9l2.1 2.1M17 17l2.1 2.1M4.9 19.1L7 17M17 7l2.1-2.1"/>'
+    ),
+}
+
+
+def _svg_uri(body: str) -> str:
+    svg = (
+        '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" '
+        'stroke="black" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">'
+        f"{body}</svg>"
+    )
+    return "data:image/svg+xml;base64," + base64.b64encode(svg.encode()).decode()
+
+
+NAV_ICON_CSS = (
+    "<style>"
+    + "".join(
+        f'.st-key-nav_{k} button::before{{-webkit-mask-image:url("{_svg_uri(v)}");'
+        f'mask-image:url("{_svg_uri(v)}");}}'
+        for k, v in _NAV_SVG.items()
+    )
+    + "</style>"
+)
