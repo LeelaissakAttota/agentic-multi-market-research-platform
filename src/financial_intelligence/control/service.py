@@ -40,6 +40,16 @@ KEY_FIELDS: dict[str, str] = {
     "FINNHUB_API_KEY": "finnhub_api_key",
 }
 
+#: Other LLM providers' keys: stored write-only/masked for the dashboard Settings page.
+#: The research backend still calls only OpenRouter (free models); see MODEL_POLICY.md.
+EXTRA_PROVIDER_KEYS: tuple[str, ...] = (
+    "OPENAI_API_KEY",
+    "ANTHROPIC_API_KEY",
+    "GEMINI_API_KEY",
+    "GROQ_API_KEY",
+    "CUSTOM_LLM_API_KEY",
+)
+
 _OK = (TaskResultStatus.SUCCESS, TaskResultStatus.PARTIAL)
 
 
@@ -120,7 +130,9 @@ class EquityResearchControl:
     ) -> None:
         self.config_dir = config_dir or default_config_dir("equity-research")
         self.base_settings = base_settings or get_settings()
-        self.secrets = SecretStore(self.config_dir / "secrets.json", tuple(KEY_FIELDS))
+        self.secrets = SecretStore(
+            self.config_dir / "secrets.json", tuple(KEY_FIELDS) + EXTRA_PROVIDER_KEYS
+        )
         self._contexts: dict[str, _RunContext] = {}
         self._lock = threading.Lock()
         self.manager = RunManager(
