@@ -13,16 +13,18 @@ _BADGES = {
 }
 
 
-def origin_badge(origin: str | None) -> tuple[str, str]:
+def origin_badge(origin: str | None, status: str | None = None) -> tuple[str, str]:
     """(label, colour) for a data_origin value; unknown origins are shown honestly."""
 
+    if not origin and status == "unavailable":
+        return ("NOT AVAILABLE", "gray")
     if not origin:
         return ("UNKNOWN SOURCE", "gray")
     return _BADGES.get(origin, (origin.upper(), "gray"))
 
 
-def badge_markdown(origin: str | None) -> str:
-    label, colour = origin_badge(origin)
+def badge_markdown(origin: str | None, status: str | None = None) -> str:
+    label, colour = origin_badge(origin, status)
     return f":{colour}-background[{label}]"
 
 

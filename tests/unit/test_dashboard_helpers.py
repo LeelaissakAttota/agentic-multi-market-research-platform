@@ -135,6 +135,7 @@ def test_report_view_and_badges() -> None:
     assert origin_badge("fixture")[0] == "SAMPLE DATA"
     assert origin_badge("cached_live")[0].startswith("LIVE")
     assert origin_badge(None)[0] == "UNKNOWN SOURCE"
+    assert origin_badge(None, "unavailable")[0] == "NOT AVAILABLE"
 
 
 def test_provider_strip_and_candidates_and_errors() -> None:

@@ -143,7 +143,7 @@ def render_result() -> None:
     left, right = st.columns(2)
     for i, sec in enumerate(view.sections):
         box = (left if i % 2 == 0 else right).container(border=True)
-        box.markdown(f"**{sec.title}** {badge_markdown(sec.origin)}")
+        box.markdown(f"**{sec.title}** {badge_markdown(sec.origin, sec.status)}")
         meta = " · ".join(x for x in (sec.status, sec.as_of and f"as of {sec.as_of}") if x)
         if meta:
             box.caption(meta + (f" — {sec.message}" if sec.message else ""))
