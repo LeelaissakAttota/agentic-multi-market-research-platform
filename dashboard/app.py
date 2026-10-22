@@ -14,6 +14,19 @@ import time
 from typing import Any
 
 import streamlit as st
+from theme import (  # type: ignore[import-not-found]  # dashboard/theme.py
+    CSS,
+    SIDE_FOOT,
+    TOPBAR,
+    asset_uri,
+    esc,
+    initials,
+    logo_html,
+    pill,
+    stat_card,
+    status_pill,
+    table,
+)
 
 from financial_intelligence.dashboard.client import (
     ApiError,
@@ -70,56 +83,9 @@ NA = "not available"
 
 st.set_page_config(page_title="AERP - Agentic Equity Research", page_icon="📈", layout="wide")
 ss = st.session_state
-
-CSS = """
-<style>
-:root { --navy:#0A1428; --panel:#0F1E3A; --line:#1E3460; --blue:#2F7BFF; --muted:#8FA3C7; }
-[data-testid="stAppViewContainer"] { background: radial-gradient(1200px 600px at 70% -10%,
-  #12306b 0%, var(--navy) 55%); }
-[data-testid="stSidebar"] { background: #08111F; border-right: 1px solid var(--line); }
-[data-testid="stHeader"] { background: transparent; }
-.block-container { padding-top: 1.4rem; }
-.aerp-logo { display:flex; align-items:center; gap:.6rem; margin-bottom:.4rem; }
-.aerp-logo .mark { width:38px; height:38px; border-radius:9px; background:
-  linear-gradient(135deg,#2F7BFF,#16C1FF); display:flex; align-items:end; justify-content:center;
-  gap:3px; padding:7px; }
-.aerp-logo .mark i { display:block; width:5px; background:#fff; border-radius:2px; }
-.aerp-logo b { font-size:1.35rem; letter-spacing:.06em; color:#fff; }
-.aerp-logo small { display:block; color:var(--muted); font-size:.72rem; margin-top:-4px; }
-.card { background: linear-gradient(180deg,#112449,#0E1C38); border:1px solid var(--line);
-  border-radius:14px; padding:14px 16px; height:100%; }
-.card h4 { margin:0 0 .2rem 0; font-size:.82rem; color:var(--muted); font-weight:500; }
-.card .v { font-size:1.7rem; font-weight:700; color:#fff; line-height:1.2; }
-.card .s { font-size:.75rem; color:var(--muted); }
-.stat-blue { border-left:4px solid #2F7BFF; } .stat-green { border-left:4px solid #22C55E; }
-.stat-amber { border-left:4px solid #F59E0B; } .stat-red { border-left:4px solid #EF4444; }
-.hero { background: linear-gradient(120deg,#123A8C 0%, #0E2350 60%, #0B1A3A 100%);
-  border:1px solid var(--line); border-radius:16px; padding:22px 24px; margin-bottom:12px; }
-.hero h1 { font-size:1.9rem; margin:0; color:#fff; }
-.hero p { color:#C9D6F2; margin:.3rem 0 0 0; }
-.pill { display:inline-block; padding:2px 10px; border-radius:999px; font-size:.72rem;
-  font-weight:600; }
-.p-green { background:#123d2a; color:#4ADE80; } .p-amber { background:#3d2e10; color:#FBBF24; }
-.p-red { background:#3d1414; color:#F87171; } .p-blue { background:#132f5e; color:#7FB0FF; }
-.p-gray { background:#1f2a40; color:#A9B6CF; }
-.steps { display:flex; justify-content:space-between; margin:8px 0 4px 0; }
-.step { text-align:center; flex:1; color:var(--muted); font-size:.8rem; }
-.step .dot { width:30px; height:30px; border-radius:50%; margin:0 auto 4px auto;
-  display:flex; align-items:center; justify-content:center; background:#1a2a4a;
-  border:2px solid #2a3f6a; color:#fff; font-weight:700; }
-.step.done .dot { background:#1d4ed8; border-color:#3b82f6; }
-.step.current .dot { background:#F59E0B; border-color:#FBBF24; }
-.step.failed .dot { background:#b91c1c; border-color:#ef4444; }
-.side-foot { background:#0F1E3A; border:1px solid var(--line); border-radius:12px; padding:10px;
-  font-size:.75rem; color:var(--muted); }
-div[data-testid="stVerticalBlockBorderWrapper"] { background: rgba(15,30,58,.65);
-  border-color: var(--line) !important; border-radius: 14px; }
-</style>
-"""
 st.markdown(CSS, unsafe_allow_html=True)
 
 
-# ---------------------------------------------------------------- data access
 def safe(fn: Any, *args: Any, default: Any = None, **kw: Any) -> Any:
     try:
         return fn(*args, **kw)
@@ -132,33 +98,10 @@ def all_workflows() -> list[dict[str, Any]]:
     return merge_workflows(api.get("workflows", []), history_as_workflows(load_history()))
 
 
-def pill(text: str, tone: str) -> str:
-    return f'<span class="pill p-{tone}">{text}</span>'
-
-
-def status_pill(label: str) -> str:
-    tone = {
-        "Completed": "green",
-        "Partial": "blue",
-        "Pending approval": "amber",
-        "Failed": "red",
-        "Rejected": "red",
-        "Cancelled": "red",
-    }.get(label, "gray")
-    return pill(label, tone)
-
-
 def origin_pill(origin: str | None, status: str | None = None) -> str:
     label, colour = origin_badge(origin, status)
     tone = {"green": "green", "blue": "blue", "orange": "amber"}.get(colour, "gray")
     return pill(label, tone)
-
-
-def card(title: str, value: str, sub: str = "", tone: str = "blue") -> str:
-    return (
-        f'<div class="card stat-{tone}"><h4>{title}</h4><div class="v">{value}</div>'
-        f'<div class="s">{sub}</div></div>'
-    )
 
 
 def go(page: str) -> None:
@@ -312,111 +255,192 @@ def chips(names: list[tuple[str, str]], key: str, objective: str = "") -> None:
             st.rerun()
 
 
+# ---------------------------------------------------------------- layout pieces
+def topbar(key: str) -> None:
+    """Search box (runs research), Dark badge and the user avatar, like the reference."""
+
+    c1, c2 = st.columns([3, 1.2])
+    with c1, st.form(f"top_{key}", border=False):
+        q = st.text_input(
+            "Search",
+            placeholder="🔍  Search company (e.g. Reliance, TCS, AAPL)",
+            label_visibility="collapsed",
+        )
+        sent = st.form_submit_button("search", type="secondary")
+    c2.markdown(TOPBAR, unsafe_allow_html=True)
+    if sent and q.strip():
+        try:
+            start_research(q.strip())
+            go("Research Report" if "result" in ss else "Research")
+        except ApiError as exc:
+            ss.error = exc.message
+        st.rerun()
+
+
+def panel(title: str) -> Any:
+    box = st.container(border=True)
+    box.markdown(f'<div class="panel-t">{esc(title)}</div>', unsafe_allow_html=True)
+    return box
+
+
+def rr_list(rows: list[dict[str, str]], limit: int = 5) -> str:
+    out = []
+    for r in rows[:limit]:
+        out.append(
+            f'<div class="rr"><div class="ic">📄</div><div class="n"><b>{esc(r["Company"])}</b>'
+            f'<small>{esc(r["Objective"])}</small></div><span class="tm">{esc(r["Created"][5:16])}'
+            f"</span>{status_pill(r['Status'])}</div>"
+        )
+    return "".join(out) or '<div class="na">No research yet.</div>'
+
+
 # ---------------------------------------------------------------- pages
 def home_page() -> None:
+    topbar("home")
+    globe = asset_uri("hero-globe.png")
+    img = f'<img src="{globe}" alt="">' if globe else ""
     st.markdown(
-        '<div class="hero"><h1>Welcome to AERP</h1>'
-        "<p>Your Agentic Equity Research Platform — evidence-backed research reports for "
-        "Indian &amp; US equities. Research only, not investment advice.</p></div>",
+        f'<div class="hero">{img}<h1>Welcome to AERP</h1><h3>Your Agentic Equity Research '
+        "Platform</h3><p>Get evidence-backed research reports for Indian &amp; US equities."
+        "</p></div>",
         unsafe_allow_html=True,
     )
-    search_box("home")
-    st.caption("Popular searches")
-    chips(list(EXAMPLE_PROMPTS), "homechip")
+    with st.container(key="herorow"):
+        search_box("home")
+        c0, *cols = st.columns([1.1, 1, 1, 1, 1, 1, 3])
+        c0.markdown(
+            '<div style="padding-top:.35rem;font-size:.8rem;color:#C9D4EA">Popular searches:</div>',
+            unsafe_allow_html=True,
+        )
+        for col, (label, prompt) in zip(cols, EXAMPLE_PROMPTS, strict=False):
+            if col.button(label, key=f"homechip_{label}"):
+                try:
+                    start_research(prompt)
+                    go("Research Report" if "result" in ss else "Research")
+                except ApiError as exc:
+                    ss.error = exc.message
+                st.rerun()
     flash()
     wfs = all_workflows()
     stats = workflow_stats(wfs)
+    rate = f"{stats.completed / stats.total:.0%} success rate" if stats.total else "no runs yet"
     c = st.columns(4)
     c[0].markdown(
-        card("Total Research", str(stats.total), "this dashboard's run history"),
+        stat_card("Total Researches", str(stats.total), "run history", "blue", "▣"),
         unsafe_allow_html=True,
     )
     c[1].markdown(
-        card("Completed", str(stats.completed), "completed or partial", "green"),
-        unsafe_allow_html=True,
+        stat_card("Completed", str(stats.completed), rate, "green", "✓"), unsafe_allow_html=True
     )
     c[2].markdown(
-        card("Pending Approval", str(stats.pending), "waiting for you", "amber"),
+        stat_card("Pending Approval", str(stats.pending), "Requires action", "amber", "⏳"),
         unsafe_allow_html=True,
     )
     c[3].markdown(
-        card("Failed / Rejected", str(stats.failed), "needs attention", "red"),
+        stat_card("Failed / Error", str(stats.failed), "Check logs", "red", "⚠"),
         unsafe_allow_html=True,
     )
     st.write("")
     left, mid, right = st.columns([1.1, 1.2, 1.2])
     with left.container(border=True):
-        st.markdown("**Market Overview**")
-        st.caption(
-            "Index levels (NIFTY 50, SENSEX, S&P 500) are not available: no index "
-            "provider is configured in the backend."
+        st.markdown(
+            '<div class="panel-t">Market Overview '
+            + pill("NSE", "blue")
+            + " "
+            + pill("BSE", "green")
+            + " "
+            + pill("US", "gray")
+            + "</div>",
+            unsafe_allow_html=True,
         )
-        snap = safe(API.get, "/market/snapshot", q="Apple", default=None)
-        price, cur, origin = latest_close(snap)
-        if price is not None:
-            st.markdown(
-                f"Apple (AAPL) last close: **{cur} {price:,.2f}** " + origin_pill(origin),
-                unsafe_allow_html=True,
-            )
+        st.markdown(
+            '<div class="na">Index levels (NIFTY 50, SENSEX, USD/INR): not available '
+            "— no index provider in the backend.</div>",
+            unsafe_allow_html=True,
+        )
+        for name in ("Apple", "Reliance"):
+            snap = safe(API.get, "/market/snapshot", q=name, default=None)
+            price, cur, origin = latest_close(snap)
             series = close_series(snap)
-            if series:
-                st.line_chart({"close": [v for _, v in series]}, height=120)
-        else:
-            st.caption(f"Sample price: {NA}")
-    with mid.container(border=True):
-        st.markdown("**Recent Research**")
-        rows = workflow_rows(wfs)[:6]
-        if not rows:
-            st.caption("No research yet. Search a company above.")
-        for r in rows:
+            if price is None:
+                st.markdown(
+                    f'<div class="kf"><span>{name}</span><b>{NA}</b></div>', unsafe_allow_html=True
+                )
+                continue
+            first = series[0][1] if series else price
+            chg = (price - first) / first if first else 0.0
+            tone = "s-green" if chg >= 0 else "s-red"
             st.markdown(
-                f"**{r['Company']}** · {r['Objective']}  {status_pill(r['Status'])}  "
-                f"<span class='s' style='color:#8FA3C7;font-size:.75rem'>{r['Created']}</span>",
+                f'<div class="kf"><span>{name}</span><b>{cur} {price:,.2f} '
+                f'<span class="{tone}">{chg:+.2%}</span> {origin_pill(origin)}</b></div>',
                 unsafe_allow_html=True,
             )
+            if series:
+                st.line_chart({"close": [v for _, v in series]}, height=70, color="#22D3A0")
+    with mid.container(border=True):
+        st.markdown(
+            '<div class="panel-t">Recent Research</div>' + rr_list(workflow_rows(wfs)),
+            unsafe_allow_html=True,
+        )
     with right.container(border=True):
-        st.markdown("**Top News**")
         name = (wfs and workflow_rows(wfs)[0]["Company"]) or "Apple"
         news = safe(API.get, "/news/events/snapshot", q=name, default=None) or {}
         events = (news.get("package") or {}).get("events") or []
-        if not events:
-            st.caption(f"News for {name}: {NA}")
-        else:
-            st.markdown(
-                f"For **{name}** " + origin_pill(news.get("data_origin")), unsafe_allow_html=True
+        body = (
+            "".join(
+                f'<div class="rr"><div class="n"><b>{esc(ev.get("title"))}</b><small>'
+                f"{esc(ev.get('event_date'))}</small></div></div>"
+                for ev in events[:5]
             )
-            for ev in events[:5]:
-                url = (ev.get("evidence") or {}).get("source_url")
-                link = f" [↗]({url})" if url else ""
-                st.markdown(f"- {ev.get('event_date', '')} — {ev.get('title')}{link}")
+            or f'<div class="na">News for {esc(name)}: {NA}</div>'
+        )
+        st.markdown(
+            f'<div class="panel-t">Top News · {esc(name)} {origin_pill(news.get("data_origin"))}'
+            f"</div>{body}",
+            unsafe_allow_html=True,
+        )
 
 
 def research_page() -> None:
-    st.markdown("### Start New Research")
+    topbar("research")
     main, side = st.columns([2.2, 1])
+    obj = ss.get("objective_pick", "")
     with main:
-        obj = ss.get("objective_pick", "")
+        st.markdown("#### Start New Research")
         search_box("research", "Search", objective=obj)
-        st.markdown("**Popular Companies**")
-        chips([(n, n) for n in POPULAR_COMPANIES], "popco", objective=obj)
-        st.markdown(
-            "**Research Objective**  ·  _leave unselected to auto-detect from your question_"
-        )
+        st.markdown("#### Popular Companies")
+        cols = st.columns([1, 1, 1, 1, 1.2, 2])
+        for col, n in zip(cols, POPULAR_COMPANIES, strict=False):
+            if col.button(n, key=f"popco_{n}"):
+                try:
+                    start_research(n, objective=obj)
+                    go("Research Report" if "result" in ss else "Research")
+                except ApiError as exc:
+                    ss.error = exc.message
+                st.rerun()
+        st.markdown("#### Research Objective")
         keys = list(OBJECTIVE_LABELS)
+        icons = ["🏢", "📈", "📊", "📰", "🏭", "⚖️", "🧠"]
         for row in (keys[:4], keys[4:]):
             cols = st.columns(4)
             for col, k in zip(cols, row, strict=False):
                 picked = ss.get("objective_pick") == k
-                with col.container(border=True):
-                    st.markdown(f"**{OBJECTIVE_LABELS[k]}**" + (" ✅" if picked else ""))
-                    st.caption(OBJECTIVE_HINTS[k])
+                with col.container(border=True, key=f"objc_{k}"):
+                    st.markdown(
+                        f'<div class="rr" style="border:none"><div class="tile t-blue" '
+                        f'style="width:30px;height:30px;font-size:.85rem">{icons[keys.index(k)]}'
+                        f'</div><div class="n"><b>{OBJECTIVE_LABELS[k]}</b><small>'
+                        f"{OBJECTIVE_HINTS[k]}</small></div></div>",
+                        unsafe_allow_html=True,
+                    )
                     if st.button(
-                        "Selected" if picked else "Select",
+                        "✓ Selected" if picked else "Select",
                         key=f"obj_{k}",
                         type="primary" if picked else "secondary",
                     ):
                         ss.objective_pick = "" if picked else k
                         st.rerun()
+        st.caption("No objective selected = auto-detect from your question.")
         flash()
         if "intent" in ss and ("pending" in ss or "choices" in ss):
             used = ss.get("objective_used") or ss.intent.objective
@@ -432,47 +456,51 @@ def research_page() -> None:
             p = ss.pending
             with st.container(border=True):
                 st.warning(
-                    f"⏸️ **Approval needed** — comprehensive research on **{p['company']}** "
-                    "calls several data sources. Approve to run it, or Reject to cancel."
+                    f"⏸️ **Approval needed** — comprehensive research on "
+                    f"**{p['company']}** calls several data sources."
                 )
                 a, r, _ = st.columns([1, 1, 4])
-                if a.button("✅ Approve", type="primary", key="ap_inline"):
+                if a.button("Approve", key="ap_inline"):
                     decide(p["workflow_id"], p["company"], "approved")
                     go("Research Report")
                     st.rerun()
-                if r.button("❌ Reject", key="rj_inline"):
+                if r.button("Reject", key="rj_inline"):
                     decide(p["workflow_id"], p["company"], "rejected")
                     st.rerun()
-        st.markdown("**Recent Searches**")
-        rows = workflow_rows(all_workflows())[:10]
-        if rows:
-            st.dataframe(
-                [{k: v for k, v in r.items() if k != "workflow_id"} for r in rows],
-                hide_index=True,
-                use_container_width=True,
+        with st.container(border=True):
+            st.markdown('<div class="panel-t">Recent Searches</div>', unsafe_allow_html=True)
+            rows = workflow_rows(all_workflows())[:8]
+            for r in rows:
+                r["StatusH"] = status_pill(r["Status"])
+            st.markdown(
+                table(rows, ["Company", "Objective", "Created", "StatusH"], ["StatusH"]).replace(
+                    "<th>StatusH</th>", "<th>Status</th>"
+                )
+                if rows
+                else '<div class="na">No searches yet.</div>',
+                unsafe_allow_html=True,
             )
-        else:
-            st.caption("No searches yet.")
     with side.container(border=True):
-        st.markdown("**Suggested Companies**")
+        st.markdown('<div class="panel-t">Suggested Companies</div>', unsafe_allow_html=True)
         for n in POPULAR_COMPANIES[:4]:
             res = safe(API.get, "/companies/resolve", q=n, default={}) or {}
-            comp = res.get("company") or {}
             if res.get("status") != "RESOLVED":
                 continue
+            comp = res.get("company") or {}
             listings = res.get("listings") or comp.get("listings") or []
             tick = next(
                 (
-                    f"{x.get('exchange')}:{x.get('ticker')}"
+                    f"{x.get('ticker')} · {x.get('exchange')}"
                     for x in listings
                     if isinstance(x, dict) and x.get("ticker")
                 ),
                 "",
             )
-            c1, c2 = st.columns([3, 1])
+            name = str(comp.get("display_name") or n)
+            c1, c2 = st.columns([4, 1])
             c1.markdown(
-                f"**{comp.get('display_name') or n}**  \n"
-                f"<span style='color:#8FA3C7;font-size:.75rem'>{tick}</span>",
+                f'<div class="co" style="border:none"><div class="lg">{initials(name)}</div>'
+                f'<div class="n"><b>{esc(name)}</b><small>{esc(tick)}</small></div></div>',
                 unsafe_allow_html=True,
             )
             if c2.button("View", key=f"sug_{n}"):
@@ -482,81 +510,489 @@ def research_page() -> None:
 
 
 def tracker(workflow: dict[str, Any] | None) -> None:
-    icons = {"done": "✓", "current": "…", "todo": "", "failed": "✕"}
-    html = "".join(
-        f'<div class="step {state}"><div class="dot">{icons[state] or i + 1}</div>{name}</div>'
-        for i, (name, state) in enumerate(step_states(workflow))
-    )
-    st.markdown(f'<div class="steps">{html}</div>', unsafe_allow_html=True)
+    icons = {"done": "✓", "current": "⧗", "failed": "✕"}
+    parts = []
+    for i, (name, state) in enumerate(step_states(workflow)):
+        sub = '<br><span class="sub">Awaiting approval</span>' if state == "current" else ""
+        parts.append(
+            f'<div class="step {state}"><div class="dot">{icons.get(state, i + 1)}'
+            f"</div>{name}{sub}</div>"
+        )
+    st.markdown(f'<div class="steps">{"".join(parts)}</div>', unsafe_allow_html=True)
 
 
 def approvals_page() -> None:
-    st.markdown("### Pending Approvals")
+    topbar("approvals")
+    st.markdown("#### Pending Approvals")
     st.caption("Review and approve research workflows before execution.")
     flash()
     wfs = all_workflows()
     groups = split_approvals(wfs)
     c = st.columns(4)
-    c[0].markdown(card("Pending", str(len(groups["pending"])), "", "amber"), unsafe_allow_html=True)
-    c[1].markdown(
-        card("Approved", str(len(groups["approved"])), "", "green"), unsafe_allow_html=True
+    c[0].markdown(
+        stat_card("Pending", str(len(groups["pending"])), "", "amber", "⏳"), unsafe_allow_html=True
     )
-    c[2].markdown(card("Rejected", str(len(groups["rejected"])), "", "red"), unsafe_allow_html=True)
-    c[3].markdown(card("Total", str(len(wfs)), "all workflows"), unsafe_allow_html=True)
+    c[1].markdown(
+        stat_card("Approved", str(len(groups["approved"])), "", "green", "✓"),
+        unsafe_allow_html=True,
+    )
+    c[2].markdown(
+        stat_card("Rejected", str(len(groups["rejected"])), "", "red", "✕"), unsafe_allow_html=True
+    )
+    c[3].markdown(
+        stat_card("Total", str(len(wfs)), "all workflows", "blue", "▣"), unsafe_allow_html=True
+    )
     st.write("")
     with st.container(border=True):
-        st.markdown(f"**Pending Approval ({len(groups['pending'])})**")
+        st.markdown(
+            f'<div class="panel-t">Pending Approval ({len(groups["pending"])})</div>',
+            unsafe_allow_html=True,
+        )
+        cols = [2, 2, 1.3, 1.6, 1, 1]
+        h = st.columns(cols)
+        for col, t in zip(
+            h, ["Company", "Objective", "Requested By", "Request Time", "", "Actions"], strict=True
+        ):
+            col.markdown(
+                f'<div style="color:#9FB2D6;font-size:.8rem">{t}</div>', unsafe_allow_html=True
+            )
         if not groups["pending"]:
-            st.caption("Nothing is waiting. Comprehensive research requests appear here.")
+            st.markdown(
+                '<div class="na">Nothing is waiting. Comprehensive research requests '
+                "appear here.</div>",
+                unsafe_allow_html=True,
+            )
         for w in groups["pending"]:
             wid = str(w["workflow_id"])
             row = workflow_rows([w])[0]
-            a, b, c3, d, e = st.columns([2, 2, 2, 1, 1])
+            a, b, c3, d, e, f = st.columns(cols)
             a.write(row["Company"])
-            b.write(row["Objective"])
-            c3.write(row["Created"])
-            if d.button("Approve", key=f"apv_{wid}", type="primary"):
+            b.markdown(
+                f'<span style="color:#7FB0FF">{esc(row["Objective"])}</span>',
+                unsafe_allow_html=True,
+            )
+            c3.write("Dashboard")
+            d.write(row["Created"])
+            if e.button("Approve", key=f"apv_{wid}"):
                 try:
                     decide(wid, row["Company"], "approved")
                     go("Research Report")
                 except ApiError as exc:
                     ss.error = exc.message
                 st.rerun()
-            if e.button("Reject", key=f"rej_{wid}"):
+            if f.button("Reject", key=f"rej_{wid}"):
                 try:
                     decide(wid, row["Company"], "rejected")
                 except ApiError as exc:
                     ss.error = exc.message
                 st.rerun()
-    left, right = st.columns([1.4, 1])
+    left, right = st.columns([1.5, 1])
     with left.container(border=True):
-        st.markdown("**Workflow Steps**")
         latest = (
             groups["pending"][:1]
             or sorted(wfs, key=lambda w: str(w.get("created_at") or ""), reverse=True)[:1]
         )
+        sub = ""
         if latest:
-            st.caption(
-                f"{workflow_rows(latest)[0]['Company']} · {workflow_rows(latest)[0]['Objective']}"
+            r0 = workflow_rows(latest)[0]
+            sub = (
+                f' <span class="s-mut" style="font-size:.75rem">· {esc(r0["Company"])} · '
+                f"{esc(r0['Objective'])}</span>"
             )
+        st.markdown(f'<div class="panel-t">Workflow Steps{sub}</div>', unsafe_allow_html=True)
         tracker(latest[0] if latest else None)
     with right.container(border=True):
-        st.markdown("**Recent Activity**")
-        audit = safe(CONTROL.get, "/control/audit", default=None) if CONTROL.token else None
-        items = (audit or {}).get("events") or (audit or {}).get("audit") or []
-        if items:
-            for ev in items[-6:][::-1]:
-                st.markdown(
-                    f"- {ev.get('action') or ev.get('event')} · "
-                    f"{str(ev.get('at') or ev.get('timestamp') or '')[:16]}"
+        rows = workflow_rows(wfs)[:5]
+        dots = {
+            "Completed": "#22D3A0",
+            "Pending approval": "#F0911F",
+            "Rejected": "#FF4D6A",
+            "Cancelled": "#FF4D6A",
+            "Failed": "#FF4D6A",
+        }
+        items = (
+            "".join(
+                f'<div class="rr"><span style="width:9px;height:9px;border-radius:50%;background:'
+                f'{dots.get(r["Status"], "#7FB0FF")};display:inline-block"></span><div class="n">'
+                f'<b>{esc(r["Status"])} — {esc(r["Company"])}</b></div><span class="tm">'
+                f"{esc(r['Created'][5:16])}</span></div>"
+                for r in rows
+            )
+            or '<div class="na">No activity yet.</div>'
+        )
+        st.markdown(f'<div class="panel-t">Recent Activity</div>{items}', unsafe_allow_html=True)
+    with st.expander("🪜 Step-by-step mode (approve every step)"):
+        steps_mode()
+
+
+def _rows_table(rows: list[dict[str, Any]]) -> None:
+    st.markdown(
+        table(
+            [
+                {
+                    "Ref": r.get("tag"),
+                    "Metric": r.get("label"),
+                    "Value": r.get("value"),
+                    "Detail": r.get("detail"),
+                }
+                for r in rows
+            ],
+            ["Ref", "Metric", "Value", "Detail"],
+        ),
+        unsafe_allow_html=True,
+    )
+
+
+def _items(rows: list[dict[str, Any]]) -> None:
+    for r in rows[:10]:
+        link = f" [link]({r['url']})" if r.get("url") else ""
+        st.markdown(
+            f"- **[{r.get('tag')}]** {r.get('date') or ''} — {r.get('title')} "
+            f"{badge_markdown(r.get('data_origin'))}{link}"
+        )
+
+
+def report_page() -> None:
+    topbar("report")
+    reports: dict[str, Any] = ss.get("reports", {})
+    if not reports:
+        st.markdown("#### Research Report")
+        st.info(
+            "No report in this session yet. Run research from Home or Research, or open "
+            "one from the Reports page."
+        )
+        return
+    wid = ss.get("selected_report") or ss.get("result", {}).get("workflow_id")
+    if wid not in reports:
+        wid = list(reports)[-1]
+    res = reports[wid]
+    view, wf = res["view"], res["workflow"]
+    raw = res.get("raw")
+    data = json.loads(raw) if isinstance(raw, str) else (raw or {})
+    findings = data.get("findings") or {}
+    by = {s.title: s for s in view.sections}
+    origins = {s.origin for s in view.sections if s.origin}
+    head, dl = st.columns([4, 1])
+    head.markdown(
+        '<div style="font-size:.75rem;color:#8FA3C7">Research &rsaquo; Reports &rsaquo; '
+        f"{esc(view.company)}"
+        f'</div><div style="font-size:1.35rem;font-weight:700;color:#fff">{esc(view.company)} '
+        + status_pill(str(wf.get("status", "?")).capitalize())
+        + " "
+        + " ".join(origin_pill(o) for o in sorted(origins))
+        + f'</div><div style="font-size:.75rem;color:#8FA3C7">'
+        f"{esc(objective_label(wf.get('objective')))} · workflow {wid[:8]} · "
+        f"{esc(wf.get('evidence_count', '-'))} evidence items</div>",
+        unsafe_allow_html=True,
+    )
+    dl.download_button(
+        "⬇ Download Report",
+        res["markdown"],
+        file_name=f"AERP-{view.company.replace(' ', '_')}.md",
+        mime="text/markdown",
+        type="primary",
+        use_container_width=True,
+    )
+    tabs = st.tabs(list(REPORT_TABS))
+    with tabs[0]:
+        c1, c2, c3 = st.columns([1, 1.5, 1])
+        mrows = findings.get("market_figures") or []
+        frows = findings.get("financial_figures") or []
+        with c1.container(border=True):
+            kf = "".join(
+                f'<div class="kf"><span>{esc(label)}</span><b>'
+                f"{esc(figure_value(mrows, label) or figure_value(frows, label) or NA)}</b></div>"
+                for label in (
+                    "Last close",
+                    "Simple return",
+                    "SMA (simple moving average)",
+                    "Revenue growth",
+                    "Net margin",
+                    "Debt to equity",
+                    "Free cash flow",
                 )
+            )
+            st.markdown(f'<div class="panel-t">Key Figures</div>{kf}', unsafe_allow_html=True)
+        with c2.container(border=True):
+            snap = safe(API.get, "/market/snapshot", q=view.company.split(" (")[0], default=None)
+            series = close_series(snap)
+            st.markdown(
+                '<div class="panel-t">Price Performance '
+                + origin_pill((snap or {}).get("data_origin"))
+                + "</div>",
+                unsafe_allow_html=True,
+            )
+            if series:
+                st.bar_chart({"close": {d: v for d, v in series}}, height=210, color="#2F7BFF")
+            else:
+                st.markdown(f'<div class="na">Price history: {NA}</div>', unsafe_allow_html=True)
+        with c3.container(border=True):
+            news = findings.get("news_items") or []
+            body = (
+                "".join(
+                    f'<div class="rr"><div class="n"><b>{esc(n.get("title"))}</b><small>'
+                    f"{esc(n.get('date'))} {origin_pill(n.get('data_origin'))}</small></div></div>"
+                    for n in news[:4]
+                )
+                or f'<div class="na">{NA}</div>'
+            )
+            st.markdown(f'<div class="panel-t">Top News</div>{body}', unsafe_allow_html=True)
+        a1, a2 = st.columns([2.5, 1])
+        with a1.container(border=True):
+            st.markdown(
+                f'<div class="panel-t">Analyst Summary <span class="s-mut" '
+                f'style="font-size:.72rem">by {esc(view.summary_by)}</span></div>',
+                unsafe_allow_html=True,
+            )
+            st.write(view.summary)
+            if view.summary_note:
+                st.caption(view.summary_note + " Not investment advice.")
+        with a2.container(border=True):
+            refs = evidence_refs(data)
+            body = (
+                "".join(
+                    f'<div class="rr"><div class="ic">📑</div><div class="n"><b>'
+                    f"{esc(r['Capability']).title()}</b><small>{esc(r['Retrieved'])}</small></div>"
+                    f"{origin_pill(r['Origin'])}</div>"
+                    for r in refs[:4]
+                )
+                or f'<div class="na">{NA}</div>'
+            )
+            st.markdown(
+                f'<div class="panel-t">Evidence Citations</div>{body}', unsafe_allow_html=True
+            )
+    with tabs[1]:
+        sec = by.get("Financials")
+        if sec and sec.rows:
+            st.markdown(badge_markdown(sec.origin, sec.status))
+            _rows_table(sec.rows)
         else:
-            for r in workflow_rows(wfs)[:6]:
-                st.markdown(f"- {r['Company']} — {r['Status']} · {r['Created']}")
-            if not wfs:
-                st.caption("No activity yet.")
-    st.divider()
-    steps_mode()
+            st.caption(f"Financials: {NA} for this objective.")
+        msec = by.get("Market")
+        if msec and msec.rows:
+            st.markdown("**Market** " + badge_markdown(msec.origin, msec.status))
+            _rows_table(msec.rows)
+    with tabs[2]:
+        sec = by.get("Top news")
+        if sec and sec.rows:
+            _items(sec.rows)
+        else:
+            st.caption(f"News: {NA}.")
+    with tabs[3]:
+        st.caption(
+            f"Industry analysis section: {NA} in this report (run the Industry Analysis objective)."
+        )
+    with tabs[4]:
+        sec = by.get("Regulatory")
+        if sec and sec.rows:
+            _items(sec.rows)
+        else:
+            st.caption(f"Regulatory: {NA}.")
+    with tabs[5]:
+        st.markdown(res["markdown"])
+    with tabs[6]:
+        refs = evidence_refs(data)
+        if refs:
+            st.markdown(table(refs, list(refs[0])), unsafe_allow_html=True)
+        else:
+            st.caption(f"Evidence references: {NA}.")
+
+
+def reports_page() -> None:
+    topbar("reports")
+    st.markdown("#### Research Reports")
+    st.caption("Search, filter and export your research reports.")
+    flash()
+    rows = workflow_rows(all_workflows())
+    c1, c2, c3, c4 = st.columns([3, 2, 2, 1.2])
+    text = c1.text_input("Search", placeholder="Search reports…", label_visibility="collapsed")
+    company = c2.selectbox(
+        "Company", ["All", *sorted({r["Company"] for r in rows})], label_visibility="collapsed"
+    )
+    objective = c3.selectbox(
+        "Objective", ["All", *sorted({r["Objective"] for r in rows})], label_visibility="collapsed"
+    )
+    shown = filter_reports(rows, text, company, objective)
+    c4.download_button(
+        "⬇ Export All",
+        to_csv(shown) or "no rows\n",
+        type="primary",
+        file_name="aerp-reports.csv",
+        mime="text/csv",
+        disabled=not shown,
+        use_container_width=True,
+    )
+    reports = ss.get("reports", {})
+    with st.container(border=True):
+        cols = [1.6, 1.6, 2, 1.3, 1, 1]
+        h = st.columns(cols)
+        for col, t in zip(
+            h, ["Date", "Company", "Objective", "Status", "Format", "Action"], strict=True
+        ):
+            col.markdown(
+                f'<div style="color:#9FB2D6;font-size:.8rem">{t}</div>', unsafe_allow_html=True
+            )
+        if not shown:
+            st.markdown('<div class="na">No reports match.</div>', unsafe_allow_html=True)
+        for r in shown:
+            a, b, c, d, e, f = st.columns(cols)
+            a.write(r["Created"][:16])
+            b.write(r["Company"])
+            c.markdown(
+                f'<span style="color:#7FB0FF">{esc(r["Objective"])}</span>', unsafe_allow_html=True
+            )
+            d.markdown(status_pill(r["Status"]), unsafe_allow_html=True)
+            e.write("MD / JSON")
+            wid = r["workflow_id"]
+            if wid in reports:
+                if f.button("View", key=f"view_{wid}"):
+                    ss.selected_report = wid
+                    go("Research Report")
+                    st.rerun()
+            elif r["Status"] in ("Completed", "Partial"):
+                if f.button("Open", key=f"open_{wid}"):
+                    try:
+                        open_report(wid, r["Company"])
+                        go("Research Report")
+                    except ApiError as exc:
+                        ss.error = f"Report not available ({exc.message})"
+                    st.rerun()
+            elif r["Status"] == "Pending approval":
+                if f.button("Review", key=f"rev_{wid}"):
+                    go("Workflow Approvals")
+                    st.rerun()
+            else:
+                f.write("-")
+
+
+def watchlist_page() -> None:
+    topbar("watchlist")
+    h1, h2 = st.columns([3, 2])
+    h1.markdown("#### My Watchlist")
+    h1.caption(
+        "Stored locally on this computer. Prices from /market/snapshot with a LIVE / SAMPLE badge."
+    )
+    with h2, st.form("wl", border=False):
+        c1, c2 = st.columns([3, 1.3])
+        name = c1.text_input(
+            "Add", placeholder="Company name or ticker", label_visibility="collapsed"
+        )
+        if c2.form_submit_button("+ Add to Watchlist", type="primary") and name.strip():
+            add_to_watchlist(name)
+            st.rerun()
+    items = load_watchlist()
+    if not items:
+        st.info("Your watchlist is empty. Add Reliance, TCS or Apple to start.")
+        return
+    with st.container(border=True):
+        cols = [2.2, 1.6, 1.6, 1.2, 1.6, 1, 1]
+        h = st.columns(cols)
+        for col, t in zip(
+            h, ["Company", "Ticker", "Last Price", "Change", "Source", "", ""], strict=True
+        ):
+            if t:
+                col.markdown(
+                    f'<div style="color:#9FB2D6;font-size:.8rem">{t}</div>', unsafe_allow_html=True
+                )
+        for it in items:
+            snap = safe(API.get, "/market/snapshot", q=it, default=None)
+            price, cur, origin = latest_close(snap)
+            series = close_series(snap)
+            listing = (snap or {}).get("listing") or {}
+            c = st.columns(cols)
+            c[0].markdown(
+                f'<div class="co" style="border:none;padding:0"><div class="lg" '
+                f'style="width:28px;height:28px;font-size:.7rem">{initials(it)}</div>'
+                f'<div class="n"><b>{esc(it)}</b></div></div>',
+                unsafe_allow_html=True,
+            )
+            c[1].write(
+                f"{listing.get('ticker', '')} · {listing.get('exchange', '')}" if listing else NA
+            )
+            c[2].write(f"{cur} {price:,.2f}" if price is not None else NA)
+            if price is not None and len(series) > 1 and series[0][1]:
+                chg = (price - series[0][1]) / series[0][1]
+                tone = "s-green" if chg >= 0 else "s-red"
+                c[3].markdown(f'<span class="{tone}">{chg:+.2%}</span>', unsafe_allow_html=True)
+            else:
+                c[3].write(NA)
+            c[4].markdown(
+                origin_pill(origin) if price is not None else pill("NOT AVAILABLE", "gray"),
+                unsafe_allow_html=True,
+            )
+            if c[5].button("Research", key=f"wr_{it}"):
+                start_research(it)
+                go("Research Report" if "result" in ss else "Research")
+                st.rerun()
+            if c[6].button("Remove", key=f"wd_{it}"):
+                remove_from_watchlist(it)
+                st.rerun()
+
+
+def health_page() -> None:
+    topbar("health")
+    st.markdown("#### Provider Health")
+    st.caption(
+        "Status from /health/providers. Latency is measured by the dashboard for local "
+        "services; provider latency is not reported by the backend."
+    )
+    c = st.columns(4)
+    checks = [
+        ("REST API", API, "/health"),
+        ("Readiness", API, "/ready"),
+        ("Control API", CONTROL, "/control/health"),
+        ("Version", API, "/version"),
+    ]
+    for col, (label, client, path) in zip(c, checks, strict=True):
+        t0 = time.perf_counter()
+        ok = safe(client.get, path, default=None) is not None
+        ms = (time.perf_counter() - t0) * 1000
+        tone = "s-green" if ok else "s-red"
+        col.markdown(
+            f'<div class="hc"><div class="l">{label}</div><div class="v {tone}">'
+            f'{"Healthy" if ok else "Down"}</div><div class="s">'
+            f"{f'{ms:.0f} ms' if ok else 'not reachable'}</div></div>",
+            unsafe_allow_html=True,
+        )
+    st.write("")
+    left, right = st.columns([1.5, 1])
+    with left.container(border=True):
+        cards = provider_cards(safe(API.get, "/health/providers", default={}))
+        tone = {"ok": "green", "degraded": "amber", "failing": "red"}
+        rows = [
+            {
+                "Provider": x["name"],
+                "Status": pill(x["state"].capitalize(), tone.get(x["state"], "gray")),
+                "Successes": int(x["successes"] or 0),
+                "Failures": int(x["failures"] or 0),
+                "Last success": x["last_success"],
+                "Latency": NA if x["latency_ms"] is None else f"{x['latency_ms']:.0f} ms",
+            }
+            for x in cards
+        ]
+        body = (
+            table(rows, list(rows[0]), ["Status"])
+            if rows
+            else '<div class="na">No live provider called yet (offline sample mode). Turn on '
+            "live data in Settings.</div>"
+        )
+        st.markdown(f'<div class="panel-t">Provider Status</div>{body}', unsafe_allow_html=True)
+    with right.container(border=True):
+        logs: list[str] = []
+        if CONTROL.token:
+            runs = (safe(CONTROL.get, "/control/runs", default={}) or {}).get("runs", [])
+            if runs:
+                rid = runs[-1].get("run_id")
+                lg = safe(CONTROL.get, f"/control/runs/{rid}/logs", default={}) or {}
+                logs = [
+                    f"{x.get('level', 'info'):5} {x.get('message')}"
+                    for x in lg.get("logs", [])[-12:]
+                ]
+        st.markdown('<div class="panel-t">Recent Logs</div>', unsafe_allow_html=True)
+        st.code("\n".join(logs) or "(no step-by-step run logs yet)")
+        ver = safe(API.get, "/version", default=None)
+        if ver:
+            st.json(ver, expanded=False)
 
 
 def steps_mode() -> None:
@@ -630,320 +1066,9 @@ def steps_mode() -> None:
         st.error(exc.message)
 
 
-def _rows_table(rows: list[dict[str, Any]]) -> None:
-    st.dataframe(
-        [
-            {
-                "Ref": r.get("tag"),
-                "Metric": r.get("label"),
-                "Value": r.get("value"),
-                "Detail": r.get("detail"),
-            }
-            for r in rows
-        ],
-        hide_index=True,
-        use_container_width=True,
-    )
-
-
-def _items(rows: list[dict[str, Any]]) -> None:
-    for r in rows[:10]:
-        link = f" [link]({r['url']})" if r.get("url") else ""
-        st.markdown(
-            f"- **[{r.get('tag')}]** {r.get('date') or ''} — {r.get('title')} "
-            f"{badge_markdown(r.get('data_origin'))}{link}"
-        )
-
-
-def report_page() -> None:
-    reports: dict[str, Any] = ss.get("reports", {})
-    if not reports:
-        st.markdown("### Research Report")
-        st.info(
-            "No report in this session yet. Run research from Home or Research, or open "
-            "one from the Reports page."
-        )
-        return
-    wid = ss.get("selected_report") or ss.get("result", {}).get("workflow_id")
-    if wid not in reports:
-        wid = list(reports)[-1]
-    res = reports[wid]
-    view, wf = res["view"], res["workflow"]
-    raw = res.get("raw")
-
-    data = json.loads(raw) if isinstance(raw, str) else (raw or {})
-    findings = data.get("findings") or {}
-    by = {s.title: s for s in view.sections}
-    origins = {s.origin for s in view.sections if s.origin}
-    head, dl = st.columns([4, 1])
-    head.markdown(
-        f"### {view.company}  "
-        + status_pill(str(wf.get("status", "?")).capitalize())
-        + " "
-        + " ".join(origin_pill(o) for o in sorted(origins)),
-        unsafe_allow_html=True,
-    )
-    head.caption(
-        f"{objective_label(wf.get('objective'))} · workflow {wid[:8]} · "
-        f"{wf.get('evidence_count', '-')} evidence items"
-    )
-    dl.download_button(
-        "⬇️ Download Report",
-        res["markdown"],
-        file_name=f"AERP-{view.company.replace(' ', '_')}.md",
-        mime="text/markdown",
-        use_container_width=True,
-    )
-    tabs = st.tabs(list(REPORT_TABS))
-    with tabs[0]:
-        c1, c2, c3 = st.columns([1, 1.4, 1])
-        mrows = findings.get("market_figures") or []
-        frows = findings.get("financial_figures") or []
-        with c1.container(border=True):
-            st.markdown("**Key Figures**")
-            for label in (
-                "Last close",
-                "Simple return",
-                "SMA (simple moving average)",
-                "Revenue growth",
-                "Net margin",
-                "Debt to equity",
-                "Free cash flow",
-            ):
-                v = figure_value(mrows, label) or figure_value(frows, label)
-                st.markdown(f"{label}: **{v or NA}**")
-        with c2.container(border=True):
-            st.markdown("**Price (recent sessions)**")
-            snap = safe(API.get, "/market/snapshot", q=view.company.split(" (")[0], default=None)
-            series = close_series(snap)
-            if series:
-                st.markdown(origin_pill((snap or {}).get("data_origin")), unsafe_allow_html=True)
-                st.bar_chart({"close": {d: v for d, v in series}}, height=220)
-            else:
-                st.caption(f"Price history: {NA}")
-        with c3.container(border=True):
-            st.markdown("**Top News**")
-            if findings.get("news_items"):
-                _items(findings["news_items"][:4])
-            else:
-                st.caption(NA)
-        with st.container(border=True):
-            st.markdown(f"**🧠 Analyst Summary** · _by {view.summary_by}_")
-            st.write(view.summary)
-            if view.summary_note:
-                st.caption(view.summary_note + " Not investment advice.")
-    with tabs[1]:
-        sec = by.get("Financials")
-        if sec and sec.rows:
-            st.markdown(badge_markdown(sec.origin, sec.status))
-            _rows_table(sec.rows)
-        else:
-            st.caption(f"Financials: {NA} for this objective.")
-        msec = by.get("Market")
-        if msec and msec.rows:
-            st.markdown("**Market** " + badge_markdown(msec.origin, msec.status))
-            _rows_table(msec.rows)
-    with tabs[2]:
-        sec = by.get("Top news")
-        if sec and sec.rows:
-            _items(sec.rows)
-        else:
-            st.caption(f"News: {NA}.")
-    with tabs[3]:
-        st.caption(
-            f"Industry analysis section: {NA} in this report (run the Industry Analysis objective)."
-        )
-    with tabs[4]:
-        sec = by.get("Regulatory")
-        if sec and sec.rows:
-            _items(sec.rows)
-        else:
-            st.caption(f"Regulatory: {NA}.")
-    with tabs[5]:
-        st.markdown(res["markdown"])
-    with tabs[6]:
-        refs = evidence_refs(data)
-        if refs:
-            st.dataframe(refs, hide_index=True, use_container_width=True)
-        else:
-            st.caption(f"Evidence references: {NA}.")
-
-
-def reports_page() -> None:
-    st.markdown("### Research Reports")
-    st.caption("Search, filter and export your research reports.")
-    flash()
-    rows = workflow_rows(all_workflows())
-    c1, c2, c3 = st.columns([3, 2, 2])
-    text = c1.text_input("Search", placeholder="Search reports…", label_visibility="collapsed")
-    company = c2.selectbox(
-        "Company", ["All", *sorted({r["Company"] for r in rows})], label_visibility="collapsed"
-    )
-    objective = c3.selectbox(
-        "Objective", ["All", *sorted({r["Objective"] for r in rows})], label_visibility="collapsed"
-    )
-    shown = filter_reports(rows, text, company, objective)
-    st.download_button(
-        "⬇️ Export CSV",
-        to_csv(shown) or "no rows\n",
-        file_name="aerp-reports.csv",
-        mime="text/csv",
-        disabled=not shown,
-    )
-    reports = ss.get("reports", {})
-    with st.container(border=True):
-        if not shown:
-            st.caption("No reports match.")
-        for r in shown:
-            a, b, c, d, e = st.columns([2, 2, 1.4, 2, 1])
-            a.write(r["Company"])
-            b.write(r["Objective"])
-            c.markdown(status_pill(r["Status"]), unsafe_allow_html=True)
-            d.write(r["Created"])
-            if r["workflow_id"] in reports:
-                if e.button("View", key=f"view_{r['workflow_id']}"):
-                    ss.selected_report = r["workflow_id"]
-                    go("Research Report")
-                    st.rerun()
-            elif r["Status"] in ("Completed", "Partial"):
-                if e.button("Open", key=f"open_{r['workflow_id']}"):
-                    try:
-                        open_report(r["workflow_id"], r["Company"])
-                        go("Research Report")
-                    except ApiError as exc:
-                        ss.error = f"Report not available ({exc.message})"
-                    st.rerun()
-            elif r["Status"] == "Pending approval":
-                if e.button("Review", key=f"rev_{r['workflow_id']}"):
-                    go("Workflow Approvals")
-                    st.rerun()
-            else:
-                e.caption("-")
-
-
-def watchlist_page() -> None:
-    st.markdown("### My Watchlist")
-    st.caption(
-        "Stored locally on this computer. Prices come from /market/snapshot; the badge "
-        "shows whether each price is LIVE or SAMPLE."
-    )
-    with st.form("wl", border=False):
-        c1, c2 = st.columns([4, 1])
-        name = c1.text_input(
-            "Add", placeholder="Company name or ticker", label_visibility="collapsed"
-        )
-        if c2.form_submit_button("+ Add", use_container_width=True) and name.strip():
-            add_to_watchlist(name)
-            st.rerun()
-    items = load_watchlist()
-    if not items:
-        st.info("Your watchlist is empty. Add Reliance, TCS or Apple to start.")
-        return
-    with st.container(border=True):
-        h = st.columns([2, 2, 2, 2, 1, 1])
-        for col, t in zip(h, ["Company", "Ticker", "Last price", "Source", "", ""], strict=True):
-            if t:
-                col.markdown(f"**{t}**")
-        for it in items:
-            snap = safe(API.get, "/market/snapshot", q=it, default=None)
-            price, cur, origin = latest_close(snap)
-            listing = (snap or {}).get("listing") or {}
-            c = st.columns([2, 2, 2, 2, 1, 1])
-            c[0].write(it)
-            c[1].write(
-                f"{listing.get('exchange', '')}:{listing.get('ticker', '')}" if listing else NA
-            )
-            c[2].write(f"{cur} {price:,.2f}" if price is not None else NA)
-            c[3].markdown(
-                origin_pill(origin) if price is not None else pill("NOT AVAILABLE", "gray"),
-                unsafe_allow_html=True,
-            )
-            if c[4].button("Research", key=f"wr_{it}"):
-                start_research(it)
-                go("Research Report" if "result" in ss else "Research")
-                st.rerun()
-            if c[5].button("Remove", key=f"wd_{it}"):
-                remove_from_watchlist(it)
-                st.rerun()
-
-
-def health_page() -> None:
-    st.markdown("### Provider Health")
-    st.caption(
-        "Live status from /health/providers. Latency below is measured by the "
-        "dashboard for the local services; provider latency is not reported by the "
-        "backend."
-    )
-    c = st.columns(4)
-    for col, (label, client, path) in zip(
-        c,
-        [
-            ("REST API", API, "/health"),
-            ("Readiness", API, "/ready"),
-            ("Control API", CONTROL, "/control/health"),
-            ("Version", API, "/version"),
-        ],
-        strict=True,
-    ):
-        t0 = time.perf_counter()
-        ok = safe(client.get, path, default=None) is not None
-        ms = (time.perf_counter() - t0) * 1000
-        col.markdown(
-            card(
-                label,
-                "Healthy" if ok else "Down",
-                f"{ms:.0f} ms" if ok else "",
-                "green" if ok else "red",
-            ),
-            unsafe_allow_html=True,
-        )
-    st.write("")
-    left, right = st.columns([1.4, 1])
-    with left.container(border=True):
-        st.markdown("**Provider Status**")
-        cards = provider_cards(safe(API.get, "/health/providers", default={}))
-        if not cards:
-            st.caption(
-                "No live provider called yet (offline sample mode or nothing run). "
-                "Turn on live data in Settings."
-            )
-        else:
-            st.dataframe(
-                [
-                    {
-                        "Provider": x["name"],
-                        "State": x["state"],
-                        "Successes": int(x["successes"] or 0),
-                        "Failures": int(x["failures"] or 0),
-                        "Last success": x["last_success"],
-                        "Last error": x["last_error"] or "-",
-                        "Latency": NA if x["latency_ms"] is None else f"{x['latency_ms']:.0f} ms",
-                    }
-                    for x in cards
-                ],
-                hide_index=True,
-                use_container_width=True,
-            )
-    with right.container(border=True):
-        st.markdown("**Recent Logs**")
-        logs: list[str] = []
-        if CONTROL.token:
-            runs = (safe(CONTROL.get, "/control/runs", default={}) or {}).get("runs", [])
-            if runs:
-                rid = runs[-1].get("run_id")
-                lg = safe(CONTROL.get, f"/control/runs/{rid}/logs", default={}) or {}
-                logs = [
-                    f"{x.get('level', 'info'):5} {x.get('message')}"
-                    for x in lg.get("logs", [])[-12:]
-                ]
-        st.code("\n".join(logs) or "(no step-by-step run logs yet)")
-        ver = safe(API.get, "/version", default=None)
-        if ver:
-            st.json(ver, expanded=False)
-
-
 def settings_page() -> None:
-    st.markdown("### Settings")
+    topbar("settings")
+    st.markdown("#### Settings")
     st.caption("Configure providers, models, security and preferences.")
     t1, t2, t3, t4 = st.tabs(["Providers", "Model Settings", "Security", "Preferences"])
     masked: dict[str, Any] = {}
@@ -963,7 +1088,18 @@ def settings_page() -> None:
             }
             for p in PROVIDERS
         ]
-        st.dataframe(rows, hide_index=True, use_container_width=True)
+        for r in rows:
+            r["StatusH"] = (
+                pill("Configured", "green")
+                if str(r["Status"]).startswith("✅")
+                else pill("Not configured", "amber")
+            )
+        st.markdown(
+            table(rows, ["Provider", "StatusH", "Used by backend"], ["StatusH"]).replace(
+                "<th>StatusH</th>", "<th>Status</th>"
+            ),
+            unsafe_allow_html=True,
+        )
         spec = st.selectbox("Provider", PROVIDERS, format_func=lambda p: p.label)
         if spec.signup_url:
             st.caption(f"1. Get a key at {spec.signup_url}  2. Paste it below  3. Test  4. Save")
@@ -1039,41 +1175,29 @@ def settings_page() -> None:
 
 # ---------------------------------------------------------------- shell
 PAGES = {
-    "Home": ("🏠", home_page),
-    "Research": ("🔍", research_page),
-    "Workflow Approvals": ("✅", approvals_page),
-    "Research Report": ("📄", report_page),
-    "Reports": ("🗂️", reports_page),
-    "Watchlist": ("⭐", watchlist_page),
-    "Provider Health": ("🩺", health_page),
-    "Settings": ("⚙️", settings_page),
+    "Home": ("⌂", home_page),
+    "Research": ("⌕", research_page),
+    "Workflow Approvals": ("☑", approvals_page),
+    "Research Report": ("▤", report_page),
+    "Reports": ("▦", reports_page),
+    "Watchlist": ("☆", watchlist_page),
+    "Provider Health": ("♡", health_page),
+    "Settings": ("⚙", settings_page),
 }
+ss.setdefault("nav", "Home")
 with st.sidebar:
-    st.markdown(
-        '<div class="aerp-logo"><div class="mark"><i style="height:10px"></i>'
-        '<i style="height:16px"></i><i style="height:22px"></i></div>'
-        "<div><b>AERP</b><small>Agentic Equity Research</small></div></div>",
-        unsafe_allow_html=True,
-    )
+    st.markdown(logo_html(), unsafe_allow_html=True)
     pending_n = workflow_stats(all_workflows()).pending
-    ss.setdefault("nav", "Home")
     for name, (icon, _) in PAGES.items():
-        label = f"{icon}  {name}" + (
-            f"  🔴 {pending_n}" if name == "Workflow Approvals" and pending_n else ""
-        )
+        badge = f"  :red-badge[{pending_n}]" if name == "Workflow Approvals" and pending_n else ""
         if st.button(
-            label,
+            f"{icon}\u2003{name}{badge}",
             key=f"nav_{name}",
             use_container_width=True,
             type="primary" if ss.nav == name else "secondary",
         ):
             ss.nav = name
             st.rerun()
-    st.write("")
-    st.markdown(
-        '<div class="side-foot"><b>Evidence-First Research</b><br>Real data. Clear '
-        "sources. Every number shows where it came from.<br><br>by Leela Issak</div>",
-        unsafe_allow_html=True,
-    )
+    st.markdown(SIDE_FOOT, unsafe_allow_html=True)
 
 PAGES[ss.nav][1]()
