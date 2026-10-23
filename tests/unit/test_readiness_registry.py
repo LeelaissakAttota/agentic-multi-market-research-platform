@@ -20,7 +20,7 @@ class ReadinessRegistryTests(TestCase):
 
     def setUp(self) -> None:
         self.metadata = ApplicationMetadata(
-            service="agentic-financial-intelligence",
+            service="amrp",
             version="0.1.0",
             environment="test",
         )

@@ -14,7 +14,7 @@ LogLevel = Literal["DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"]
 PlannerMode = Literal["auto", "deterministic", "llm"]
 ReplanMode = Literal["auto", "llm", "deterministic", "off"]
 
-SERVICE_NAME = "agentic-financial-intelligence"
+SERVICE_NAME = "amrp"
 _SAFE_HOST_PATTERN = re.compile(
     r"^(?:localhost|(?:[A-Za-z0-9](?:[A-Za-z0-9-]{0,61}[A-Za-z0-9])?)(?:\.(?:[A-Za-z0-9](?:[A-Za-z0-9-]{0,61}[A-Za-z0-9])?))*|(?:\d{1,3}\.){3}\d{1,3})$"
 )

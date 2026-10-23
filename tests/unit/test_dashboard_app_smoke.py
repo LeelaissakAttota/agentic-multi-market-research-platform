@@ -15,7 +15,7 @@ PAGES = [
     "Research",
     "Workflow Approvals",
     "Research Report",
-    "Reports",
+    "All Research Reports",
     "Watchlist",
     "Provider Health",
     "Settings",

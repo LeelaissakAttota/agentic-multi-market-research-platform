@@ -505,3 +505,18 @@ def analyst_rows(rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
         for r in rows
         if str(r.get("title") or "").startswith(("Analyst consensus:", "Next earnings report"))
     ]
+
+
+STEP_MODE_HELP = (
+    "**What is this?** Step-by-step mode runs the same research, but **pauses after each "
+    "stage** (Plan → Research → Verify → Report) and waits for you to **Approve, Reject or "
+    "Retry** it, with live logs. Use it to inspect what every stage produced, or to demo "
+    "the approval workflow. The company comes **prefilled from the Research page** if you "
+    "searched one; otherwise type it."
+)
+
+
+def step_mode_company(company: object) -> str:
+    """Prefill for the step-by-step company field: the last Research company, else blank."""
+
+    return company.strip() if isinstance(company, str) else ""

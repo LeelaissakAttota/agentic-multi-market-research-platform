@@ -20,6 +20,7 @@ import streamlit as st
 from theme import (  # type: ignore[import-not-found]  # dashboard/theme.py
     CSS,
     NAV_ICON_CSS,
+    agent_grid,
     asset_uri,
     esc,
     initials,
@@ -70,6 +71,7 @@ from financial_intelligence.dashboard.views import (
     OBJECTIVE_LABELS,
     REPORT_TABS,
     RESEARCH_AGENTS,
+    STEP_MODE_HELP,
     add_to_watchlist,
     agent_states,
     analyst_rows,
@@ -90,12 +92,14 @@ from financial_intelligence.dashboard.views import (
     remove_from_watchlist,
     revenue_profit_series,
     split_approvals,
+    step_mode_company,
     step_states,
     to_csv,
     workflow_rows,
     workflow_stats,
 )
 
+NEWS_HEIGHT = 470  # px: news column = price box + AI box beside it (scrolls inside)
 API = JsonClient(os.environ.get("AERP_API_URL", "http://127.0.0.1:8000"))
 CONTROL = JsonClient(
     os.environ.get("AERP_CONTROL_URL", "http://127.0.0.1:8712"),
@@ -614,10 +618,11 @@ def objective_rows(keys: list[str]) -> list[list[str]]:
 def research_page() -> None:
     obj = ss.get("objective_pick", "")
     st.markdown("#### Start New Research")
+    search_box("research", "Search", objective=obj)
+    st.write("")
     suggested_companies(obj)
     st.write("")
     with st.container():
-        search_box("research", "Search", objective=obj)
         st.markdown("#### Research Objective")
         keys = list(OBJECTIVE_LABELS)
         icons = ["🏢", "📈", "📊", "📰", "🏭", "⚖️", "🧠"]
@@ -702,14 +707,16 @@ def approvals_page() -> None:
     groups = split_approvals(wfs)
     c = st.columns(4)
     c[0].markdown(
-        stat_card("Pending", str(len(groups["pending"])), "", "amber", "⏳"), unsafe_allow_html=True
+        stat_card("Pending", str(len(groups["pending"])), "awaiting you", "amber", "⏳"),
+        unsafe_allow_html=True,
     )
     c[1].markdown(
-        stat_card("Approved", str(len(groups["approved"])), "", "green", "✓"),
+        stat_card("Approved", str(len(groups["approved"])), "approved", "green", "✓"),
         unsafe_allow_html=True,
     )
     c[2].markdown(
-        stat_card("Rejected", str(len(groups["rejected"])), "", "red", "✕"), unsafe_allow_html=True
+        stat_card("Rejected", str(len(groups["rejected"])), "rejected", "red", "✕"),
+        unsafe_allow_html=True,
     )
     c[3].markdown(
         stat_card("Total", str(len(wfs)), "all workflows", "blue", "▣"), unsafe_allow_html=True
@@ -758,8 +765,8 @@ def approvals_page() -> None:
                 except ApiError as exc:
                     ss.error = exc.message
                 st.rerun()
-    left, right = st.columns([1.5, 1])
-    with left.container(border=True):
+    left, right = st.columns([1.35, 1])
+    with left.container(border=True, key="wf_steps"):
         latest = (
             groups["pending"][:1]
             or sorted(wfs, key=lambda w: str(w.get("created_at") or ""), reverse=True)[:1]
@@ -773,8 +780,8 @@ def approvals_page() -> None:
             )
         st.markdown(f'<div class="panel-t">Workflow Steps{sub}</div>', unsafe_allow_html=True)
         tracker(latest[0] if latest else None)
-    with right.container(border=True):
-        rows = workflow_rows(wfs)[:5]
+    with right.container(border=True, key="wf_activity"):
+        rows = workflow_rows(wfs)[:4]
         dots = {
             "Completed": "#22D3A0",
             "Pending approval": "#F0911F",
@@ -1187,7 +1194,7 @@ def health_page() -> None:
 
 def steps_mode() -> None:
     st.markdown("#### 🪜 Step-by-step mode")
-    st.caption("Every research step waits for you: Approve, Reject or Retry, with live logs.")
+    st.markdown(STEP_MODE_HELP)
     if not CONTROL.token:
         st.error("Control API token missing - start with scripts/start-dashboard.ps1.")
         return
@@ -1199,7 +1206,7 @@ def steps_mode() -> None:
     with st.form("steprun"):
         q = st.text_input(
             "Company",
-            value="",
+            value=step_mode_company(ss.get("company")),
             placeholder="Company name or ticker, e.g. RELIANCE.NS or AAPL",
             help="Type any company name, or a ticker such as RELIANCE.NS, TCS.NS or AAPL.",
         )
@@ -1292,12 +1299,14 @@ def settings_page() -> None:
                 if str(r["Status"]).startswith("✅")
                 else pill("Not configured", "amber")
             )
-        st.markdown(
-            table(rows, ["Provider", "StatusH", "Used by backend"], ["StatusH"]).replace(
-                "<th>StatusH</th>", "<th>Status</th>"
-            ),
-            unsafe_allow_html=True,
-        )
+        with st.container(border=True, key="prov_table"):
+            st.markdown(
+                table(rows, ["Provider", "StatusH", "Used by backend"], ["StatusH"]).replace(
+                    "<th>StatusH</th>", "<th>Status</th>"
+                ),
+                unsafe_allow_html=True,
+            )
+        st.markdown('<div class="sec-gap"></div>', unsafe_allow_html=True)
         st.markdown("**Add an API key** - paste any key; the provider is detected from its format.")
         key = st.text_input(
             "API key",
@@ -1590,13 +1599,10 @@ def comprehensive_page() -> None:
         run = safe(CONTROL.get, f"/control/runs/{ss.comp_run}", default=None)
     steps: list[dict[str, Any]] = (run or {}).get("steps", [])
     states = agent_states(steps)
-    cols = st.columns(len(RESEARCH_AGENTS))
-    for col, (kind, name, what) in zip(cols, RESEARCH_AGENTS, strict=True):
-        col.markdown(
-            f'<div class="agent"><div class="agent-h"><b>{esc(name)}</b>'
-            f"{_step_label(states[kind])}</div><small>{esc(what)}</small></div>",
-            unsafe_allow_html=True,
-        )
+    st.markdown(
+        agent_grid([(n, _step_label(states[k]), w) for k, n, w in RESEARCH_AGENTS]),
+        unsafe_allow_html=True,
+    )
     if not CONTROL.token:
         return
     st.markdown('<div class="comp-gap"></div>', unsafe_allow_html=True)
@@ -1713,7 +1719,7 @@ def commodity_news(name: str, india: bool) -> list[ml.NewsItem]:
 def commodity_page() -> None:
     st.markdown("#### Commodity Market")
     st.caption("Live futures prices, a 1-month graph and the latest related news.")
-    c1, c2 = st.columns(2)
+    c1, c2 = st.columns([1, 1.7])
     market = c1.radio("Market", cm.MARKETS, horizontal=True, key="cm_market")
     name = c2.radio("Commodity", list(cm.COMMODITIES), horizontal=True, key="cm_name")
     india = market.startswith("India")
@@ -2055,7 +2061,7 @@ def instrument_header(
     tone = "s-green" if chg >= 0 else "s-red"
     st.markdown(
         f'<div class="cm-h"><div><b>{esc(name)}</b> {pill("LIVE", "green")} <small>'
-        f"{esc(symbol)} · as of {mk.ist(last.ts)}</small></div>"
+        f"{mk.ist(last.ts)}</small></div>"
         f'<div class="cm-v">{cur}{last.close:,.{decimals}f} <small>{esc(unit)}</small></div>'
         f'<div><span class="{tone}">{chg:+.2%} today</span> <small>(vs day open '
         f"{first.open:,.{decimals}f})</small></div></div>",
@@ -2081,7 +2087,7 @@ def forex_page() -> None:
             pair.split("/")[1] + " per " + pair.split("/")[0],
             inst.decimals,
         )
-    with right.container(border=True, key="fx_news"):
+    with right.container(border=True, key="fx_news", height=NEWS_HEIGHT):
         news = instrument_news("fx", pair)
         news_panel(news, f"Latest {pair} news")
         st.caption("Yahoo Finance + Google News RSS")
@@ -2121,7 +2127,7 @@ def crypto_page() -> None:
         instrument_header(f"{inst.name} ({coin})", inst.symbol, day, sym, cur, inst.decimals)
         if k != 1.0:
             st.caption(f"INR = USD price x latest USD/INR close ({k:,.3f}, USDINR=X).")
-    with right.container(border=True, key="cr_news"):
+    with right.container(border=True, key="cr_news", height=NEWS_HEIGHT):
         news = instrument_news("crypto", coin)
         news_panel(news, f"Latest {inst.name} news")
         st.caption("Yahoo Finance + Google News RSS")
@@ -2142,7 +2148,7 @@ PAGES = {
     "Comprehensive Research": ("comprehensive", comprehensive_page),
     "Workflow Approvals": ("approvals", approvals_page),
     "Research Report": ("report", report_page),
-    "Reports": ("reports", reports_page),
+    "All Research Reports": ("reports", reports_page),
     "Watchlist": ("watchlist", watchlist_page),
     "Commodity Market": ("commodity", commodity_page),
     "Forex Market": ("forex", forex_page),

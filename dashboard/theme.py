@@ -51,6 +51,21 @@ def status_pill(label: str) -> str:
     return pill(label, STATUS_TONE.get(label, "gray"))
 
 
+def agent_grid(cards: Sequence[tuple[str, str, str]]) -> str:
+    """Agent cards in a wrapping CSS grid; ``(name, status_pill_html, description)``.
+
+    The status pill is trusted HTML and sits on its own line inside the card, so long
+    names and pills never push the row wider than the page.
+    """
+
+    items = "".join(
+        f'<div class="agent"><b>{esc(name)}</b><div class="agent-s">{status}</div>'
+        f"<small>{esc(what)}</small></div>"
+        for name, status, what in cards
+    )
+    return f'<div class="agent-grid">{items}</div>'
+
+
 def stat_card(label: str, value: str, sub: str, tone: str, icon: str) -> str:
     tile = {"blue": "t-blue", "green": "t-green", "amber": "t-orange", "red": "t-red"}[tone]
     sub_cls = {"blue": "s-green", "green": "s-green", "amber": "s-amber", "red": "s-red"}[tone]

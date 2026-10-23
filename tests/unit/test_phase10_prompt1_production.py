@@ -178,7 +178,7 @@ def test_staging_allowed_host_is_accepted() -> None:
     assert response.status_code == 200
     assert response.json() == {
         "status": "ok",
-        "service": "agentic-financial-intelligence",
+        "service": "amrp",
         "version": response.json()["version"],
     }
 
