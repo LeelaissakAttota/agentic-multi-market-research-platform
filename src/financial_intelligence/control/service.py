@@ -178,6 +178,8 @@ class EquityResearchControl:
             str(body.get("market") or ""),
             str(body.get("instrument") or ""),
             list(body.get("evidence") or []),
+            # Stay within the adapter ceiling (larger requests are rejected as invalid).
+            max_tokens=min(1500, settings.openrouter_max_output_tokens),
         )
         self.manager.audit.record(
             {

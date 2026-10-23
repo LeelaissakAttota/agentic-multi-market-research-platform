@@ -63,7 +63,11 @@ def build_messages(market: str, instrument: str, evidence: list[dict[str, Any]])
 
 
 def analyze(
-    router: LlmRouterPort, market: str, instrument: str, evidence: list[dict[str, Any]]
+    router: LlmRouterPort,
+    market: str,
+    instrument: str,
+    evidence: list[dict[str, Any]],
+    max_tokens: int = 1500,
 ) -> dict[str, Any]:
     tags = {_clean(e.get("tag"), 4) for e in evidence[:MAX_EVIDENCE]}
     if not tags:
@@ -76,7 +80,7 @@ def analyze(
             ModelMessage(role="system", content=system),
             ModelMessage(role="user", content=user),
         ),
-        max_output_tokens=1500,
+        max_output_tokens=max_tokens,
     )
     resp = router.complete(req)
     if resp.status is not ModelCallStatus.SUCCEEDED or not (resp.content or "").strip():
