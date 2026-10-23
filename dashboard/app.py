@@ -362,63 +362,58 @@ def _ist(iso: str) -> str:
     return when.strftime("%d %b %H:%M IST")
 
 
-def candle_chart(items: list[ml.Daily]) -> Any:
-    rows = [
-        {
-            "Index": d.name,
-            "Day": b.date[5:],
-            "Open": b.open,
-            "High": b.high,
-            "Low": b.low,
-            "Close": b.close,
-            "Up": b.close >= b.open,
-        }
-        for d in items
-        for b in d.bars
-    ]
-    base = alt.Chart(pd.DataFrame(rows)).encode(
-        x=alt.X("Day:O", title=None, axis=alt.Axis(labelAngle=0)),
-        color=alt.condition("datum.Up", alt.value("#22D3A0"), alt.value("#FF4D6A")),
+def area_chart(d: ml.Daily) -> Any:
+    """Smooth line + gradient fill; green when the 5-day change is up, red when down."""
+
+    up = (d.change or 0) >= 0
+    color = "#22D3A0" if up else "#FF4D6A"
+    df = pd.DataFrame([{"Day": b.date[5:], "Close": b.close} for b in d.bars])
+    lo, hi = float(df.Close.min()), float(df.Close.max())
+    pad = (hi - lo) * 0.25 or hi * 0.01
+    x = alt.X("Day:O", title=None, axis=alt.Axis(labelAngle=0))
+    y = alt.Y(
+        "Close:Q",
+        title=None,
+        scale=alt.Scale(domain=[lo - pad, hi + pad], nice=False),
+        axis=alt.Axis(format="~s", tickCount=4),
     )
-    y = alt.Y("Low:Q", title=None, scale=alt.Scale(zero=False), axis=alt.Axis(format="~s"))
+    grad = alt.Gradient(
+        gradient="linear",
+        stops=[
+            alt.GradientStop(color=color, offset=0),
+            alt.GradientStop(color="rgba(0,0,0,0)", offset=1),
+        ],
+        x1=1,
+        x2=1,
+        y1=0,
+        y2=1,
+    )
+    base = alt.Chart(df).encode(x=x, y=y, tooltip=["Day:O", alt.Tooltip("Close:Q", format=",.2f")])
     chart = alt.layer(
-        base.mark_rule(strokeWidth=1.5).encode(y=y, y2="High:Q"),
-        base.mark_bar(size=16, cornerRadius=2).encode(
-            y=alt.Y("Open:Q"),
-            y2="Close:Q",
-            tooltip=["Index:N", "Day:O", "Open:Q", "High:Q", "Low:Q", "Close:Q"],
+        base.encode(y2=alt.datum(lo - pad)).mark_area(
+            interpolate="monotone",
+            line={"color": color, "strokeWidth": 2},
+            color=grad,
+            opacity=0.55,
         ),
-    ).properties(height=150, width=270)
-    return (
-        chart.facet(
-            column=alt.Column(
-                "Index:N",
-                sort=[d.name for d in items],
-                title=None,
-                header=alt.Header(labelColor="#C9D4EA", labelFontSize=12, labelFontWeight="bold"),
-            )
-        )
-        .resolve_scale(y="independent")
-        .configure_view(strokeWidth=0)
-        .configure(background="transparent")
-        .configure_axis(
-            labelColor="#9FB2D6",
-            gridColor="#0D2B55",
-            domainColor="#0D2B55",
-            tickColor="#0D2B55",
-            labelFontSize=10,
-        )
+        base.mark_point(filled=True, size=28, color=color),
+    )
+    return _style(chart).properties(
+        height=150, padding={"left": 12, "right": 6, "top": 4, "bottom": 2}
     )
 
 
-def _index_line(d: ml.Daily) -> str:
+def _index_card(d: ml.Daily) -> None:
     chg = d.change
     tone = "s-green" if (chg or 0) >= 0 else "s-red"
     pct = f'<span class="{tone}">{chg:+.2%}</span>' if chg is not None else ""
-    return (
-        f'<div class="kf"><span>{esc(d.name)}</span><b>{d.bars[-1].close:,.2f} {pct} '
-        f'<small style="color:#8FA3C7">5d</small></b></div>'
-    )
+    with st.container(border=True, key=f"idx_{d.symbol.strip('^')}"):
+        st.markdown(
+            f'<div class="idx-h"><b>{esc(d.name)}</b><span>{d.bars[-1].close:,.2f} {pct} '
+            f"<small>5d</small></span></div>",
+            unsafe_allow_html=True,
+        )
+        st.altair_chart(area_chart(d), use_container_width=True)
 
 
 def market_overview() -> None:
@@ -439,16 +434,19 @@ def market_overview() -> None:
         cols, (("US", "US market"), ("IN", "Indian market")), strict=True
     ):
         items = data.get(region) or []
-        col.markdown(f'<div class="sub-t">{label}</div>', unsafe_allow_html=True)
-        if not items:
-            col.markdown(
-                f'<div class="na">{label} data: {NA} (Yahoo Finance unreachable)</div>',
-                unsafe_allow_html=True,
-            )
-            continue
-        col.markdown("".join(_index_line(d) for d in items), unsafe_allow_html=True)
-        col.altair_chart(candle_chart(items), use_container_width=False)
-    st.caption("Daily candles, last 5 trading days · source: Yahoo Finance (cached 15 min)")
+        with col.container(border=True, key=f"mkt_{region}"):
+            st.markdown(f'<div class="sub-t">{label}</div>', unsafe_allow_html=True)
+            if not items:
+                st.markdown(
+                    f'<div class="na">{label} data: {NA} (Yahoo Finance unreachable)</div>',
+                    unsafe_allow_html=True,
+                )
+                continue
+            inner = st.columns(len(items))
+            for ic, d in zip(inner, items, strict=True):
+                with ic:
+                    _index_card(d)
+    st.caption("Daily closes, last 5 trading days · source: Yahoo Finance (cached 15 min)")
 
 
 @st.cache_data(ttl=3600, show_spinner=False)

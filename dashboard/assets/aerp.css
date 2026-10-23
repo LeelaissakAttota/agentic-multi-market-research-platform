@@ -201,3 +201,9 @@ section[data-testid="stSidebar"]{min-width:262px!important;max-width:262px!impor
 [class*="st-key-obj_"] div:has(>button),[class*="st-key-obj_"] [data-testid="stButton"]{width:auto!important;display:flex;justify-content:center;}
 [class*="st-key-obj_"] button{width:auto!important;min-width:120px!important;padding:.35rem 1.8rem!important;border-radius:8px!important;}
 .objc{min-height:118px;}
+/* market overview: outer region boxes + inner index cards */
+[class*="st-key-mkt_"]{background:#011733!important;border:1px solid #0D2B55!important;border-radius:12px!important;padding:.7rem!important;}
+[class*="st-key-idx_"]{background:#001632!important;border:1px solid #123A6E!important;border-radius:10px!important;padding:.55rem .6rem .2rem!important;}
+.idx-h{display:flex;flex-direction:column;gap:.1rem;margin-bottom:.2rem;}
+.idx-h b{color:#fff;font-size:.92rem;} .idx-h span{color:#fff;font-weight:700;font-size:.92rem;}
+.idx-h small{color:#8FA3C7;font-weight:400;}
