@@ -4,41 +4,63 @@
 ![Python](https://img.shields.io/badge/python-3.12%20%7C%203.13-blue)
 ![License](https://img.shields.io/badge/license-MIT-green)
 
-**AMRP (formerly the Agentic Equity Research Platform, AERP) is an evidence-first research platform for Indian (NSE/BSE) and US (NASDAQ/NYSE) equities, with dashboard pages for commodities, forex and crypto: it resolves a company, plans bounded research, gathers time-aware evidence, verifies claims, and produces traceable JSON / Markdown / Word reports — with free-first LLM use (paid models only by explicit opt-in) and zero-cost defaults.**
+**AMRP — Agentic Multi-Market Research Platform** is an evidence-first, agentic research assistant for **Indian (NSE/BSE) and US (NASDAQ/NYSE) equities**, with live dashboard pages for **commodities, forex and crypto**. It resolves a company, plans bounded research, gathers time-aware evidence, verifies claims and produces traceable JSON / Markdown / Word reports. LLM use is **free-model-first** via OpenRouter (paid models only by explicit opt-in) and every default is zero-cost.
+
+> Formerly the Agentic Equity Research Platform (AERP). The Python package is still `financial_intelligence` for compatibility.
+
+## Highlights
+
+| Feature | What it does |
+|---|---|
+| **Research** | One box: type a company and a question. Company and research objective are detected automatically; suggested companies (US and India top trending) are one click away. Results: analyst summary, key figures, news, regulatory items and a Markdown/Word download, each claim tagged with its evidence (`[M1]` market, `[F1]` financial, `[N1]` news, `[R1]` regulatory). |
+| **Comprehensive Research** | Five specialist agents (Market, Financial, News, Industry, Regulatory) run in parallel after explicit approval, with live per-agent status (Waiting for Start → Queued → Running → Done). |
+| **Workflow Approvals / step mode** | Human-in-the-loop control: in step-by-step mode every stage (plan, research, verify, report) pauses for Approve / Reject; rejected or failed steps can be retried, with a live log. |
+| **Commodity, Forex, Crypto markets** | Live prices (Yahoo Finance, no key), INR conversion, related news, **day-wise and week-wise session charts** marking whether the high/low formed in the Asia, London or New York session (times in IST), and **Analyze with AI** for a cited free-model summary. |
+| **Free-model-first LLM routing** | Discovers and ranks OpenRouter `:free` models, falls back automatically; paid models only when you opt in (`MODEL_POLICY.md`). |
+| **Settings** | Guided provider setup (OpenRouter, OpenAI, Anthropic, Gemini, Groq, custom OpenAI-compatible) with key auto-detection, Test connection and write-only Save; optional Alpha Vantage / Finnhub keys, SEC user agent and live-data toggles. |
+| **Provider Health** | Version, per-source health (last success/failure) and recent runs. |
+
+## Screenshots
+
+| Research | Comprehensive Research (5 agents) |
+|---|---|
+| ![Research page](docs/images/research.png) | ![Comprehensive research](docs/images/comprehensive.png) |
+| **Workflow Approvals (step mode)** | **Commodity market** |
+| ![Workflow approvals](docs/images/approvals.png) | ![Commodity market](docs/images/commodity.png) |
+| **Forex market** | **Crypto market** |
+| ![Forex market](docs/images/forex.png) | ![Crypto market](docs/images/crypto.png) |
+| **Settings** | |
+| ![Settings](docs/images/settings.png) | |
 
 ## Quick start
 
 ```bash
 python -m pip install -r requirements-lock.txt && python -m pip install -e . --no-deps
-python -m pytest
-python -m uvicorn financial_intelligence.main:app --reload   # then open http://127.0.0.1:8000/docs
+cp .env.example .env            # add OPENROUTER_API_KEY (free models); everything else is optional
+python -m uvicorn financial_intelligence.main:app --reload   # REST API: http://127.0.0.1:8000/docs
 ```
 
-## Dashboard (simple web UI)
-
-A small dashboard sits on top of the existing REST and control APIs (no backend rewrite).
+Dashboard (Windows, from the repo root):
 
 ```powershell
-# Windows, from the repo root (installs the dashboard requirement once)
-.\scripts\start-dashboard.ps1        # opens http://127.0.0.1:8501 ; Ctrl+C stops everything
+.\scripts\start-dashboard.ps1        # opens http://127.0.0.1:8501
 ```
 
-It starts the REST API (`:8000`), the control API (`:8712`, random per-session token, no
-password to type) and the dashboard (`:8501`), all on `127.0.0.1`. Logs go to `logs/`.
+It starts the REST API (`:8000`), the control API (`:8712`, random per-session token) and the Streamlit dashboard (`:8501`), all bound to `127.0.0.1`. Logs go to `logs/`. Every dashboard section carries a badge: **LIVE**, **LIVE (cached)**, **SAMPLE DATA** or **NOT AVAILABLE**.
 
-| Page | What you get |
-|---|---|
-| **Research** | One box: type a company and a question. The company and the research objective are detected automatically; results appear on their own: analyst summary, key figures, news, regulatory items, Markdown download. Example chips: Apple, Reliance, TCS, Tata Motors demerger, Comprehensive research. Several matching companies (e.g. after the Tata Motors demerger) are shown as buttons to pick. |
-| Approval | Comprehensive research shows an **Approval needed** banner with Approve / Reject; nothing runs until you approve. |
-| **Step-by-step** | Every research step waits for Approve / Reject, failed or rejected steps can be retried, with a live log (control API). |
-| **Settings** | Guided provider setup (OpenRouter, OpenAI, Anthropic, Gemini, Groq, custom OpenAI-compatible): the fields each needs, **Test connection**, **Save** (write-only, only the last 4 characters are shown). Automatic model choice preview (free first; shows why). Live-data toggles (applied on next start). |
-| **Health** | Version, provider health and recent research runs. |
+## Tests and quality gates
 
-Every section carries a badge: **LIVE**, **LIVE (cached)**, **SAMPLE DATA** or **NOT AVAILABLE**.
+```bash
+python -m pytest                 # unit, contract, integration and evaluation suites
+python -m ruff check . && python -m ruff format --check .
+python -m mypy src
+```
 
-Notes: research summaries still use **free OpenRouter models only** (`ALLOW_PAID_MODELS=false`,
-see `MODEL_POLICY.md`); keys for the other providers are stored for later use. The UI helpers live
-in `src/financial_intelligence/dashboard/` (stdlib only, tested); the UI itself is `dashboard/app.py`.
+The Docker image drift test is skipped automatically when no Docker daemon is available; CI runs it. See [TESTING_STRATEGY.md](TESTING_STRATEGY.md).
+
+## Architecture
+
+See [ARCHITECTURE.md](ARCHITECTURE.md) for layers and boundaries, [EVIDENCE_MODEL.md](EVIDENCE_MODEL.md) for evidence and citations, [DATA_SOURCES.md](DATA_SOURCES.md) for providers and [MODEL_POLICY.md](MODEL_POLICY.md) for model selection. The UI helpers live in `src/financial_intelligence/dashboard/` (tested); the Streamlit UI is `dashboard/app.py`.
 
 ## Live vs sample data
 
