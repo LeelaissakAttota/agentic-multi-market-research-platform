@@ -101,6 +101,56 @@ def connection_test_request(
     return f"{base}/models", {"Authorization": f"Bearer {api_key}"}
 
 
+#: Key prefixes checked longest-first (sk-or- / sk-ant- before the generic sk-).
+_KEY_PREFIXES: tuple[tuple[str, str], ...] = (
+    ("sk-or-", "openrouter"),
+    ("sk-ant-", "anthropic"),
+    ("AIza", "gemini"),
+    ("gsk_", "groq"),
+    ("sk-", "openai"),
+)
+
+
+def detect_provider(api_key: str) -> ProviderSpec:
+    """Provider implied by the key format; ``custom`` (needs a base URL) when unknown."""
+
+    key = (api_key or "").strip()
+    for prefix, name in _KEY_PREFIXES:
+        if key.startswith(prefix):
+            return provider(name)
+    return provider("custom")
+
+
+def parse_model_ids(payload: Any) -> list[str]:
+    """Model ids from an OpenAI-style ``{"data": [...]}`` or Gemini ``{"models": [...]}`` list."""
+
+    if not isinstance(payload, dict):
+        return []
+    rows = payload.get("data")
+    if not isinstance(rows, list):
+        rows = payload.get("models")
+    if not isinstance(rows, list):
+        return []
+    ids = []
+    for row in rows:
+        if isinstance(row, dict):
+            mid = row.get("id") or str(row.get("name") or "").removeprefix("models/")
+            if mid:
+                ids.append(str(mid))
+    return sorted(set(ids))
+
+
+def models_request(
+    spec: ProviderSpec, api_key: str, base_url: str = ""
+) -> tuple[str, dict[str, str]]:
+    """(url, headers) for the provider's model list (OpenRouter's /key test is not a list)."""
+
+    url, headers = connection_test_request(spec, api_key, base_url)
+    if spec.key == "openrouter":
+        url = url.rsplit("/", 1)[0] + "/models"
+    return url, headers
+
+
 # ---- model selection -------------------------------------------------------
 
 #: Minimum context window per task (tokens). Reports cite many evidence rows.

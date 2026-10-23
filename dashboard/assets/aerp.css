@@ -184,3 +184,6 @@ section[data-testid="stSidebar"] [data-testid="stVerticalBlock"]{gap:.18rem!impo
 .st-key-herorow [data-testid="stTextInput"]>div>div,.st-key-herorow [data-testid="stTextInput"] div:has(>input){background:#E5F3FD!important;border-color:#C9DDF5!important;border-radius:8px!important;}
 section[data-testid="stSidebar"] [data-testid="stSidebarContent"]>div{padding-left:.6rem!important;padding-right:.6rem!important;} section[data-testid="stSidebar"] [data-testid="stSidebarUserContent"]{padding:.6rem .6rem!important;}
 section[data-testid="stSidebar"]{min-width:262px!important;max-width:262px!important;} [class*="st-key-nav_"] button p{white-space:nowrap!important;}
+/* v5 */
+.sub-t{font-size:.86rem;font-weight:700;color:#C9D4EA;margin:.45rem 0 .15rem;}
+.rr a:hover{text-decoration:underline!important;}

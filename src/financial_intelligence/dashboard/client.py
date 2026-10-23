@@ -88,6 +88,21 @@ def probe(url: str, headers: dict[str, str], timeout: float = 15.0) -> tuple[boo
         return False, f"cannot reach provider: {exc.reason}"
 
 
+def probe_json(url: str, headers: dict[str, str], timeout: float = 15.0) -> tuple[bool, str, Any]:
+    """Like :func:`probe` but also returns the decoded JSON body (``None`` on failure)."""
+
+    req = urllib.request.Request(url, headers={**headers, "Accept": "application/json"})
+    try:
+        with urllib.request.urlopen(req, timeout=timeout) as resp:
+            body = json.loads(resp.read().decode("utf-8") or "null")
+            return True, f"connected (HTTP {resp.status})", body
+    except urllib.error.HTTPError as exc:
+        hint = "key rejected" if exc.code in (401, 403) else "provider error"
+        return False, f"{hint} (HTTP {exc.code})", None
+    except (urllib.error.URLError, ValueError) as exc:
+        return False, f"cannot reach provider: {getattr(exc, 'reason', exc)}", None
+
+
 def resolve_company(api: JsonClient, candidates: tuple[str, ...]) -> dict[str, Any] | None:
     """First RESOLVED/AMBIGUOUS resolution among phrase candidates, else None."""
 

@@ -11,6 +11,7 @@ from __future__ import annotations
 import json
 import os
 import time
+from datetime import datetime, timedelta, timezone
 from typing import Any
 
 import altair as alt
@@ -19,8 +20,6 @@ import streamlit as st
 from theme import (  # type: ignore[import-not-found]  # dashboard/theme.py
     CSS,
     NAV_ICON_CSS,
-    SIDE_FOOT,
-    TOPBAR,
     asset_uri,
     esc,
     initials,
@@ -31,19 +30,24 @@ from theme import (  # type: ignore[import-not-found]  # dashboard/theme.py
     table,
 )
 
+from financial_intelligence.dashboard import market_live as ml
 from financial_intelligence.dashboard.client import (
     ApiError,
     JsonClient,
     candidate_choices,
     probe,
+    probe_json,
     resolve_company,
 )
-from financial_intelligence.dashboard.intent import EXAMPLE_PROMPTS, parse_intent
+from financial_intelligence.dashboard.intent import parse_intent
 from financial_intelligence.dashboard.prefs import LIVE_TOGGLES, load_prefs, save_prefs
 from financial_intelligence.dashboard.providers import (
     PROVIDERS,
     choose_model,
     connection_test_request,
+    detect_provider,
+    models_request,
+    parse_model_ids,
 )
 from financial_intelligence.dashboard.report_view import (
     badge_markdown,
@@ -53,7 +57,6 @@ from financial_intelligence.dashboard.report_view import (
 from financial_intelligence.dashboard.views import (
     OBJECTIVE_HINTS,
     OBJECTIVE_LABELS,
-    POPULAR_COMPANIES,
     REPORT_TABS,
     add_to_watchlist,
     close_series,
@@ -87,6 +90,7 @@ NA = "not available"
 
 st.set_page_config(page_title="AERP - Agentic Equity Research", page_icon="📈", layout="wide")
 ss = st.session_state
+IST = timezone(timedelta(hours=5, minutes=30))
 st.markdown(CSS, unsafe_allow_html=True)
 
 
@@ -314,27 +318,6 @@ def chips(names: list[tuple[str, str]], key: str, objective: str = "") -> None:
 
 
 # ---------------------------------------------------------------- layout pieces
-def topbar(key: str) -> None:
-    """Search box (runs research), Dark badge and the user avatar, like the reference."""
-
-    c1, c2 = st.columns([3, 1.2])
-    with c1, st.form(f"top_{key}", border=False):
-        q = st.text_input(
-            "Search",
-            placeholder="🔍  Search company (e.g. Reliance, TCS, AAPL)",
-            label_visibility="collapsed",
-        )
-        sent = st.form_submit_button("search", type="secondary")
-    c2.markdown(TOPBAR, unsafe_allow_html=True)
-    if sent and q.strip():
-        try:
-            start_research(q.strip())
-            go("Research Report" if "result" in ss else "Research")
-        except ApiError as exc:
-            ss.error = exc.message
-        st.rerun()
-
-
 def panel(title: str) -> Any:
     box = st.container(border=True)
     box.markdown(f'<div class="panel-t">{esc(title)}</div>', unsafe_allow_html=True)
@@ -352,9 +335,196 @@ def rr_list(rows: list[dict[str, str]], limit: int = 5) -> str:
     return "".join(out) or '<div class="na">No research yet.</div>'
 
 
+# ---------------------------------------------------------------- live market (Yahoo public)
+@st.cache_data(ttl=900, show_spinner=False)
+def live_indices() -> dict[str, list[ml.Daily]]:
+    return {
+        "US": [d for s, n in ml.US_INDICES if (d := ml.fetch_daily(s, n))],
+        "IN": [d for s, n in ml.IN_INDICES if (d := ml.fetch_daily(s, n))],
+    }
+
+
+@st.cache_data(ttl=900, show_spinner=False)
+def live_trending() -> dict[str, list[ml.Daily]]:
+    return {"US": ml.trending_us(5), "IN": ml.most_active_india(5)}
+
+
+@st.cache_data(ttl=900, show_spinner=False)
+def live_news(symbols: tuple[str, ...]) -> list[ml.NewsItem]:
+    return ml.news_one_per_company(list(symbols), 5)
+
+
+def _ist(iso: str) -> str:
+    try:
+        when = datetime.fromisoformat(iso).astimezone(IST)
+    except ValueError:
+        return iso or "?"
+    return when.strftime("%d %b %H:%M IST")
+
+
+def candle_chart(items: list[ml.Daily]) -> Any:
+    rows = [
+        {
+            "Index": d.name,
+            "Day": b.date[5:],
+            "Open": b.open,
+            "High": b.high,
+            "Low": b.low,
+            "Close": b.close,
+            "Up": b.close >= b.open,
+        }
+        for d in items
+        for b in d.bars
+    ]
+    base = alt.Chart(pd.DataFrame(rows)).encode(
+        x=alt.X("Day:O", title=None, axis=alt.Axis(labelAngle=0)),
+        color=alt.condition("datum.Up", alt.value("#22D3A0"), alt.value("#FF4D6A")),
+    )
+    y = alt.Y("Low:Q", title=None, scale=alt.Scale(zero=False), axis=alt.Axis(format="~s"))
+    chart = alt.layer(
+        base.mark_rule(strokeWidth=1.5).encode(y=y, y2="High:Q"),
+        base.mark_bar(size=16, cornerRadius=2).encode(
+            y=alt.Y("Open:Q"),
+            y2="Close:Q",
+            tooltip=["Index:N", "Day:O", "Open:Q", "High:Q", "Low:Q", "Close:Q"],
+        ),
+    ).properties(height=150, width=270)
+    return (
+        chart.facet(
+            column=alt.Column(
+                "Index:N",
+                sort=[d.name for d in items],
+                title=None,
+                header=alt.Header(labelColor="#C9D4EA", labelFontSize=12, labelFontWeight="bold"),
+            )
+        )
+        .resolve_scale(y="independent")
+        .configure_view(strokeWidth=0)
+        .configure(background="transparent")
+        .configure_axis(
+            labelColor="#9FB2D6",
+            gridColor="#0D2B55",
+            domainColor="#0D2B55",
+            tickColor="#0D2B55",
+            labelFontSize=10,
+        )
+    )
+
+
+def _index_line(d: ml.Daily) -> str:
+    chg = d.change
+    tone = "s-green" if (chg or 0) >= 0 else "s-red"
+    pct = f'<span class="{tone}">{chg:+.2%}</span>' if chg is not None else ""
+    return (
+        f'<div class="kf"><span>{esc(d.name)}</span><b>{d.bars[-1].close:,.2f} {pct} '
+        f'<small style="color:#8FA3C7">5d</small></b></div>'
+    )
+
+
+def market_overview() -> None:
+    data = live_indices()
+    stamp = max((d.as_of for v in data.values() for d in v), default="")
+    st.markdown(
+        '<div class="panel-t">Market Overview '
+        + (
+            pill("LIVE", "green") + f' <small style="color:#8FA3C7">as of {_ist(stamp)}</small>'
+            if stamp
+            else pill("NOT AVAILABLE", "gray")
+        )
+        + "</div>",
+        unsafe_allow_html=True,
+    )
+    cols = st.columns(2)
+    for col, (region, label) in zip(
+        cols, (("US", "US market"), ("IN", "Indian market")), strict=True
+    ):
+        items = data.get(region) or []
+        col.markdown(f'<div class="sub-t">{label}</div>', unsafe_allow_html=True)
+        if not items:
+            col.markdown(
+                f'<div class="na">{label} data: {NA} (Yahoo Finance unreachable)</div>',
+                unsafe_allow_html=True,
+            )
+            continue
+        col.markdown("".join(_index_line(d) for d in items), unsafe_allow_html=True)
+        col.altair_chart(candle_chart(items), use_container_width=False)
+    st.caption("Daily candles, last 5 trading days · source: Yahoo Finance (cached 15 min)")
+
+
+@st.cache_data(ttl=3600, show_spinner=False)
+def watch_ticker(name: str) -> str:
+    """Ticker for a watchlist name via the backend resolver ('' when unresolved)."""
+
+    res = safe(API.get, "/companies/resolve", q=name, default={}) or {}
+    comp = res.get("company") or {}
+    for x in res.get("listings") or comp.get("listings") or []:
+        if isinstance(x, dict) and x.get("ticker"):
+            return str(x["ticker"])
+    return ""
+
+
+def top_news() -> None:
+    watch = [watch_ticker(n) for n in load_watchlist()]
+    trend = live_trending()
+    symbols = tuple(
+        s for s in [*watch, *(d.symbol for d in trend.get("US", [])), *ml.NEWS_FALLBACK] if s
+    )
+    items = live_news(symbols)
+    body = (
+        "".join(
+            f'<div class="rr"><div class="n"><b><a href="{esc(n.link)}" target="_blank" '
+            f'style="color:#fff;text-decoration:none">{esc(n.title)}</a></b>'
+            f"<small>{esc(n.symbol)} · {esc(n.source)} · {_ist(n.published)}</small></div></div>"
+            for n in items
+        )
+        or f'<div class="na">News: {NA} (news feed unreachable)</div>'
+    )
+    st.markdown(
+        '<div class="panel-t">Top News '
+        + (pill("LIVE", "green") if items else "")
+        + "</div>"
+        + body,
+        unsafe_allow_html=True,
+    )
+
+
+def suggested_companies(obj: str) -> None:
+    trend = live_trending()
+    st.markdown('<div class="panel-t">Suggested Companies</div>', unsafe_allow_html=True)
+    for region, title, note in (
+        ("US", "US &ndash; Top trending", "Yahoo Finance trending tickers"),
+        ("IN", "India &ndash; Top trending", "most active by traded value among NIFTY large caps"),
+    ):
+        st.markdown(
+            f'<div class="sub-t">{title} {pill("LIVE", "green") if trend.get(region) else ""}'
+            f'</div><div style="font-size:.72rem;color:#8FA3C7;margin-bottom:.2rem">{note}</div>',
+            unsafe_allow_html=True,
+        )
+        items = trend.get(region) or []
+        if not items:
+            st.markdown(f'<div class="na">{NA}</div>', unsafe_allow_html=True)
+        for d in items:
+            chg = d.change
+            tone = "s-green" if (chg or 0) >= 0 else "s-red"
+            pct = f'<span class="{tone}">{chg:+.2%}</span>' if chg is not None else ""
+            c1, c2 = st.columns([4, 1])
+            c1.markdown(
+                f'<div class="co" style="border:none"><div class="lg">{initials(d.name)}</div>'
+                f'<div class="n"><b>{esc(d.name)}</b><small>{esc(d.symbol)} · {d.currency} '
+                f"{d.bars[-1].close:,.2f} {pct}</small></div></div>",
+                unsafe_allow_html=True,
+            )
+            if c2.button("View", key=f"sug_{region}_{d.symbol}"):
+                try:
+                    start_research(d.symbol, objective=obj)
+                    go("Research Report" if "result" in ss else "Research")
+                except ApiError as exc:
+                    ss.error = exc.message
+                st.rerun()
+
+
 # ---------------------------------------------------------------- pages
 def home_page() -> None:
-    topbar("home")
     globe = asset_uri("hero-globe.png")
     img = f'<img src="{globe}" alt="">' if globe else ""
     st.markdown(
@@ -365,19 +535,6 @@ def home_page() -> None:
     )
     with st.container(key="herorow"):
         search_box("home")
-        c0, *cols = st.columns([1.1, 1, 1, 1, 1, 1, 3])
-        c0.markdown(
-            '<div style="padding-top:.35rem;font-size:.8rem;color:#C9D4EA">Popular searches:</div>',
-            unsafe_allow_html=True,
-        )
-        for col, (label, prompt) in zip(cols, EXAMPLE_PROMPTS, strict=False):
-            if col.button(label, key=f"homechip_{label}"):
-                try:
-                    start_research(prompt)
-                    go("Research Report" if "result" in ss else "Research")
-                except ApiError as exc:
-                    ss.error = exc.message
-                st.rerun()
     flash()
     wfs = all_workflows()
     stats = workflow_stats(wfs)
@@ -399,83 +556,24 @@ def home_page() -> None:
         unsafe_allow_html=True,
     )
     st.write("")
-    left, mid, right = st.columns([1.1, 1.2, 1.2])
-    with left.container(border=True):
-        st.markdown(
-            '<div class="panel-t">Market Overview '
-            + pill("NSE", "blue")
-            + " "
-            + pill("BSE", "green")
-            + " "
-            + pill("US", "gray")
-            + "</div>",
-            unsafe_allow_html=True,
-        )
-        st.markdown(
-            '<div class="na">Index levels (NIFTY 50, SENSEX, USD/INR): not available '
-            "— no index provider in the backend.</div>",
-            unsafe_allow_html=True,
-        )
-        for name in ("Apple", "Reliance"):
-            snap = safe(API.get, "/market/snapshot", q=name, default=None)
-            price, cur, origin = latest_close(snap)
-            series = close_series(snap)
-            if price is None:
-                st.markdown(
-                    f'<div class="kf"><span>{name}</span><b>{NA}</b></div>', unsafe_allow_html=True
-                )
-                continue
-            first = series[0][1] if series else price
-            chg = (price - first) / first if first else 0.0
-            tone = "s-green" if chg >= 0 else "s-red"
-            st.markdown(
-                f'<div class="kf"><span>{name}</span><b>{cur} {price:,.2f} '
-                f'<span class="{tone}">{chg:+.2%}</span> {origin_pill(origin)}</b></div>',
-                unsafe_allow_html=True,
-            )
-            if series:
-                st.line_chart({"close": [v for _, v in series]}, height=70, color="#22D3A0")
+    with st.container(border=True):
+        market_overview()
+    mid, right = st.columns([1, 1.25])
     with mid.container(border=True):
         st.markdown(
             '<div class="panel-t">Recent Research</div>' + rr_list(workflow_rows(wfs)),
             unsafe_allow_html=True,
         )
     with right.container(border=True):
-        name = (wfs and workflow_rows(wfs)[0]["Company"]) or "Apple"
-        news = safe(API.get, "/news/events/snapshot", q=name, default=None) or {}
-        events = (news.get("package") or {}).get("events") or []
-        body = (
-            "".join(
-                f'<div class="rr"><div class="n"><b>{esc(ev.get("title"))}</b><small>'
-                f"{esc(ev.get('event_date'))}</small></div></div>"
-                for ev in events[:5]
-            )
-            or f'<div class="na">News for {esc(name)}: {NA}</div>'
-        )
-        st.markdown(
-            f'<div class="panel-t">Top News · {esc(name)} {origin_pill(news.get("data_origin"))}'
-            f"</div>{body}",
-            unsafe_allow_html=True,
-        )
+        top_news()
 
 
 def research_page() -> None:
-    topbar("research")
     main, side = st.columns([2.2, 1])
     obj = ss.get("objective_pick", "")
     with main:
         st.markdown("#### Start New Research")
         search_box("research", "Search", objective=obj)
-        st.markdown("#### Popular Companies")
-        cols = st.columns([1, 1, 1, 1, 1.2, 2])
-        for col, n in zip(cols, POPULAR_COMPANIES, strict=False):
-            if col.button(n, key=f"popco_{n}"):
-                try:
-                    start_research(n, objective=obj)
-                    go("Research Report" if "result" in ss else "Research")
-                except ApiError as exc:
-                    ss.error = exc.message
-                st.rerun()
         st.markdown("#### Research Objective")
         keys = list(OBJECTIVE_LABELS)
         icons = ["🏢", "📈", "📊", "📰", "🏭", "⚖️", "🧠"]
@@ -539,32 +637,7 @@ def research_page() -> None:
                 unsafe_allow_html=True,
             )
     with side.container(border=True):
-        st.markdown('<div class="panel-t">Suggested Companies</div>', unsafe_allow_html=True)
-        for n in POPULAR_COMPANIES[:4]:
-            res = safe(API.get, "/companies/resolve", q=n, default={}) or {}
-            if res.get("status") != "RESOLVED":
-                continue
-            comp = res.get("company") or {}
-            listings = res.get("listings") or comp.get("listings") or []
-            tick = next(
-                (
-                    f"{x.get('ticker')} · {x.get('exchange')}"
-                    for x in listings
-                    if isinstance(x, dict) and x.get("ticker")
-                ),
-                "",
-            )
-            name = str(comp.get("display_name") or n)
-            c1, c2 = st.columns([4, 1])
-            c1.markdown(
-                f'<div class="co" style="border:none"><div class="lg">{initials(name)}</div>'
-                f'<div class="n"><b>{esc(name)}</b><small>{esc(tick)}</small></div></div>',
-                unsafe_allow_html=True,
-            )
-            if c2.button("View", key=f"sug_{n}"):
-                start_research(n, objective=obj)
-                go("Research Report" if "result" in ss else "Research")
-                st.rerun()
+        suggested_companies(obj)
 
 
 def tracker(workflow: dict[str, Any] | None) -> None:
@@ -580,7 +653,6 @@ def tracker(workflow: dict[str, Any] | None) -> None:
 
 
 def approvals_page() -> None:
-    topbar("approvals")
     st.markdown("#### Pending Approvals")
     st.caption("Review and approve research workflows before execution.")
     flash()
@@ -711,7 +783,6 @@ def _items(rows: list[dict[str, Any]]) -> None:
 
 
 def report_page() -> None:
-    topbar("report")
     reports: dict[str, Any] = ss.get("reports", {})
     if not reports:
         st.markdown("#### Research Report")
@@ -860,7 +931,6 @@ def report_page() -> None:
 
 
 def reports_page() -> None:
-    topbar("reports")
     st.markdown("#### Research Reports")
     st.caption("Search, filter and export your research reports.")
     flash()
@@ -927,7 +997,6 @@ def reports_page() -> None:
 
 
 def watchlist_page() -> None:
-    topbar("watchlist")
     h1, h2 = st.columns([3, 2])
     h1.markdown("#### My Watchlist")
     h1.caption(
@@ -991,7 +1060,6 @@ def watchlist_page() -> None:
 
 
 def health_page() -> None:
-    topbar("health")
     st.markdown("#### Provider Health")
     st.caption(
         "Status from /health/providers. Latency is measured by the dashboard for local "
@@ -1068,13 +1136,22 @@ def steps_mode() -> None:
         st.error(f"Control API not reachable ({exc.message}).")
         return
     with st.form("steprun"):
-        q = st.text_input("Company", value="Reliance")
+        q = st.text_input(
+            "Company",
+            value="",
+            placeholder="Company name or ticker, e.g. RELIANCE.NS or AAPL",
+            help="Type any company name, or a ticker such as RELIANCE.NS, TCS.NS or AAPL.",
+        )
         objective = st.selectbox(
             "What to research", list(OBJECTIVE_LABELS), index=6, format_func=objective_label
         )
         start = st.form_submit_button("▶️ Start step-by-step run", type="primary")
     try:
+        if start and not q.strip():
+            st.warning("Enter a company name or ticker first.")
+            start = False
         if start:
+            q = q.strip()
             CONTROL.put(
                 "/control/settings", {"approval_mode": True, "auto_approve_low_risk": False}
             )
@@ -1128,7 +1205,6 @@ def steps_mode() -> None:
 
 
 def settings_page() -> None:
-    topbar("settings")
     st.markdown("#### Settings")
     st.caption("Configure providers, models, security and preferences.")
     t1, t2, t3, t4 = st.tabs(["Providers", "Model Settings", "Security", "Preferences"])
@@ -1161,31 +1237,61 @@ def settings_page() -> None:
             ),
             unsafe_allow_html=True,
         )
-        spec = st.selectbox("Provider", PROVIDERS, format_func=lambda p: p.label)
+        st.markdown("**Add an API key** - paste any key; the provider is detected from its format.")
+        key = st.text_input(
+            "API key",
+            type="password",
+            key="k_any",
+            placeholder="sk-or-… / sk-ant-… / AIza… / gsk_… / sk-… or any custom key",
+        ).strip()
+        detected = detect_provider(key) if key else None
+        names = [p.key for p in PROVIDERS]
+        spec = st.selectbox(
+            "Provider (auto-detected, change if wrong)",
+            PROVIDERS,
+            index=names.index(detected.key) if detected else 0,
+            format_func=lambda p: p.label,
+            key=f"prov_{detected.key if detected else 'none'}",
+        )
+        if detected:
+            st.markdown(
+                pill(f"Detected: {detected.label}", "blue")
+                + ("" if detected.key != "custom" else " " + pill("Enter base URL", "amber")),
+                unsafe_allow_html=True,
+            )
         if spec.signup_url:
-            st.caption(f"1. Get a key at {spec.signup_url}  2. Paste it below  3. Test  4. Save")
+            st.caption(f"Get a key at {spec.signup_url}")
         if not spec.used_by_backend:
             st.info(
                 "Saved for later. Research summaries currently use OpenRouter free "
                 "models only (project cost policy)."
             )
-        base_url = (
-            st.text_input("Base URL", placeholder="https://your-server/v1")
-            if spec.needs_base_url
-            else ""
-        )
-        key = st.text_input(f"API key ({spec.key_hint})", type="password", key=f"k_{spec.key}")
+        base_url = st.text_input(
+            "Base URL",
+            value=spec.base_url,
+            key=f"bu_{spec.key}",
+            placeholder="https://your-server/v1 (models are loaded from <base>/models)",
+            disabled=not spec.needs_base_url,
+        ).strip()
+        mkey = f"models_{spec.key}"
         c1, c2 = st.columns(2)
-        if c1.button("🔌 Test connection", disabled=not key):
+        if c1.button("🔌 Test & load models", disabled=not key):
             try:
-                ok, msg = probe(*connection_test_request(spec, key.strip(), base_url))
+                ok, msg = probe(*connection_test_request(spec, key, base_url))
+                ids: list[str] = []
+                if ok:
+                    _, _, body = probe_json(*models_request(spec, key, base_url))
+                    ids = parse_model_ids(body)
+                ss[mkey] = ids
+                (st.success if ok else st.error)(f"{msg} · {len(ids)} models found" if ok else msg)
             except ValueError as exc:
-                ok, msg = False, str(exc)
-            (st.success if ok else st.error)(msg)
+                st.error(str(exc))
+        if ss.get(mkey):
+            st.selectbox("Models available with this key", ss[mkey], key=f"pick_{spec.key}")
         if c2.button("💾 Save", type="primary", disabled=not key):
             try:
-                saved = CONTROL.put(f"/control/keys/{spec.key_name}", {"value": key.strip()})
-                st.success(f"Saved {saved['masked']} - used from the next research run.")
+                saved = CONTROL.put(f"/control/keys/{spec.key_name}", {"value": key})
+                st.success(f"Saved {saved['masked']} as {spec.label}.")
             except ApiError as exc:
                 st.error(exc.message)
     with t2:
@@ -1259,6 +1365,5 @@ with st.sidebar:
         ):
             ss.nav = name
             st.rerun()
-    st.markdown(SIDE_FOOT, unsafe_allow_html=True)
 
 PAGES[ss.nav][1]()
