@@ -219,6 +219,18 @@ class DockerBuildDependencyDriftTests(TestCase):
             self.skipTest("docker CLI not available in this environment")
 
         try:
+            info_result = subprocess.run(
+                ["docker", "info"],
+                capture_output=True,
+                text=True,
+                timeout=30,
+            )
+        except (OSError, subprocess.TimeoutExpired) as exc:
+            self.skipTest(f"Docker daemon unavailable/unresponsive: {exc}")
+        if info_result.returncode != 0:
+            self.skipTest("Docker daemon is not running in this environment")
+
+        try:
             build_result = subprocess.run(
                 ["docker", "build", "-t", self._IMAGE_TAG, "."],
                 cwd=REPO_ROOT,
@@ -230,7 +242,8 @@ class DockerBuildDependencyDriftTests(TestCase):
             self.skipTest(f"docker build unavailable/unresponsive: {exc}")
 
         if build_result.returncode != 0:
-            if "Cannot connect" in (build_result.stderr or ""):
+            stderr = (build_result.stderr or "").lower()
+            if "cannot connect" in stderr or "failed to connect to the docker api" in stderr:
                 self.skipTest("Docker engine not running in this environment")
             self.fail(f"docker build failed:\n{build_result.stderr}")
 
