@@ -164,3 +164,17 @@ def test_analyze_endpoint_validates_and_requires_token() -> None:
     bad = {**body, "evidence": [{"tag": "Z9", "text": "x"}]}
     assert c.post("/control/analyze", json=bad, headers=h).status_code == 422
     assert len(seen) == 1
+
+
+def test_final_answer_drops_leaked_reasoning() -> None:
+    from financial_intelligence.control.analysis import final_answer
+
+    raw = (
+        "Let me analyze the evidence:\nKey points:\n- draft without tag\n"
+        "- Rose 0.1% [P1]\n- RBI bought dollars [N1]\nBias: bullish (low confidence)"
+    )
+    assert (
+        final_answer(raw)
+        == "- Rose 0.1% [P1]\n- RBI bought dollars [N1]\nBias: bullish (low confidence)"
+    )
+    assert final_answer("plain answer [P1]") == "plain answer [P1]"
