@@ -1719,9 +1719,13 @@ def commodity_news(name: str, india: bool) -> list[ml.NewsItem]:
 def commodity_page() -> None:
     st.markdown("#### Commodity Market")
     st.caption("Live futures prices, a 1-month graph and the latest related news.")
-    c1, c2 = st.columns([1, 1.7])
-    market = c1.radio("Market", cm.MARKETS, horizontal=True, key="cm_market")
-    name = c2.radio("Commodity", list(cm.COMMODITIES), horizontal=True, key="cm_name")
+    # Keyed container -> CSS class ``st-key-cm_selectors`` so the compact pill
+    # sizing below applies only here and keeps all five commodities (incl.
+    # Copper) on one line at laptop widths down to ~1100px.
+    with st.container(key="cm_selectors"):
+        c1, c2 = st.columns([1, 1.75], gap="small")
+        market = c1.radio("Market", cm.MARKETS, horizontal=True, key="cm_market")
+        name = c2.radio("Commodity", list(cm.COMMODITIES), horizontal=True, key="cm_name")
     india = market.startswith("India")
     com = cm.COMMODITIES[name]
     with st.spinner("Loading live prices…"):

@@ -260,3 +260,9 @@ table.hl td{padding:4px 6px;border-bottom:1px solid #131C30;}
 .st-key-fx_ai,.st-key-cr_ai{min-height:284px;}
 /* Settings: provider table closed box, space before 'Add an API key' */
 .st-key-prov_table{padding:.4rem .6rem!important;} .sec-gap{height:1.1rem;}
+
+/* Commodity selectors: compact pills so all options fit on one line (>=1100px). */
+.st-key-cm_selectors [data-testid="stRadioGroup"]{flex-wrap:nowrap!important;gap:.3rem!important;}
+.st-key-cm_selectors [data-testid="stRadioOption"]{padding:.3rem .55rem!important;flex:0 1 auto;min-width:0;}
+.st-key-cm_selectors [data-testid="stRadioOption"] p{font-size:.84rem!important;}
+@media (max-width:1180px){.st-key-cm_selectors [data-testid="stRadioOption"]{padding:.26rem .42rem!important;}.st-key-cm_selectors [data-testid="stRadioOption"] p{font-size:.78rem!important;}}
