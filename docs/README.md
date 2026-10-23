@@ -1,4 +1,6 @@
-# Documentation Index
+# AMRP Documentation Index
+
+AMRP — Agentic Multi-Market Research Platform (formerly AERP). Equity research plus commodity, forex and crypto market pages; see ADR-060.
 
 - `architecture/` — preserved target diagrams and focused architecture notes
 - `decisions/` — future individual ADRs or supporting decision records

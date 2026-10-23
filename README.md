@@ -1,10 +1,10 @@
-# Agentic Financial Intelligence & Equity Research Platform
+# AMRP — Agentic Multi-Market Research Platform
 
 [![CI](https://github.com/LeelaissakAttota/agentic-equity-research-platform/actions/workflows/ci.yml/badge.svg)](https://github.com/LeelaissakAttota/agentic-equity-research-platform/actions/workflows/ci.yml)
 ![Python](https://img.shields.io/badge/python-3.12%20%7C%203.13-blue)
 ![License](https://img.shields.io/badge/license-MIT-green)
 
-**An evidence-first research API for Indian (NSE/BSE) and US (NASDAQ/NYSE) equities: it resolves a company, plans bounded research, gathers time-aware evidence, verifies claims, and produces traceable JSON / Markdown / Word reports — with free-model-only LLM use and zero-cost defaults.**
+**AMRP (formerly the Agentic Equity Research Platform, AERP) is an evidence-first research platform for Indian (NSE/BSE) and US (NASDAQ/NYSE) equities, with dashboard pages for commodities, forex and crypto: it resolves a company, plans bounded research, gathers time-aware evidence, verifies claims, and produces traceable JSON / Markdown / Word reports — with free-first LLM use (paid models only by explicit opt-in) and zero-cost defaults.**
 
 ## Quick start
 

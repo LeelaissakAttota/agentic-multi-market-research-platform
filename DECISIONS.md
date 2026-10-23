@@ -614,3 +614,21 @@ treated as free only if its id ends in `:free` (zero-priced ids are not trusted)
 **Consequences:** Users may incur provider charges after an explicit, warned
 opt-in. Switching back to "Automatic" clears the opt-in. The REST API process
 must be restarted to pick up a new choice; control runs reload preferences per run.
+
+## ADR-060 — Rename to AMRP (Agentic Multi-Market Research Platform)
+
+**Status:** Accepted (approved by the project owner, 2026-10-23).
+
+**Decision:** The product name becomes **AMRP — Agentic Multi-Market Research
+Platform** (formerly AERP, Agentic Equity Research). Scope now covers equities
+plus dashboard market pages for commodities, forex and crypto, each with
+session-aware (Asia/Tokyo, London, New York; UTC) day-wise and week-wise
+high/low charts and an optional evidence-tagged AI analysis that uses the
+configured model (free-first; paid only with ADR-059 opt-in). User-facing names
+(dashboard, README, pyproject description, docs) change. The Python package
+`financial_intelligence`, the GitHub repository and environment variable names
+(`AERP_*`) are intentionally unchanged; renaming them is a separate decision.
+
+**Consequences:** No import or API breakage. Non-equity pages are market
+dashboards (price, sessions, news, AI summary), not full verified research
+workflows.

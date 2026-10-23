@@ -1,4 +1,4 @@
-"""AERP dashboard v2: dark navy theme, sidebar navigation, real data only.
+"""AMRP dashboard v2: dark navy theme, sidebar navigation, real data only.
 
 Run:  streamlit run dashboard/app.py   (or .\\scripts\\start-dashboard.ps1 on Windows)
 Talks only to the local REST API (AERP_API_URL) and control API (AERP_CONTROL_URL).
@@ -32,6 +32,7 @@ from theme import (  # type: ignore[import-not-found]  # dashboard/theme.py
 
 from financial_intelligence.dashboard import commodity as cm
 from financial_intelligence.dashboard import market_live as ml
+from financial_intelligence.dashboard import markets as mk
 from financial_intelligence.dashboard.client import (
     ApiError,
     JsonClient,
@@ -103,7 +104,9 @@ CONTROL = JsonClient(
 )
 NA = "not available"
 
-st.set_page_config(page_title="AERP - Agentic Equity Research", page_icon="📈", layout="wide")
+st.set_page_config(
+    page_title="AMRP - Agentic Multi-Market Research Platform", page_icon="📈", layout="wide"
+)
 ss = st.session_state
 IST = timezone(timedelta(hours=5, minutes=30))
 st.markdown(CSS, unsafe_allow_html=True)
@@ -550,8 +553,9 @@ def home_page() -> None:
     globe = asset_uri("hero-globe.png")
     img = f'<img src="{globe}" alt="">' if globe else ""
     st.markdown(
-        f'<div class="hero">{img}<h1>Welcome to AERP</h1><h3>Your Agentic Equity Research '
-        "Platform</h3><p>Get evidence-backed research reports for Indian &amp; US equities."
+        f'<div class="hero">{img}<h1>Welcome to AMRP</h1><h3>Agentic Multi-Market Research '
+        "Platform</h3><p>Evidence-backed research for Indian &amp; US equities, commodities, "
+        "forex and crypto."
         "</p></div>",
         unsafe_allow_html=True,
     )
@@ -837,7 +841,7 @@ def report_page() -> None:
     dl.download_button(
         "⬇ Download Report",
         res["markdown"],
-        file_name=f"AERP-{view.company.replace(' ', '_')}.md",
+        file_name=f"AMRP-{view.company.replace(' ', '_')}.md",
         mime="text/markdown",
         type="primary",
         use_container_width=True,
@@ -1746,6 +1750,364 @@ def commodity_page() -> None:
             f'<div class="panel-t">Latest {esc(name)} news</div>{body}', unsafe_allow_html=True
         )
         st.caption("Yahoo Finance + Google News RSS" + (" (India edition)" if india else ""))
+    k = 1.0
+    if india:
+        rate = usd_inr_rate()
+        k = com.to_mcx_unit * rate if rate else 0.0
+    if k:
+        dbars, ex = session_charts(com.symbol, "cmx", k, 2)
+        unit = f"INR per {com.mcx_unit} (approx.)" if india else f"USD per {com.us_unit}"
+        ai_panel(
+            "commodity",
+            f"{name} ({'India' if india else 'US'})",
+            mk.build_evidence(name, unit, dbars, ex, items, 2),
+            "cmx",
+        )
+    else:
+        st.markdown(
+            f'<div class="na">Session charts: {NA} (USD/INR unavailable)</div>',
+            unsafe_allow_html=True,
+        )
+
+
+# ---------------------------------------------------------------- sessions + AI (v7)
+SESSION_COLORS = {"Asia/Tokyo": "#A78BFA", "London": "#38BDF8", "New York": "#F59E0B"}
+
+
+@st.cache_data(ttl=600, show_spinner=False)
+def intraday(symbol: str, range_: str, interval: str) -> list[mk.IBar]:
+    return mk.fetch_intraday(symbol, range_, interval)
+
+
+@st.cache_data(ttl=900, show_spinner=False)
+def instrument_news(kind: str, key: str) -> list[ml.NewsItem]:
+    return mk.news_for((mk.FOREX if kind == "fx" else mk.CRYPTO)[key])
+
+
+@st.cache_data(ttl=900, show_spinner=False)
+def usd_inr_rate() -> float | None:
+    return mk.usd_inr()
+
+
+def session_chart(bars: list[mk.IBar], height: int, fmt: str, week: bool) -> Any:
+    """Area chart with shaded Asia/London/New York bands and high/low markers per day."""
+
+    df = pd.DataFrame([{"t": b.ts.replace(tzinfo=None), "Close": b.close} for b in bars])
+    lo = min(b.low for b in bars)
+    hi = max(b.high for b in bars)
+    pad = (hi - lo) * 0.15 or hi * 0.002
+    t0, t1 = df.t.min(), df.t.max()
+    bands = []
+    for day in sorted({b.ts.date() for b in bars}):
+        base = datetime(day.year, day.month, day.day)
+        for name, a, z in mk.SESSIONS:
+            s0, s1 = max(base + timedelta(hours=a), t0), min(base + timedelta(hours=z), t1)
+            if s0 < s1:
+                bands.append({"s0": s0, "s1": s1, "Session": name})
+    marks = []
+    groups = [bars] if not week else list(mk.by_day(bars).values())
+    for g in groups:
+        e = mk.extremes(g)
+        if e:
+            marks.append(
+                {
+                    "t": e.high_ts.replace(tzinfo=None),
+                    "v": e.high,
+                    "k": "High",
+                    "lab": f"H {format(e.high, fmt)} · {e.high_session}",
+                }
+            )
+            marks.append(
+                {
+                    "t": e.low_ts.replace(tzinfo=None),
+                    "v": e.low,
+                    "k": "Low",
+                    "lab": f"L {format(e.low, fmt)} · {e.low_session}",
+                }
+            )
+    up = bars[-1].close >= bars[0].open
+    color = "#22D3A0" if up else "#FF4D6A"
+    x = alt.X(
+        "t:T",
+        title=None,
+        scale=alt.Scale(domain=[t0, t1]),
+        axis=alt.Axis(format="%d %b" if week else "%H:%M", labelAngle=0, tickCount=7),
+    )
+    y = alt.Y(
+        "Close:Q",
+        title=None,
+        scale=alt.Scale(domain=[lo - pad, hi + pad], nice=False),
+        axis=alt.Axis(format=fmt if hi < 100 else _axis_fmt(hi), tickCount=4),
+    )
+    band = (
+        alt.Chart(pd.DataFrame(bands))
+        .mark_rect(opacity=0.10)
+        .encode(
+            x="s0:T",
+            x2="s1:T",
+            color=alt.Color(
+                "Session:N",
+                scale=alt.Scale(domain=list(SESSION_COLORS), range=list(SESSION_COLORS.values())),
+                legend=alt.Legend(orient="top", title=None),
+            ),
+        )
+    )
+    grad = alt.Gradient(
+        gradient="linear",
+        stops=[
+            alt.GradientStop(color=color, offset=0),
+            alt.GradientStop(color="rgba(0,0,0,0)", offset=1),
+        ],
+        x1=1,
+        x2=1,
+        y1=0,
+        y2=1,
+    )
+    area = (
+        alt.Chart(df)
+        .encode(
+            x=x,
+            y=y,
+            tooltip=[
+                alt.Tooltip("t:T", format="%d %b %H:%M UTC"),
+                alt.Tooltip("Close:Q", format=fmt),
+            ],
+        )
+        .encode(y2=alt.datum(lo - pad))
+        .mark_area(
+            interpolate="monotone",
+            line={"color": color, "strokeWidth": 1.6},
+            color=grad,
+            opacity=0.5,
+        )
+    )
+    md = pd.DataFrame(marks)
+    pts = (
+        alt.Chart(md)
+        .mark_point(filled=True, size=46, opacity=1)
+        .encode(
+            x="t:T",
+            y="v:Q",
+            shape=alt.Shape(
+                "k:N",
+                scale=alt.Scale(domain=["High", "Low"], range=["triangle-up", "triangle-down"]),
+                legend=None,
+            ),
+            color=alt.Color(
+                "k:N",
+                scale=alt.Scale(domain=["High", "Low"], range=["#22D3A0", "#FF4D6A"]),
+                legend=None,
+            ),
+            tooltip=["lab:N"],
+        )
+    )
+    layers = [band, area, pts]
+    if not week:
+        layers.append(
+            alt.Chart(md)
+            .mark_text(dy=-10, fontSize=10, color="#E2E8F0")
+            .encode(x="t:T", y="v:Q", text="lab:N")
+        )
+    return _style(alt.layer(*layers).resolve_scale(color="independent")).properties(
+        height=height, padding={"left": 12, "right": 6, "top": 4, "bottom": 2}
+    )
+
+
+def extremes_table(ex: list[mk.Extreme], fmt: str) -> None:
+    rows = "".join(
+        f"<tr><td>{esc(e.day)}</td><td class='s-green'>{format(e.high, fmt)}</td>"
+        f"<td>{esc(e.high_session)}, {mk.ist(e.high_ts)}</td><td class='s-red'>"
+        f"{format(e.low, fmt)}</td><td>{esc(e.low_session)}, {mk.ist(e.low_ts)}</td></tr>"
+        for e in reversed(ex)
+    )
+    st.markdown(
+        "<table class='hl'><tr><th>Day (UTC)</th><th>High</th><th>Session, IST time</th>"
+        f"<th>Low</th><th>Session, IST time</th></tr>{rows}</table>",
+        unsafe_allow_html=True,
+    )
+
+
+def session_charts(
+    symbol: str, key: str, k: float = 1.0, decimals: int = 2
+) -> tuple[list[mk.IBar], list[mk.Extreme]]:
+    """Day-wise (15m) and week-wise (1h) charts + high/low session table. Returns evidence parts."""
+
+    fmt = f",.{decimals}f"
+    day = mk.scale(mk.last_day(intraday(symbol, "5d", "15m")), k)
+    week_bars = mk.scale(intraday(symbol, "1mo", "1h"), k)
+    days = mk.by_day(week_bars)
+    week_bars = [b for d in list(days)[-7:] for b in days[d]]
+    ex = mk.daily_extremes(week_bars, 7)
+    a, b = st.columns(2)
+    with a.container(border=True, key=f"{key}_day"):
+        st.markdown(
+            '<div class="panel-t">Day-wise · 15-min bars, last trading day (UTC)</div>',
+            unsafe_allow_html=True,
+        )
+        if len(day) > 2:
+            st.altair_chart(session_chart(day, 250, fmt, week=False), use_container_width=True)
+        else:
+            st.markdown(f'<div class="na">Intraday data: {NA}</div>', unsafe_allow_html=True)
+    with b.container(border=True, key=f"{key}_week"):
+        st.markdown(
+            '<div class="panel-t">Week-wise · hourly bars, last 7 days (UTC)</div>',
+            unsafe_allow_html=True,
+        )
+        if len(week_bars) > 2:
+            st.altair_chart(session_chart(week_bars, 250, fmt, week=True), use_container_width=True)
+        else:
+            st.markdown(f'<div class="na">Hourly data: {NA}</div>', unsafe_allow_html=True)
+    with st.container(border=True, key=f"{key}_hl"):
+        st.markdown('<div class="panel-t">Session high / low by day</div>', unsafe_allow_html=True)
+        if ex:
+            extremes_table(ex, fmt)
+        else:
+            st.markdown(f'<div class="na">Session high/low: {NA}</div>', unsafe_allow_html=True)
+        st.caption(
+            "Sessions (UTC): Asia/Tokyo 00-09 · London 07-16 · New York 12-21; overlaps "
+            "shown as 'London + New York'. 21-24 UTC = Off-session. Source: Yahoo Finance."
+        )
+    return day, ex
+
+
+def news_panel(items: list[ml.NewsItem], title: str) -> None:
+    body = (
+        "".join(
+            f'<div class="rr"><div class="n"><b><a href="{esc(n.link)}" target="_blank">'
+            f"{esc(n.title)}</a></b><small>{esc(n.source)} · {_ist(n.published)}</small>"
+            "</div></div>"
+            for n in items
+        )
+        or f'<div class="na">Related news: {NA}</div>'
+    )
+    st.markdown(f'<div class="panel-t">{esc(title)}</div>{body}', unsafe_allow_html=True)
+
+
+def ai_panel(market: str, name: str, evidence: list[dict[str, str]], key: str) -> None:
+    with st.container(border=True, key=f"{key}_ai"):
+        st.markdown('<div class="panel-t">AI analysis</div>', unsafe_allow_html=True)
+        st.caption(
+            f"Sends {len(evidence)} evidence items (prices + headlines) to your selected "
+            "model (Settings > Model; free model by default, paid only if you opted in)."
+        )
+        if st.button("✨ Analyze with AI", key=f"{key}_ai_btn", disabled=not evidence):
+            with st.spinner("Asking the model…"):
+                try:
+                    ss[f"{key}_ai_res"] = CONTROL.post(
+                        "/control/analyze",
+                        {"market": market, "instrument": name, "evidence": evidence},
+                    )
+                except Exception as exc:
+                    ss[f"{key}_ai_res"] = {"status": "not_available", "reason": str(exc)[:200]}
+        res = ss.get(f"{key}_ai_res")
+        if res and res.get("status") == "ok":
+            st.markdown(
+                f"{pill('AI', 'blue')} <small>model {esc(str(res.get('model')))} · cited "
+                f"{esc(', '.join(res.get('cited') or []) or 'none')}</small>",
+                unsafe_allow_html=True,
+            )
+            st.markdown(res.get("text", ""))
+            if res.get("unknown_tags"):
+                st.warning("Unverified tags in answer: " + ", ".join(res["unknown_tags"]))
+            with st.expander("Evidence sent"):
+                for e in evidence:
+                    link = f" [link]({e['url']})" if e.get("url") else ""
+                    st.markdown(f"**[{e['tag']}]** {e['text']} _({e['source']})_{link}")
+        elif res:
+            st.markdown(
+                f'<div class="na">AI analysis: {NA} ({esc(str(res.get("reason")))})</div>',
+                unsafe_allow_html=True,
+            )
+
+
+def instrument_header(
+    name: str, symbol: str, bars: list[mk.IBar], cur: str, unit: str, decimals: int
+) -> None:
+    if not bars:
+        st.markdown(
+            f'<div class="na">{esc(name)} price: {NA} (Yahoo Finance unreachable)</div>',
+            unsafe_allow_html=True,
+        )
+        return
+    last, first = bars[-1], bars[0]
+    chg = last.close / first.open - 1 if first.open else 0.0
+    tone = "s-green" if chg >= 0 else "s-red"
+    st.markdown(
+        f'<div class="cm-h"><div><b>{esc(name)}</b> {pill("LIVE", "green")} <small>'
+        f"{esc(symbol)} · as of {mk.ist(last.ts)}</small></div>"
+        f'<div class="cm-v">{cur}{last.close:,.{decimals}f} <small>{esc(unit)}</small></div>'
+        f'<div><span class="{tone}">{chg:+.2%} today</span> <small>(vs day open '
+        f"{first.open:,.{decimals}f})</small></div></div>",
+        unsafe_allow_html=True,
+    )
+
+
+def forex_page() -> None:
+    st.markdown("#### Forex Market")
+    st.caption("Live FX rates, session high/low charts, related news and AI analysis.")
+    pair = st.radio("Pair", list(mk.FOREX), horizontal=True, key="fx_pair")
+    inst = mk.FOREX[pair]
+    with st.spinner("Loading live rates…"):
+        day = mk.last_day(intraday(inst.symbol, "5d", "15m"))
+    left, right = st.columns([2.2, 1])
+    with left.container(border=True, key="fx_price"):
+        instrument_header(
+            pair,
+            inst.symbol,
+            day,
+            "",
+            pair.split("/")[1] + " per " + pair.split("/")[0],
+            inst.decimals,
+        )
+    with right.container(border=True, key="fx_news"):
+        news = instrument_news("fx", pair)
+        news_panel(news, f"Latest {pair} news")
+        st.caption("Yahoo Finance + Google News RSS")
+    dbars, ex = session_charts(inst.symbol, "fx", 1.0, inst.decimals)
+    ai_panel(
+        "forex",
+        pair,
+        mk.build_evidence(pair, pair.split("/")[1], dbars, ex, news, inst.decimals),
+        "fx",
+    )
+
+
+def crypto_page() -> None:
+    st.markdown("#### Crypto Market")
+    st.caption("Live crypto prices (24/7), session high/low charts, news and AI analysis.")
+    c1, c2 = st.columns([3, 1])
+    coin = c1.radio("Coin", list(mk.CRYPTO), horizontal=True, key="cr_coin")
+    cur = c2.radio("Currency", ("USD", "INR"), horizontal=True, key="cr_cur")
+    inst = mk.CRYPTO[coin]
+    k = 1.0
+    if cur == "INR":
+        rate = usd_inr_rate()
+        if rate is None:
+            st.markdown(
+                f'<div class="na">USD/INR rate: {NA}; showing USD.</div>', unsafe_allow_html=True
+            )
+            cur = "USD"
+        else:
+            k = rate
+    sym = "₹" if cur == "INR" else "$"
+    with st.spinner("Loading live prices…"):
+        day = mk.scale(mk.last_day(intraday(inst.symbol, "5d", "15m")), k)
+    left, right = st.columns([2.2, 1])
+    with left.container(border=True, key="cr_price"):
+        instrument_header(f"{inst.name} ({coin})", inst.symbol, day, sym, cur, inst.decimals)
+        if k != 1.0:
+            st.caption(f"INR = USD price x latest USD/INR close ({k:,.3f}, USDINR=X).")
+    with right.container(border=True, key="cr_news"):
+        news = instrument_news("crypto", coin)
+        news_panel(news, f"Latest {inst.name} news")
+        st.caption("Yahoo Finance + Google News RSS")
+    dbars, ex = session_charts(inst.symbol, "cr", k, inst.decimals)
+    ai_panel(
+        "crypto",
+        f"{coin} ({cur})",
+        mk.build_evidence(coin, cur, dbars, ex, news, inst.decimals),
+        "cr",
+    )
 
 
 # ---------------------------------------------------------------- shell
@@ -1757,8 +2119,10 @@ PAGES = {
     "Research Report": ("report", report_page),
     "Reports": ("reports", reports_page),
     "Watchlist": ("watchlist", watchlist_page),
-    "Provider Health": ("health", health_page),
     "Commodity Market": ("commodity", commodity_page),
+    "Forex Market": ("forex", forex_page),
+    "Crypto Market": ("crypto", crypto_page),
+    "Provider Health": ("health", health_page),
     "Settings": ("settings", settings_page),
 }
 ss.setdefault("nav", "Home")

@@ -1,4 +1,4 @@
-"""AERP v3 look: colours sampled from the reference design, plus small HTML components.
+"""AMRP v3 look: colours sampled from the reference design, plus small HTML components.
 
 Palette (sampled with PIL from the reference mock-up):
 page #001632, sidebar #000F21, card #011733 / border #0D2B55, active nav #00317F,
@@ -86,7 +86,7 @@ def initials(name: str) -> str:
 def logo_html() -> str:
     return (
         '<div class="logo"><div class="mk"><i style="height:11px"></i><i style="height:18px"></i>'
-        '<i style="height:26px"></i></div><div><b>AERP</b><small>Agentic Equity Research'
+        '<i style="height:26px"></i></div><div><b>AMRP</b><small>Agentic Multi-Market Research'
         "</small></div></div>"
     )
 
@@ -118,6 +118,11 @@ _NAV_SVG = {
         '<circle cx="19" cy="18" r="2.5"/><path d="M12 7.5v4M12 11.5L6.5 16M12 11.5l5.5 4.5"/>'
     ),
     "commodity": ('<path d="M4 20h16"/><path d="M6 20l2-7h8l2 7"/><path d="M9 13l1.5-5h3L15 13"/>'),
+    "forex": ('<path d="M4 7h13l-3-3"/><path d="M20 17H7l3 3"/>'),
+    "crypto": (
+        '<circle cx="12" cy="12" r="8"/><path d="M10 8h3a2 2 0 0 1 0 4h-3z'
+        'M10 12h3.5a2 2 0 0 1 0 4H10zM11 6v2M11 16v2"/>'
+    ),
     "settings": (
         '<circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3'
         'M4.9 4.9l2.1 2.1M17 17l2.1 2.1M4.9 19.1L7 17M17 7l2.1-2.1"/>'

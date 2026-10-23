@@ -1,6 +1,6 @@
 # Demo Playbook
 
-Two ways to demo the platform. Every response says where its data came from
+Two ways to demo AMRP (Agentic Multi-Market Research Platform). Every response says where its data came from
 (`data_origin`: `live`, `cached_live`, `fixture`), so the demo never passes a
 bundled sample off as live data.
 

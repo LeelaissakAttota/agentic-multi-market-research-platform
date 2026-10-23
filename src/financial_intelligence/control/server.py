@@ -20,6 +20,7 @@ def main() -> None:
         control.secrets,
         admin_token=admin_token_from_env(),
         title="equity-research",
+        analyzer=control.analyze_market,
     )
     uvicorn.run(app, host="127.0.0.1", port=args.port, log_level="warning", access_log=False)
 

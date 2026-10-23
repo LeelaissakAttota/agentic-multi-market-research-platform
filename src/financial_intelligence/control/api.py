@@ -5,7 +5,7 @@ from __future__ import annotations
 import hmac
 import json
 import time
-from collections.abc import Iterator
+from collections.abc import Callable, Iterator
 from typing import Any
 
 from fastapi import Depends, FastAPI, Header, HTTPException, Query
@@ -33,6 +33,21 @@ class SettingsBody(BaseModel):
     auto_approve_low_risk: bool | None = None
 
 
+class EvidenceItem(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    tag: str = Field(pattern=r"^[PN]\d{1,2}$")
+    text: str = Field(max_length=600)
+    source: str = Field(default="", max_length=120)
+    url: str = Field(default="", max_length=1000)
+
+
+class AnalyzeBody(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    market: str = Field(max_length=32)
+    instrument: str = Field(max_length=32)
+    evidence: list[EvidenceItem] = Field(max_length=30)
+
+
 class KeyBody(BaseModel):
     model_config = ConfigDict(extra="forbid")
     value: str = Field(max_length=4096)
@@ -49,6 +64,7 @@ def build_control_app(
     *,
     admin_token: str,
     title: str,
+    analyzer: Callable[[dict[str, Any]], dict[str, Any]] | None = None,
 ) -> FastAPI:
     if len(admin_token) < 16:
         raise ValueError("control admin token must be at least 16 characters")
@@ -89,6 +105,12 @@ def build_control_app(
         )
         manager.audit.record({"event": "settings_changed", "by": _operator(x_operator), **updated})
         return updated
+
+    @app.post("/control/analyze", dependencies=auth)
+    def analyze_market(body: AnalyzeBody) -> dict[str, Any]:
+        if analyzer is None:
+            raise HTTPException(status_code=404, detail="analysis not available")
+        return analyzer(body.model_dump())
 
     @app.post("/control/runs", dependencies=auth, status_code=201)
     def create_run(body: RunBody) -> dict[str, Any]:

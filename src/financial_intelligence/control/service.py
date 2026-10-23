@@ -161,6 +161,34 @@ class EquityResearchControl:
                 update["openrouter_api_key"] = SecretStr(custom)
         return self.base_settings.model_copy(update=update)
 
+    def analyze_market(self, body: dict[str, Any]) -> dict[str, Any]:
+        """Evidence-tagged market analysis with the configured (free-first) model."""
+
+        from financial_intelligence.control.analysis import analyze
+
+        settings = self.settings_with_keys()
+        if not settings.openrouter_live_enabled:
+            return {
+                "status": "not_available",
+                "reason": "OPENROUTER_LIVE is off (Settings > Live data)",
+            }
+        router = build_container(settings).llm_router
+        result = analyze(
+            router,
+            str(body.get("market") or ""),
+            str(body.get("instrument") or ""),
+            list(body.get("evidence") or []),
+        )
+        self.manager.audit.record(
+            {
+                "event": "market_analysis",
+                "instrument": str(body.get("instrument"))[:32],
+                "status": result.get("status"),
+                "model": result.get("model"),
+            }
+        )
+        return result
+
     def _worker(self, run: ControlRun) -> dict[str, Any]:
         objective = ResearchObjective(str(run.params.get("objective") or "company_overview"))
         query = ExecuteResearchPlanQuery(

@@ -5,7 +5,7 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "agentic-financial-intelligence"
 version = "1.0.0"
-description = "Evidence-first agentic financial intelligence and equity research platform."
+description = "AMRP - Agentic Multi-Market Research Platform: evidence-first research for equities, commodities, forex and crypto."
 readme = "README.md"
 requires-python = ">=3.12,<3.14"
 license = "MIT"
