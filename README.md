@@ -230,7 +230,7 @@ Implemented boundaries are `api`, `application`, `composition`, `config`, `domai
 
 ## Phase-gated development
 
-Work proceeds only through the approved phases in [ROADMAP.md](ROADMAP.md) and [PHASES.md](PHASES.md). A phase may begin only after the preceding phase satisfies its tests and acceptance criteria and the project owner explicitly authorizes the next prompt/phase.
+Work proceeded through approved, test-gated phases; see the [phase history](docs/reports/PHASE_HISTORY.md). A phase may begin only after the preceding phase satisfies its tests and acceptance criteria and the project owner explicitly authorizes the next prompt/phase.
 
 For ordered continuation context and prompt-level evidence, see [PHASE_HISTORY.md](docs/reports/PHASE_HISTORY.md). `PROJECT_STATUS.md` remains authoritative for the current gate.
 
@@ -284,7 +284,7 @@ Phase 10 Prompt 1 production settings:
 
 Phase 10 Prompt 2 hardening rejects duplicate/ambiguous Host, Content-Length, and correlation headers; malformed host ports; excessive chunk counts; secret-bearing HTTP exception details; and unbounded watchlist/memory collection requests. Prompt 3 freezes these contracts and additionally fails closed on Host outer whitespace/control, extreme numeric Host/Content-Length values, and whitespace/control correlation IDs. Prompt 3A added the approved `/v1` aliases, a static two-capability MCP facade, offline evaluations, bounded local reliability/load evidence, threat/operations guidance, and local deployment/rollback evidence. Prompt 3C historically closed the Phase 10 supply-chain gate with local SBOM/Trivy evidence. Fresh exact-candidate evidence is retained under `release_evidence/v1.0.0/`; owner disposition of its 26 candidate-affecting Critical/High findings has been completed and documented in `release_evidence/v1.0.0/OWNER_RISK_ACCEPTANCE.md`.
 
-See [CONTRIBUTING.md](CONTRIBUTING.md), [PROJECT_RULES.md](PROJECT_RULES.md), and [GIT_WORKFLOW.md](GIT_WORKFLOW.md) before changing the repository.
+See [CONTRIBUTING.md](CONTRIBUTING.md) before changing the repository.
 
 ## License
 

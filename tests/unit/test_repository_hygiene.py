@@ -9,23 +9,14 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[2]
 ALLOWED_ROOT_MARKDOWN = {
     "README.md",
-    "PROJECT_RULES.md",
     "ARCHITECTURE.md",
-    "ROADMAP.md",
-    "PHASES.md",
-    "AGENTS.md",
-    "DATA_SOURCES.md",
-    "MODEL_POLICY.md",
-    "EVIDENCE_MODEL.md",
-    "SECURITY_GUIDELINES.md",
-    "TESTING_STRATEGY.md",
-    "GIT_WORKFLOW.md",
-    "CODING_STANDARDS.md",
-    "DECISIONS.md",
-    "DEPLOYMENT_PLAN.md",
-    "PROJECT_STATUS.md",
     "CHANGELOG.md",
     "CONTRIBUTING.md",
+    "SECURITY_GUIDELINES.md",
+    "TESTING_STRATEGY.md",
+    "DATA_SOURCES.md",
+    "EVIDENCE_MODEL.md",
+    "MODEL_POLICY.md",
 }
 _LINK = re.compile(r"\]\(([^)#\s]+)(?:#[^)]*)?\)")
 
@@ -38,7 +29,12 @@ def test_root_markdown_is_limited_to_control_documents() -> None:
 def test_history_reports_live_under_docs_reports() -> None:
     reports = ROOT / "docs" / "reports"
     assert (reports / "PHASE_HISTORY.md").is_file()
-    assert len(list(reports.glob("F*_*.md"))) >= 20
+    assert (reports / "README.md").is_file()
+    # Detailed phase and defect reports are archived outside the repository.
+    archived = [
+        path.name for path in ROOT.glob("*.md") if path.name.startswith(("F0", "F1", "PHASE_"))
+    ]
+    assert archived == []
 
 
 def test_root_markdown_relative_links_resolve() -> None:
