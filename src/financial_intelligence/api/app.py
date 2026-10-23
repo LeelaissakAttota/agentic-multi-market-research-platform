@@ -64,7 +64,7 @@ def create_app(
         logger.info("application_shutdown")
 
     application = FastAPI(
-        title="Agentic Financial Intelligence & Equity Research Platform",
+        title="AMRP - Agentic Multi-Market Research Platform",
         version=resolved_container.metadata.version,
         lifespan=lifespan,
         # Swagger UI / ReDoc: on by default in development (API_DOCS_ENABLED).

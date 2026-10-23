@@ -337,7 +337,8 @@ def test_agent_states_and_analyst_rows() -> None:
     ]
     states = agent_states(steps)
     assert states["market_intelligence"] == "succeeded"
-    assert states["regulatory_intelligence"] == "waiting"
+    assert states["regulatory_intelligence"] == "queued"
+    assert set(agent_states([]).values()) == {"waiting"}
     assert len(pending_steps(steps)) == 1
     rows = [{"title": "Analyst consensus: Buy - ..."}, {"title": "Apple news"}]
     assert analyst_rows(rows) == [rows[0]]

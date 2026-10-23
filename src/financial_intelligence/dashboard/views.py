@@ -448,13 +448,18 @@ RESEARCH_AGENTS: tuple[tuple[str, str, str], ...] = (
 
 
 def agent_states(steps: list[dict[str, Any]]) -> dict[str, str]:
-    """Agent step kind -> latest state ('waiting' when the run has no step yet)."""
+    """Agent step kind -> latest state.
 
-    out = {kind: "waiting" for kind, _, _ in RESEARCH_AGENTS}
+    Before a run starts every agent is ``waiting`` (for Start); once a run has
+    steps, agents without a step yet are ``queued``.
+    """
+
+    default = "queued" if steps else "waiting"
+    out = {kind: default for kind, _, _ in RESEARCH_AGENTS}
     for step in steps:
         kind = str(step.get("kind") or "")
         if kind in out:
-            out[kind] = str(step.get("state") or "waiting")
+            out[kind] = str(step.get("state") or default)
     return out
 
 

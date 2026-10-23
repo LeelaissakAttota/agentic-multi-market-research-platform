@@ -28,9 +28,7 @@ def ctl(tmp_path: Path) -> tuple[TestClient, EquityResearchControl]:
     control = EquityResearchControl(
         Settings(_env_file=None, APP_ENV="test", LOG_LEVEL="WARNING"), config_dir=tmp_path
     )
-    app = build_control_app(
-        control.manager, control.secrets, admin_token=TOKEN, title="equity-research"
-    )
+    app = build_control_app(control.manager, control.secrets, admin_token=TOKEN, title="amrp")
     return TestClient(app), control
 
 

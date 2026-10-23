@@ -9,6 +9,7 @@ The same windows are used for 24/7 crypto. 21-24 UTC is "Off-session".
 
 from __future__ import annotations
 
+import re
 from collections import OrderedDict
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
@@ -165,6 +166,59 @@ def usd_inr(client: httpx.Client | None = None) -> float | None:
     return d.bars[-1].close if d and d.bars else None
 
 
+#: Headline terms per currency code, for the forex news relevance filter.
+CURRENCY_TERMS: dict[str, tuple[str, ...]] = {
+    "USD": ("dollar", "usd", "greenback", "fed"),
+    "INR": ("rupee", "rbi"),  # bare "INR" also tags stock/crypto prices
+    "EUR": ("euro", "eur", "ecb"),
+    "GBP": ("sterling", "pound", "gbp", "boe"),
+    "JPY": ("yen", "jpy", "boj"),
+    "AUD": ("aussie", "australian dollar", "aud", "rba"),
+    "CHF": ("swiss franc", "franc", "chf", "snb"),
+}
+#: Other countries' currencies that share a name (e.g. Sri Lankan rupee).
+FOREIGN_NAMESAKES = (
+    "sri lanka",
+    "lankan",
+    "pakistan",
+    "nepal",
+    "ethereum",
+    "bitcoin",
+    "crypto",
+    "mauritian",
+    "seychelles",
+    "canadian dollar",
+    "new zealand dollar",
+    "singapore dollar",
+    "hong kong dollar",
+    "taiwan dollar",
+)
+
+
+def _has(title: str, term: str) -> bool:
+    return re.search(rf"\b{re.escape(term)}\b", title) is not None
+
+
+def forex_relevant(pair: str, title: str) -> bool:
+    """True when a headline is about ``pair`` (e.g. 'USD/INR').
+
+    Both legs must be mentioned (a currency name, ISO code, or central bank;
+    for a USD pair the non-USD leg is enough), or the pair itself; headlines
+    about a namesake currency of another
+    country (Sri Lankan rupee, Canadian dollar, ...) are dropped.
+    """
+
+    t = title.lower()
+    if pair.lower() in t or pair.replace("/", "").lower() in t:
+        return True
+    if any(x in t for x in FOREIGN_NAMESAKES):
+        return False
+    legs = pair.upper().split("/")
+    if "USD" in legs and len(legs) == 2:  # FX news is quoted against the dollar by default
+        legs = [c for c in legs if c != "USD"]
+    return all(any(_has(t, w) for w in CURRENCY_TERMS.get(c, (c.lower(),))) for c in legs)
+
+
 def news_for(inst: Instrument, n: int = 8, client: httpx.Client | None = None) -> list[ml.NewsItem]:
     """Yahoo headlines (keyword-filtered) + Google News RSS, newest first, deduped."""
 
@@ -179,6 +233,8 @@ def news_for(inst: Instrument, n: int = 8, client: httpx.Client | None = None) -
         except httpx.HTTPError:
             continue
     seen: set[str] = set()
+    if "/" in inst.name:  # forex pair: keep only headlines about this pair
+        items = [x for x in items if forex_relevant(inst.name, x.title)]
     out = []
     for it in sorted(items, key=lambda x: x.published, reverse=True):
         key = it.title.lower()[:80]

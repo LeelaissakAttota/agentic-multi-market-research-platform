@@ -313,7 +313,7 @@ def search_box(key: str, button: str = "Start Research", objective: str = "") ->
             label_visibility="collapsed",
             key=f"askin_{key}",
         )
-        sent = c2.form_submit_button(button, type="primary", use_container_width=True)
+        sent = c2.form_submit_button(button, type="primary", width="stretch")
     if sent and q.strip():
         try:
             start_research(q.strip(), objective=objective)
@@ -326,7 +326,7 @@ def search_box(key: str, button: str = "Start Research", objective: str = "") ->
 def chips(names: list[tuple[str, str]], key: str, objective: str = "") -> None:
     cols = st.columns(len(names))
     for col, (label, prompt) in zip(cols, names, strict=True):
-        if col.button(label, key=f"{key}_{label}", use_container_width=True):
+        if col.button(label, key=f"{key}_{label}", width="stretch"):
             try:
                 start_research(prompt, objective=objective)
                 go("Research Report" if "result" in ss else "Research")
@@ -440,7 +440,7 @@ def _index_card(d: ml.Daily) -> None:
             f"<small>5d</small></span></div>",
             unsafe_allow_html=True,
         )
-        st.altair_chart(area_chart(d), use_container_width=True)
+        st.altair_chart(area_chart(d), width="stretch")
 
 
 def market_overview() -> None:
@@ -513,39 +513,50 @@ def top_news() -> None:
     )
 
 
-def suggested_companies(obj: str) -> None:
-    trend = live_trending()
-    st.markdown('<div class="panel-t">Suggested Companies</div>', unsafe_allow_html=True)
-    for region, title, note in (
-        ("US", "US &ndash; Top trending", "Yahoo Finance trending tickers"),
-        ("IN", "India &ndash; Top trending", "most active by traded value among NIFTY large caps"),
-    ):
-        st.markdown(
-            f'<div class="sub-t">{title} {pill("LIVE", "green") if trend.get(region) else ""}'
-            f'</div><div style="font-size:.72rem;color:#8FA3C7;margin-bottom:.2rem">{note}</div>',
+SUGGESTED_REGIONS = (
+    ("US", "US &ndash; Top trending", "Yahoo Finance trending tickers"),
+    ("IN", "India &ndash; Top trending", "most active by traded value among NIFTY large caps"),
+)
+
+
+def _suggested_list(region: str, items: list[ml.Daily], obj: str) -> None:
+    if not items:
+        st.markdown(f'<div class="na">{NA}</div>', unsafe_allow_html=True)
+    for d in items:
+        chg = d.change
+        tone = "s-green" if (chg or 0) >= 0 else "s-red"
+        pct = f'<span class="{tone}">{chg:+.2%}</span>' if chg is not None else ""
+        c1, c2 = st.columns([4, 1], vertical_alignment="center")
+        c1.markdown(
+            f'<div class="co" style="border:none"><div class="lg">{initials(d.name)}</div>'
+            f'<div class="n"><b>{esc(d.name)}</b><small>{esc(d.symbol)} · {d.currency} '
+            f"{d.bars[-1].close:,.2f} {pct}</small></div></div>",
             unsafe_allow_html=True,
         )
-        items = trend.get(region) or []
-        if not items:
-            st.markdown(f'<div class="na">{NA}</div>', unsafe_allow_html=True)
-        for d in items:
-            chg = d.change
-            tone = "s-green" if (chg or 0) >= 0 else "s-red"
-            pct = f'<span class="{tone}">{chg:+.2%}</span>' if chg is not None else ""
-            c1, c2 = st.columns([4, 1])
-            c1.markdown(
-                f'<div class="co" style="border:none"><div class="lg">{initials(d.name)}</div>'
-                f'<div class="n"><b>{esc(d.name)}</b><small>{esc(d.symbol)} · {d.currency} '
-                f"{d.bars[-1].close:,.2f} {pct}</small></div></div>",
+        if c2.button("View", key=f"sug_{region}_{d.symbol}"):
+            try:
+                start_research(d.symbol, objective=obj)
+                go("Research Report" if "result" in ss else "Research")
+            except ApiError as exc:
+                ss.error = exc.message
+            st.rerun()
+
+
+def suggested_companies(obj: str) -> None:
+    """Full-width 'Suggested Companies': US and India top-5 in two side-by-side boxes."""
+
+    trend = live_trending()
+    st.markdown('<div class="panel-t">Suggested Companies</div>', unsafe_allow_html=True)
+    cols = st.columns(2)
+    for col, (region, title, note) in zip(cols, SUGGESTED_REGIONS, strict=True):
+        with col.container(border=True, key=f"sugbox_{region}"):
+            st.markdown(
+                f'<div class="sub-t">{title} {pill("LIVE", "green") if trend.get(region) else ""}'
+                '</div><div style="font-size:.72rem;color:#8FA3C7;margin-bottom:.2rem">'
+                f"{note}</div>",
                 unsafe_allow_html=True,
             )
-            if c2.button("View", key=f"sug_{region}_{d.symbol}"):
-                try:
-                    start_research(d.symbol, objective=obj)
-                    go("Research Report" if "result" in ss else "Research")
-                except ApiError as exc:
-                    ss.error = exc.message
-                st.rerun()
+            _suggested_list(region, trend.get(region) or [], obj)
 
 
 # ---------------------------------------------------------------- pages
@@ -594,20 +605,29 @@ def home_page() -> None:
         top_news()
 
 
+def objective_rows(keys: list[str]) -> list[list[str]]:
+    """Objective cards: four on the first row, the rest on a centred second row."""
+
+    return [keys[:4], keys[4:]] if len(keys) > 4 else [keys]
+
+
 def research_page() -> None:
-    main, side = st.columns([2.2, 1])
     obj = ss.get("objective_pick", "")
-    with main:
-        st.markdown("#### Start New Research")
+    st.markdown("#### Start New Research")
+    suggested_companies(obj)
+    st.write("")
+    with st.container():
         search_box("research", "Search", objective=obj)
         st.markdown("#### Research Objective")
         keys = list(OBJECTIVE_LABELS)
         icons = ["🏢", "📈", "📊", "📰", "🏭", "⚖️", "🧠"]
-        for row in (keys[:4], keys[4:]):
-            cols = st.columns(4)
+        for row in objective_rows(keys):
+            # row 2 (3 cards) is centred under row 1 with the same card width
+            cols = st.columns(4) if len(row) == 4 else st.columns([1, 2, 2, 2, 1])[1:4]
             for col, k in zip(cols, row, strict=False):
                 picked = ss.get("objective_pick") == k
-                with col.container(border=True, key=f"objc_{k}"):
+                ckey = f"objc_{k}__sel" if picked else f"objc_{k}"
+                with col.container(border=True, key=ckey):
                     st.markdown(
                         f'<div class="objc"><div class="tile t-blue">{icons[keys.index(k)]}</div>'
                         f"<b>{OBJECTIVE_LABELS[k]}</b><small>{OBJECTIVE_HINTS[k]}</small></div>",
@@ -660,8 +680,6 @@ def research_page() -> None:
                 else '<div class="na">No searches yet.</div>',
                 unsafe_allow_html=True,
             )
-    with side.container(border=True):
-        suggested_companies(obj)
 
 
 def tracker(workflow: dict[str, Any] | None) -> None:
@@ -844,7 +862,7 @@ def report_page() -> None:
         file_name=f"AMRP-{view.company.replace(' ', '_')}.md",
         mime="text/markdown",
         type="primary",
-        use_container_width=True,
+        width="stretch",
     )
     tabs = st.tabs(list(REPORT_TABS))
     with tabs[0]:
@@ -877,9 +895,9 @@ def report_page() -> None:
             )
             pairs = revenue_profit_series(frows)
             if pairs:
-                st.altair_chart(revenue_chart(pairs), use_container_width=True)
+                st.altair_chart(revenue_chart(pairs), width="stretch")
             elif series:
-                st.altair_chart(price_chart(series), use_container_width=True)
+                st.altair_chart(price_chart(series), width="stretch")
             else:
                 st.markdown(f'<div class="na">Price history: {NA}</div>', unsafe_allow_html=True)
         with c3.container(border=True):
@@ -994,7 +1012,7 @@ def reports_page() -> None:
         file_name="aerp-reports.csv",
         mime="text/csv",
         disabled=not shown,
-        use_container_width=True,
+        width="stretch",
     )
     reports = ss.get("reports", {})
     with st.container(border=True):
@@ -1532,7 +1550,8 @@ def live_settings() -> None:
 
 # ---------------------------------------------------------------- comprehensive research
 _STATE_PILL = {
-    "waiting": ("Waiting", "gray"),
+    "waiting": ("Waiting for Start", "gray"),
+    "queued": ("Queued", "gray"),
     "pending_approval": ("Needs approval", "amber"),
     "approved": ("Approved", "blue"),
     "running": ("Running", "blue"),
@@ -1580,6 +1599,8 @@ def comprehensive_page() -> None:
         )
     if not CONTROL.token:
         return
+    st.markdown('<div class="comp-gap"></div>', unsafe_allow_html=True)
+    st.markdown('<div class="panel-t">Start a run</div>', unsafe_allow_html=True)
     with st.form("comp_start"):
         c1, c2 = st.columns([4, 1])
         q = c1.text_input(
@@ -1589,7 +1610,7 @@ def comprehensive_page() -> None:
             label_visibility="collapsed",
         )
         start = c2.form_submit_button(
-            "Start Comprehensive Research", type="primary", use_container_width=True
+            "Start Comprehensive Research", type="primary", width="stretch"
         )
     try:
         if start and not q.strip():
@@ -1725,7 +1746,7 @@ def commodity_page() -> None:
                 else f"<b>{esc(name)}</b> {cur}{last:,.2f} {esc(unit)}",
                 unsafe_allow_html=True,
             )
-            st.altair_chart(area_chart(d, height=260, month=True), use_container_width=True)
+            st.altair_chart(area_chart(d, height=260, month=True), width="stretch")
             if india:
                 st.markdown(
                     f'<div class="banner-amber">Approx. from international futures, not the '
@@ -1945,7 +1966,7 @@ def session_charts(
             unsafe_allow_html=True,
         )
         if len(day) > 2:
-            st.altair_chart(session_chart(day, 250, fmt, week=False), use_container_width=True)
+            st.altair_chart(session_chart(day, 250, fmt, week=False), width="stretch")
         else:
             st.markdown(f'<div class="na">Intraday data: {NA}</div>', unsafe_allow_html=True)
     with b.container(border=True, key=f"{key}_week"):
@@ -1954,7 +1975,7 @@ def session_charts(
             unsafe_allow_html=True,
         )
         if len(week_bars) > 2:
-            st.altair_chart(session_chart(week_bars, 250, fmt, week=True), use_container_width=True)
+            st.altair_chart(session_chart(week_bars, 250, fmt, week=True), width="stretch")
         else:
             st.markdown(f'<div class="na">Hourly data: {NA}</div>', unsafe_allow_html=True)
     with st.container(border=True, key=f"{key}_hl"):
@@ -2050,7 +2071,8 @@ def forex_page() -> None:
     with st.spinner("Loading live rates…"):
         day = mk.last_day(intraday(inst.symbol, "5d", "15m"))
     left, right = st.columns([2.2, 1])
-    with left.container(border=True, key="fx_price"):
+    left_box = left.container()
+    with left_box.container(border=True, key="fx_price"):
         instrument_header(
             pair,
             inst.symbol,
@@ -2064,12 +2086,13 @@ def forex_page() -> None:
         news_panel(news, f"Latest {pair} news")
         st.caption("Yahoo Finance + Google News RSS")
     dbars, ex = session_charts(inst.symbol, "fx", 1.0, inst.decimals)
-    ai_panel(
-        "forex",
-        pair,
-        mk.build_evidence(pair, pair.split("/")[1], dbars, ex, news, inst.decimals),
-        "fx",
-    )
+    with left_box:  # AI panel sits beside the news column (no empty space)
+        ai_panel(
+            "forex",
+            pair,
+            mk.build_evidence(pair, pair.split("/")[1], dbars, ex, news, inst.decimals),
+            "fx",
+        )
 
 
 def crypto_page() -> None:
@@ -2093,7 +2116,8 @@ def crypto_page() -> None:
     with st.spinner("Loading live prices…"):
         day = mk.scale(mk.last_day(intraday(inst.symbol, "5d", "15m")), k)
     left, right = st.columns([2.2, 1])
-    with left.container(border=True, key="cr_price"):
+    left_box = left.container()
+    with left_box.container(border=True, key="cr_price"):
         instrument_header(f"{inst.name} ({coin})", inst.symbol, day, sym, cur, inst.decimals)
         if k != 1.0:
             st.caption(f"INR = USD price x latest USD/INR close ({k:,.3f}, USDINR=X).")
@@ -2102,12 +2126,13 @@ def crypto_page() -> None:
         news_panel(news, f"Latest {inst.name} news")
         st.caption("Yahoo Finance + Google News RSS")
     dbars, ex = session_charts(inst.symbol, "cr", k, inst.decimals)
-    ai_panel(
-        "crypto",
-        f"{coin} ({cur})",
-        mk.build_evidence(coin, cur, dbars, ex, news, inst.decimals),
-        "cr",
-    )
+    with left_box:  # AI panel sits beside the news column (no empty space)
+        ai_panel(
+            "crypto",
+            f"{coin} ({cur})",
+            mk.build_evidence(coin, cur, dbars, ex, news, inst.decimals),
+            "cr",
+        )
 
 
 # ---------------------------------------------------------------- shell
@@ -2134,7 +2159,7 @@ with st.sidebar:
         if st.button(
             f"{name}{badge}",
             key=f"nav_{slug}",
-            use_container_width=True,
+            width="stretch",
             type="primary" if ss.nav == name else "secondary",
         ):
             ss.nav = name

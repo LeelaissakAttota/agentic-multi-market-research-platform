@@ -21,7 +21,7 @@ class ApplicationFactoryTests(TestCase):
 
     def test_create_app_succeeds_offline(self) -> None:
         app = create_app(settings=_settings())
-        self.assertEqual(app.title, "Agentic Financial Intelligence & Equity Research Platform")
+        self.assertEqual(app.title, "AMRP - Agentic Multi-Market Research Platform")
         self.assertTrue(hasattr(app.state, "container"))
 
 

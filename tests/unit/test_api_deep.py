@@ -126,7 +126,7 @@ class ApiContractDeepTests(TestCase):
         )
         self.assertEqual(
             app.openapi()["info"]["title"],
-            "Agentic Financial Intelligence & Equity Research Platform",
+            "AMRP - Agentic Multi-Market Research Platform",
         )
         self.assertEqual(app.openapi()["info"]["version"], "1.0.0")
         self.assertEqual(app.openapi()["info"]["x-api-version"], "v1")

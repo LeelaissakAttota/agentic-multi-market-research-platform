@@ -221,3 +221,15 @@ section[data-testid="stSidebar"]{min-width:262px!important;max-width:262px!impor
 table.hl{width:100%;border-collapse:collapse;font-size:.82rem;color:#CBD5E1;}
 table.hl th{color:#8FA3C7;font-weight:600;text-align:left;padding:4px 6px;border-bottom:1px solid #1E2A44;}
 table.hl td{padding:4px 6px;border-bottom:1px solid #131C30;}
+/* v8: selected objective card is fully blue; long names wrap inside the card */
+[class*="st-key-objc_"][class*="__sel"]{background:linear-gradient(180deg,#0B3FBF,#0E4BEC)!important;
+ border-color:#4D86FF!important;box-shadow:0 0 0 1px #4D86FF inset;}
+[class*="st-key-objc_"][class*="__sel"] .objc small{color:#DCE7FF;}
+[class*="st-key-objc_"]{overflow:hidden!important;}
+.objc b,.objc small{white-space:normal!important;overflow-wrap:anywhere;word-break:normal;max-width:100%;}
+[class*="st-key-obj_"] button{max-width:100%!important;white-space:normal!important;}
+[class*="st-key-objc_"][class*="__sel"] [class*="st-key-obj_"] button{background:#fff!important;color:#0B3FBF!important;border-color:#fff!important;}
+[class*="st-key-objc_"][class*="__sel"] [class*="st-key-obj_"] button p{color:#0B3FBF!important;font-weight:700;}
+/* v8: suggested companies boxes + comprehensive section gap */
+[class*="st-key-sugbox_"]{background:#011733!important;border:1px solid #0D2B55!important;border-radius:12px!important;padding:.6rem .7rem!important;}
+.comp-gap{height:2.2rem;border-bottom:1px solid #0D2B55;margin-bottom:1.2rem;}
