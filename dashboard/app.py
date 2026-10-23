@@ -583,14 +583,12 @@ def research_page() -> None:
                 picked = ss.get("objective_pick") == k
                 with col.container(border=True, key=f"objc_{k}"):
                     st.markdown(
-                        f'<div class="rr" style="border:none"><div class="tile t-blue" '
-                        f'style="width:30px;height:30px;font-size:.85rem">{icons[keys.index(k)]}'
-                        f'</div><div class="n"><b>{OBJECTIVE_LABELS[k]}</b><small>'
-                        f"{OBJECTIVE_HINTS[k]}</small></div></div>",
+                        f'<div class="objc"><div class="tile t-blue">{icons[keys.index(k)]}</div>'
+                        f"<b>{OBJECTIVE_LABELS[k]}</b><small>{OBJECTIVE_HINTS[k]}</small></div>",
                         unsafe_allow_html=True,
                     )
                     if st.button(
-                        "✓ Selected" if picked else "Select",
+                        "Selected" if picked else "Select",
                         key=f"obj_{k}",
                         type="primary" if picked else "secondary",
                     ):
