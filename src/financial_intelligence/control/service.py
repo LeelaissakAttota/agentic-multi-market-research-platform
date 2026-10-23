@@ -23,6 +23,7 @@ from financial_intelligence.control.runtime import (
     Step,
 )
 from financial_intelligence.control.secrets_store import SecretStore, default_config_dir
+from financial_intelligence.dashboard.prefs import load_prefs, settings_update, uses_custom_router
 from financial_intelligence.domain.identity import CountryCode, ExchangeCode, TickerSymbol
 from financial_intelligence.domain.orchestration import (
     ExecutionControl,
@@ -133,6 +134,7 @@ class EquityResearchControl:
         self.secrets = SecretStore(
             self.config_dir / "secrets.json", tuple(KEY_FIELDS) + EXTRA_PROVIDER_KEYS
         )
+        self.prefs_file = self.config_dir / "dashboard_settings.json"
         self._contexts: dict[str, _RunContext] = {}
         self._lock = threading.Lock()
         self.manager = RunManager(
@@ -149,6 +151,14 @@ class EquityResearchControl:
             value = self.secrets.get(name)
             if value:
                 update[field_name] = SecretStr(value)
+        prefs = load_prefs(self.prefs_file) if self.prefs_file.exists() else {}
+        if prefs:
+            # Dashboard Settings (live toggles, SEC contact, model choice) apply to
+            # the next run without a restart.
+            update.update(settings_update(prefs))
+            custom = self.secrets.get("CUSTOM_LLM_API_KEY")
+            if uses_custom_router(prefs) and custom:
+                update["openrouter_api_key"] = SecretStr(custom)
         return self.base_settings.model_copy(update=update)
 
     def _worker(self, run: ControlRun) -> dict[str, Any]:

@@ -108,6 +108,7 @@ from financial_intelligence.infrastructure.news import (
     CachingNewsEventAdapter,
     InMemoryNewsEventAdapter,
 )
+from financial_intelligence.infrastructure.news.finnhub import FinnhubSource
 from financial_intelligence.infrastructure.news.live_events import (
     CompanyEventSource,
     FallbackNewsEventAdapter,
@@ -225,7 +226,7 @@ def _llm_live(settings: Settings, llm_router: LlmRouterPort) -> bool:
 
     return (
         settings.openrouter_live_enabled
-        and bool(settings.primary_free_model)
+        and bool(settings.primary_free_model or settings.openrouter_selected_model)
         and bool(settings.openrouter_api_key.get_secret_value())
         and not isinstance(llm_router, DisabledLlmRouterAdapter)
     )
@@ -491,6 +492,18 @@ def _live_news_sources(
                     clock=clock,
                 )
             )
+    if resolved.finnhub_api_key.get_secret_value():
+        # Optional: US news + analyst consensus + earnings date (Finnhub free tier).
+        sources.append(
+            FinnhubSource(
+                _live_http(resolved),
+                api_key=resolved.finnhub_api_key,
+                rate_limiter=HostRateLimiter(1.0),
+                cache_ttl_seconds=float(resolved.live_news_cache_ttl_seconds),
+                lookback_days=min(30, resolved.live_news_lookback_days),
+                clock=clock,
+            )
+        )
     return sources
 
 
@@ -737,14 +750,25 @@ def build_container(
         )
 
     if llm_router is None:
-        if resolved.openrouter_live_enabled and resolved.primary_free_model:
+        selected_model = resolved.openrouter_selected_model.strip()
+        if resolved.openrouter_live_enabled and (resolved.primary_free_model or selected_model):
             llm_http = BoundedHttpClient(
                 UrlLibHttpTransport(max_response_bytes=_OPENROUTER_MAX_RESPONSE_BYTES),
                 timeout_seconds=float(resolved.openrouter_timeout_seconds),
                 max_retries=resolved.openrouter_max_retries,
                 user_agent=_app_user_agent(),
             )
-            if resolved.primary_free_model.strip().lower() == AUTO_MODEL:
+            if selected_model:
+                # Explicit user choice (free or opt-in paid; Settings validated it).
+                llm_router = OpenRouterAdapter(
+                    llm_http,
+                    api_key=resolved.openrouter_api_key,
+                    model=selected_model,
+                    max_output_tokens_ceiling=resolved.openrouter_max_output_tokens,
+                    base_url=resolved.openrouter_base_url,
+                    allow_paid=resolved.selected_model_is_paid() and resolved.allow_paid_models,
+                )
+            elif resolved.primary_free_model.strip().lower() == AUTO_MODEL:
                 llm_router = _build_auto_free_router(resolved, llm_http)
             else:
                 llm_router = OpenRouterAdapter(

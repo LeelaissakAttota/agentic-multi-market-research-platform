@@ -591,3 +591,26 @@ production LLM planner selection and composition remain deferred to Steps 4E.1
 and 4E.2. Model-cost hardening (treating unknown or missing cost as a policy
 failure, and validating that a configured model is free) is a separate bounded
 change and is not implemented by this decision.
+
+## ADR-059 — User-selected models with explicit paid opt-in (dashboard v6)
+
+**Status:** Accepted (approved by the project owner, 2026-10-23). Supersedes the
+"free models only, always" clause of ADR-058 and MODEL_POLICY.md for the single
+case below.
+
+**Decision:** The default remains automatic selection of a working `:free`
+OpenRouter model. The dashboard (Settings → Model) may additionally persist a
+user-selected model (`OPENROUTER_SELECTED_MODEL`) and an optional
+OpenAI-compatible base URL (`OPENROUTER_BASE_URL`, https only). A paid model is
+used **only** when the user explicitly picks it *and* ticks the cost
+acknowledgement; this sets `ALLOW_PAID_MODELS=true`. Settings validation stays
+fail-closed: `ALLOW_PAID_MODELS=true` without a selected model is rejected, and
+a selected non-`:free` model without `ALLOW_PAID_MODELS=true` is rejected. The
+OpenRouter adapter's $0-cost guard is relaxed only for that explicitly selected
+paid model (`allow_paid=True`); all other paths still reject non-zero or unknown
+cost. Research summaries and the planner use the selected model. A model is
+treated as free only if its id ends in `:free` (zero-priced ids are not trusted).
+
+**Consequences:** Users may incur provider charges after an explicit, warned
+opt-in. Switching back to "Automatic" clears the opt-in. The REST API process
+must be restarted to pick up a new choice; control runs reload preferences per run.

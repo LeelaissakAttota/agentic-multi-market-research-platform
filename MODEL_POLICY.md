@@ -82,6 +82,17 @@ Model-result caching is planned only where the request, prompt/template version,
 
 If all free models are unavailable, deterministic acquisition/analysis may continue where useful. The system returns partial structured results and an explicit synthesis limitation. It never conceals the outage, fabricates an answer, or purchases capacity.
 
+## User-selected and paid models (ADR-059)
+
+- Default: automatic free-model selection (unchanged).
+- Settings → Model can pin any provider model. Free = id ends with `:free`.
+- Paid models require an explicit selection **and** a cost acknowledgement; this
+  sets `ALLOW_PAID_MODELS=true` together with `OPENROUTER_SELECTED_MODEL`.
+  `ALLOW_PAID_MODELS=true` on its own is still rejected at startup.
+- Only the explicitly selected paid model bypasses the $0-cost guard; no hidden
+  paid fallback or substitution exists.
+- Choosing "Automatic" clears the paid opt-in.
+
 ## Change control
 
 Changing gateways, enabling paid models, or changing the fail-closed rule requires explicit owner approval, a security/cost review, and an ADR. Merely editing an environment variable is not sufficient authorization.

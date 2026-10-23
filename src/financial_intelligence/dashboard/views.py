@@ -415,3 +415,88 @@ def revenue_profit_series(rows: Iterable[dict[str, Any]]) -> list[tuple[str, str
     if min(len(v) for v in out.values()) < 2:
         return []
     return [(per, k, v) for k, d in out.items() for per, v in sorted(d.items())]
+
+
+#: The five research agents of a comprehensive run: (step kind, name, what it does).
+RESEARCH_AGENTS: tuple[tuple[str, str, str], ...] = (
+    (
+        "market_intelligence",
+        "Market agent",
+        "Latest share price, 1-year returns, moving average and volatility.",
+    ),
+    (
+        "financial_intelligence",
+        "Financial agent",
+        "Revenue, profit, margins and cash flow from filings (SEC / Yahoo India).",
+    ),
+    (
+        "news_event_intelligence",
+        "News agent",
+        "Recent headlines and events (GDELT, RSS, Finnhub when a key is set).",
+    ),
+    (
+        "industry_intelligence",
+        "Industry agent",
+        "Sector, peers and industry context for the company.",
+    ),
+    (
+        "regulatory_intelligence",
+        "Regulatory agent",
+        "Filings and regulatory actions (SEC EDGAR, SEBI).",
+    ),
+)
+
+
+def agent_states(steps: list[dict[str, Any]]) -> dict[str, str]:
+    """Agent step kind -> latest state ('waiting' when the run has no step yet)."""
+
+    out = {kind: "waiting" for kind, _, _ in RESEARCH_AGENTS}
+    for step in steps:
+        kind = str(step.get("kind") or "")
+        if kind in out:
+            out[kind] = str(step.get("state") or "waiting")
+    return out
+
+
+def pending_steps(steps: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    return [s for s in steps if s.get("state") == "pending_approval"]
+
+
+def model_options(payload: Any) -> list[dict[str, Any]]:
+    """Provider /models JSON -> [{id, label, free}] with free models first.
+
+    ``free`` is fail-closed: only ids ending in ``:free`` (OpenRouter's free
+    variants) count as free, whatever the advertised price; anything else is
+    treated as a paid model that needs explicit opt-in.
+    """
+
+    rows = payload.get("data") if isinstance(payload, dict) else payload
+    out: list[dict[str, Any]] = []
+    for row in rows if isinstance(rows, list) else []:
+        mid = row.get("id") if isinstance(row, dict) else row
+        if not isinstance(mid, str) or not mid.strip():
+            continue
+        free = mid.endswith(":free")
+        price = ""
+        pricing = row.get("pricing") if isinstance(row, dict) else None
+        if not free and isinstance(pricing, dict):
+            try:
+                per_m = float(pricing.get("prompt") or 0) * 1_000_000
+                out_m = float(pricing.get("completion") or 0) * 1_000_000
+                price = f" · ${per_m:.2f} in / ${out_m:.2f} out per 1M tokens"
+            except (TypeError, ValueError):
+                price = ""
+        label = f"{mid} · FREE" if free else f"{mid} · PAID{price}"
+        out.append({"id": mid, "label": label, "free": free})
+    out.sort(key=lambda m: (not m["free"], m["id"]))
+    return out
+
+
+def analyst_rows(rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """News items that carry Finnhub analyst consensus / earnings-date evidence."""
+
+    return [
+        r
+        for r in rows
+        if str(r.get("title") or "").startswith(("Analyst consensus:", "Next earnings report"))
+    ]

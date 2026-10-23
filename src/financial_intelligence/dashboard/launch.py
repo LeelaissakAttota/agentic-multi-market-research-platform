@@ -15,7 +15,12 @@ import os
 
 from financial_intelligence.control.secrets_store import SecretStore, default_config_dir
 from financial_intelligence.control.service import KEY_FIELDS
-from financial_intelligence.dashboard.prefs import env_from_prefs, load_prefs, prefs_path
+from financial_intelligence.dashboard.prefs import (
+    env_from_prefs,
+    load_prefs,
+    prefs_path,
+    uses_custom_router,
+)
 
 
 def apply_saved_settings(environ: dict[str, str] | None = None) -> list[str]:
@@ -27,7 +32,15 @@ def apply_saved_settings(environ: dict[str, str] | None = None) -> list[str]:
         for name, value in env_from_prefs(load_prefs()).items():
             env[name] = value
             changed.append(name)
-    store = SecretStore(default_config_dir("equity-research") / "secrets.json", tuple(KEY_FIELDS))
+    store = SecretStore(
+        default_config_dir("equity-research") / "secrets.json",
+        (*KEY_FIELDS, "CUSTOM_LLM_API_KEY"),
+    )
+    if prefs_path().exists() and uses_custom_router(load_prefs()):
+        custom = store.get("CUSTOM_LLM_API_KEY")
+        if custom:
+            env["OPENROUTER_API_KEY"] = custom  # custom OpenAI-compatible router key
+            changed.append("OPENROUTER_API_KEY")
     for name in KEY_FIELDS:
         secret = store.get(name)
         if secret and not env.get(name):

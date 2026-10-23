@@ -30,6 +30,7 @@ from theme import (  # type: ignore[import-not-found]  # dashboard/theme.py
     table,
 )
 
+from financial_intelligence.dashboard import commodity as cm
 from financial_intelligence.dashboard import market_live as ml
 from financial_intelligence.dashboard.client import (
     ApiError,
@@ -40,7 +41,16 @@ from financial_intelligence.dashboard.client import (
     resolve_company,
 )
 from financial_intelligence.dashboard.intent import parse_intent
-from financial_intelligence.dashboard.prefs import LIVE_TOGGLES, load_prefs, save_prefs
+from financial_intelligence.dashboard.prefs import (
+    LIVE_DESCRIPTIONS,
+    LIVE_TOGGLES,
+    OPENROUTER_BASE,
+    is_paid_model,
+    load_prefs,
+    save_model_choice,
+    save_prefs,
+    uses_custom_router,
+)
 from financial_intelligence.dashboard.providers import (
     PROVIDERS,
     choose_model,
@@ -58,7 +68,10 @@ from financial_intelligence.dashboard.views import (
     OBJECTIVE_HINTS,
     OBJECTIVE_LABELS,
     REPORT_TABS,
+    RESEARCH_AGENTS,
     add_to_watchlist,
+    agent_states,
+    analyst_rows,
     close_series,
     evidence_refs,
     figure_value,
@@ -68,7 +81,9 @@ from financial_intelligence.dashboard.views import (
     load_history,
     load_watchlist,
     merge_workflows,
+    model_options,
     objective_label,
+    pending_steps,
     provider_cards,
     record_history,
     remove_from_watchlist,
@@ -362,8 +377,12 @@ def _ist(iso: str) -> str:
     return when.strftime("%d %b %H:%M IST")
 
 
-def area_chart(d: ml.Daily) -> Any:
-    """Smooth line + gradient fill; green when the 5-day change is up, red when down."""
+def _axis_fmt(hi: float) -> str:
+    return ",.2f" if hi < 100 else (",.0f" if hi < 100_000 else "~s")
+
+
+def area_chart(d: ml.Daily, height: int = 150, month: bool = False) -> Any:
+    """Smooth line + gradient fill; green when the period change is up, red when down."""
 
     up = (d.change or 0) >= 0
     color = "#22D3A0" if up else "#FF4D6A"
@@ -371,11 +390,14 @@ def area_chart(d: ml.Daily) -> Any:
     lo, hi = float(df.Close.min()), float(df.Close.max())
     pad = (hi - lo) * 0.25 or hi * 0.01
     x = alt.X("Day:O", title=None, axis=alt.Axis(labelAngle=0))
+    if month:
+        df["Day"] = pd.to_datetime([b.date for b in d.bars])
+        x = alt.X("Day:T", title=None, axis=alt.Axis(format="%d %b", labelAngle=0, tickCount=6))
     y = alt.Y(
         "Close:Q",
         title=None,
         scale=alt.Scale(domain=[lo - pad, hi + pad], nice=False),
-        axis=alt.Axis(format="~s", tickCount=4),
+        axis=alt.Axis(format=_axis_fmt(hi) if month else "~s", tickCount=4),
     )
     grad = alt.Gradient(
         gradient="linear",
@@ -388,7 +410,9 @@ def area_chart(d: ml.Daily) -> Any:
         y1=0,
         y2=1,
     )
-    base = alt.Chart(df).encode(x=x, y=y, tooltip=["Day:O", alt.Tooltip("Close:Q", format=",.2f")])
+    base = alt.Chart(df).encode(
+        x=x, y=y, tooltip=[alt.Tooltip("Day", title="Day"), alt.Tooltip("Close:Q", format=",.2f")]
+    )
     chart = alt.layer(
         base.encode(y2=alt.datum(lo - pad)).mark_area(
             interpolate="monotone",
@@ -396,10 +420,10 @@ def area_chart(d: ml.Daily) -> Any:
             color=grad,
             opacity=0.55,
         ),
-        base.mark_point(filled=True, size=28, color=color),
+        base.mark_point(filled=True, size=28 if not month else 14, color=color),
     )
     return _style(chart).properties(
-        height=150, padding={"left": 12, "right": 6, "top": 4, "bottom": 2}
+        height=height, padding={"left": 12, "right": 6, "top": 4, "bottom": 2}
     )
 
 
@@ -902,8 +926,27 @@ def report_page() -> None:
             _rows_table(msec.rows)
     with tabs[2]:
         sec = by.get("Top news")
+        recs = analyst_rows(sec.rows) if sec else []
+        if recs:
+            with st.container(border=True, key="analyst_rec"):
+                st.markdown(
+                    '<div class="panel-t">Analyst recommendation '
+                    + pill("Finnhub", "blue")
+                    + "</div>",
+                    unsafe_allow_html=True,
+                )
+                for r in recs:
+                    st.markdown(
+                        f"**[{r.get('tag')}]** {r.get('title')} "
+                        f"{badge_markdown(r.get('data_origin'))}"
+                    )
+                st.caption("Third-party analyst data (Finnhub), not a fact or advice.")
+        elif sec and sec.rows:
+            st.caption(
+                f"Analyst recommendation: {NA} (add a Finnhub key in Settings; US companies only)."
+            )
         if sec and sec.rows:
-            _items(sec.rows)
+            _items([r for r in sec.rows if r not in recs])
         else:
             st.caption(f"News: {NA}.")
     with tabs[3]:
@@ -1203,7 +1246,7 @@ def steps_mode() -> None:
 def settings_page() -> None:
     st.markdown("#### Settings")
     st.caption("Configure providers, models, security and preferences.")
-    t1, t2, t3, t4 = st.tabs(["Providers", "Model Settings", "Security", "Preferences"])
+    t1, t2, t3, t4, t5 = st.tabs(["Providers", "Model", "Data keys", "Live data", "Security"])
     masked: dict[str, Any] = {}
     try:
         masked = CONTROL.get("/control/keys").get("keys", {}) if CONTROL.token else {}
@@ -1259,8 +1302,8 @@ def settings_page() -> None:
             st.caption(f"Get a key at {spec.signup_url}")
         if not spec.used_by_backend:
             st.info(
-                "Saved for later. Research summaries currently use OpenRouter free "
-                "models only (project cost policy)."
+                "Saved for later. Research summaries use OpenRouter (or a Custom "
+                "OpenAI-compatible router chosen under Model)."
             )
         base_url = st.text_input(
             "Base URL",
@@ -1291,22 +1334,12 @@ def settings_page() -> None:
             except ApiError as exc:
                 st.error(exc.message)
     with t2:
-        st.markdown("**Model selection** (automatic, lowest cost)")
-        task = st.radio("Task", ["summary", "planning", "report"], horizontal=True)
-        if st.button("Show which model would be used"):
-            try:
-                models = JsonClient("https://openrouter.ai/api/v1", timeout=20).get("/models")
-                choice = choose_model(models.get("data", []), task)
-                (st.success if choice.model_id else st.warning)(
-                    f"**{choice.model_id}** - {choice.reason}" if choice.model_id else choice.reason
-                )
-            except ApiError as exc:
-                st.error(f"Could not load the model list: {exc.message}")
-        st.caption(
-            "Rule: free models first. Paid models are OFF by project policy "
-            "(ALLOW_PAID_MODELS=false); enabling a paid fallback needs your decision."
-        )
+        model_settings()
     with t3:
+        data_keys(masked)
+    with t4:
+        live_settings()
+    with t5:
         st.markdown("**Security & keys**")
         st.markdown(
             "- Keys are write-only: only the last 4 characters are ever shown.\n"
@@ -1316,35 +1349,416 @@ def settings_page() -> None:
         cfg = safe(CONTROL.get, "/control/settings", default=None) if CONTROL.token else None
         if cfg:
             st.json(cfg, expanded=False)
-    with t4:
-        st.markdown("**Live data sources**")
-        prefs = load_prefs()
-        with st.form("live"):
-            values: dict[str, object] = {
-                k: st.toggle(label, value=bool(prefs.get(k)))
-                for k, (_, label) in LIVE_TOGGLES.items()
-            }
-            values["sec_user_agent"] = st.text_input(
-                "SEC contact (name + email, required by SEC for live US filings)",
-                value=str(prefs.get("sec_user_agent", "")),
-            )
-            if st.form_submit_button("Save live-data settings"):
-                save_prefs(values)
-                st.success("Saved. Restart the dashboard (start-dashboard.ps1) to apply.")
+
+
+RESTART_NOTE = (
+    "Step-by-step and Comprehensive Research runs use this from the next run. The Research "
+    "page (REST API) picks it up after restarting scripts/start-dashboard.ps1."
+)
+
+
+def model_settings() -> None:
+    prefs = load_prefs()
+    current = str(prefs.get("llm_model") or "")
+    st.markdown("**Model selection**")
+    st.markdown(
+        "Default: **automatic** - the fastest working **free** model is chosen for every "
+        "run. Pick a specific model below for deeper research; paid models are used only "
+        "when you select one here."
+    )
+    st.markdown(
+        "Current: "
+        + (
+            pill(current, "amber" if is_paid_model(current) else "green")
+            + (" " + pill("PAID", "red") if is_paid_model(current) else "")
+            if current
+            else pill("Automatic (free first)", "green")
+        ),
+        unsafe_allow_html=True,
+    )
+    custom = uses_custom_router(prefs)
+    router = st.radio(
+        "Router",
+        ["OpenRouter", "Custom OpenAI-compatible router"],
+        index=1 if custom else 0,
+        horizontal=True,
+        key="m_router",
+    )
+    if router == "OpenRouter":
+        base = OPENROUTER_BASE
+    else:
+        base = st.text_input(
+            "Base URL",
+            value=str(prefs.get("llm_base_url") or "") if custom else "",
+            placeholder="https://your-router.example/v1 (needs /models and /chat/completions)",
+            key="m_base",
+        ).strip()
         st.caption(
-            "Off = labelled SAMPLE DATA (works offline). On = real data from public sources."
+            "Uses the Custom key saved under Providers (CUSTOM_LLM_API_KEY). Only model ids "
+            "ending in ':free' count as free; every other model is treated as paid."
         )
+    list_key = st.text_input(
+        "API key to load the model list (optional, not saved)",
+        type="password",
+        key="m_listkey",
+        help="OpenRouter lists models without a key; custom routers usually need one.",
+    ).strip()
+    if st.button("🔄 Load models from provider", disabled=not base):
+        headers = {"Authorization": f"Bearer {list_key}"} if list_key else {}
+        ok, msg, body = probe_json(base.rstrip("/") + "/models", headers)
+        ss.m_models = model_options(body) if ok else []
+        (st.success if ok else st.error)(
+            f"{msg} · {len(ss.m_models)} models" if ok else f"Could not load models: {msg}"
+        )
+    models: list[dict[str, Any]] = ss.get("m_models") or []
+    ids = ["", *[m["id"] for m in models]]
+    labels = {"": "Automatic - best free model (default)", **{m["id"]: m["label"] for m in models}}
+    if current and current not in labels:
+        ids.append(current)
+        labels[current] = current + (" · PAID" if is_paid_model(current) else " · FREE")
+    choice = st.selectbox(
+        f"Model ({sum(1 for m in models if m['free'])} free / "
+        f"{sum(1 for m in models if not m['free'])} paid loaded)",
+        ids,
+        index=ids.index(current) if current in ids else 0,
+        format_func=lambda m: labels.get(m, m),
+        key="m_choice",
+    )
+    paid = is_paid_model(choice)
+    optin = False
+    if paid:
+        st.markdown(
+            '<div class="banner-red">💲 <b>Paid model - costs real money.</b> The provider '
+            "bills your account per token for every research summary and plan (a "
+            "comprehensive run makes several calls). It is used only because you select "
+            "it; switch back to Automatic to return to free models.</div>",
+            unsafe_allow_html=True,
+        )
+        optin = st.checkbox("I understand this model is paid and want to use it", key="m_optin")
+    if st.button("💾 Save model choice", type="primary", disabled=(paid and not optin) or not base):
+        try:
+            save_model_choice(choice, base, paid_opt_in=optin)
+            st.success("Saved. " + RESTART_NOTE)
+        except ValueError as exc:
+            st.error(str(exc))
+    with st.expander("Which free model would Automatic use right now?"):
+        task = st.radio("Task", ["summary", "planning", "report"], horizontal=True)
+        if st.button("Show"):
+            try:
+                listed = JsonClient(OPENROUTER_BASE, timeout=20).get("/models")
+                pick = choose_model(listed.get("data", []), task)
+                (st.success if pick.model_id else st.warning)(
+                    f"**{pick.model_id}** - {pick.reason}" if pick.model_id else pick.reason
+                )
+            except ApiError as exc:
+                st.error(f"Could not load the model list: {exc.message}")
+
+
+DATA_KEYS = (
+    (
+        "ALPHA_VANTAGE_API_KEY",
+        "Alpha Vantage",
+        "Backup source for US/India share prices and daily history when Yahoo is unavailable.",
+        "https://www.alphavantage.co/support/#api-key",
+        "Free plan: only a limited number of requests per day (check alphavantage.co for "
+        "current limits).",
+    ),
+    (
+        "FINNHUB_API_KEY",
+        "Finnhub",
+        "US company news, analyst recommendations (buy/hold/sell) and the earnings "
+        "calendar. Shown on the report News tab with evidence tags.",
+        "https://finnhub.io/register",
+        "Free plan: rate-limited per minute; US-listed companies only.",
+    ),
+)
+
+
+def data_keys(masked: dict[str, Any]) -> None:
+    st.markdown("**Market data keys** (optional - real data works without them)")
+    cols = st.columns(len(DATA_KEYS))
+    for col, (name, label, what, url, note) in zip(cols, DATA_KEYS, strict=True):
+        info = masked.get(name) or {}
+        with col.container(border=True, key=f"dk_{name.lower()}"):
+            status = (
+                pill("Configured " + str(info.get("masked", "")), "green")
+                if info.get("configured")
+                else pill("Not configured", "amber")
+            )
+            st.markdown(f"**{label}** {status}", unsafe_allow_html=True)
+            st.caption(what)
+            st.markdown(f"[Get a free key →]({url})")
+            st.caption(note)
+            value = st.text_input(f"{label} key", type="password", key=f"dkv_{name}").strip()
+            if st.button(f"💾 Save {label} key", key=f"dks_{name}", disabled=not value):
+                try:
+                    saved = CONTROL.put(f"/control/keys/{name}", {"value": value})
+                    st.success(f"Saved {saved['masked']}. " + RESTART_NOTE)
+                except ApiError as exc:
+                    st.error(exc.message)
+
+
+def live_settings() -> None:
+    st.markdown("**Live data switches**")
+    st.caption("Off = labelled SAMPLE DATA (works offline). On = real data from public sources.")
+    prefs = load_prefs()
+    with st.form("live"):
+        values: dict[str, object] = {}
+        for k, (var, label) in LIVE_TOGGLES.items():
+            values[k] = st.toggle(f"{label}  ·  `{var}`", value=bool(prefs.get(k)), key=f"lt_{k}")
+            st.caption(LIVE_DESCRIPTIONS[k])
+        values["sec_user_agent"] = st.text_input(
+            "SEC_USER_AGENT (your name + real email)",
+            value=str(prefs.get("sec_user_agent", "")),
+            placeholder="Jane Doe jane@example.com",
+            help="SEC EDGAR requires every request to identify a contact.",
+        ).strip()
+        st.caption(
+            "SEC EDGAR blocks anonymous requests: US filings and financials need a contact "
+            "name and a real email in the User-Agent. It is only sent to sec.gov."
+        )
+        if st.form_submit_button("💾 Save live-data settings", type="primary"):
+            ua = str(values["sec_user_agent"])
+            if ua and ("@" not in ua or " " not in ua):
+                st.error("SEC_USER_AGENT needs a name and an email, e.g. 'Jane Doe jane@x.com'.")
+            else:
+                save_prefs(values)
+                st.success("Saved. " + RESTART_NOTE)
+
+
+# ---------------------------------------------------------------- comprehensive research
+_STATE_PILL = {
+    "waiting": ("Waiting", "gray"),
+    "pending_approval": ("Needs approval", "amber"),
+    "approved": ("Approved", "blue"),
+    "running": ("Running", "blue"),
+    "succeeded": ("Done", "green"),
+    "failed": ("Failed", "red"),
+    "rejected": ("Rejected", "red"),
+    "skipped": ("Skipped", "gray"),
+}
+
+
+def _step_label(state: str) -> str:
+    text, tone = _STATE_PILL.get(state, (state.replace("_", " ").title(), "gray"))
+    return pill(text, tone)
+
+
+def _control_ready() -> bool:
+    if not CONTROL.token:
+        st.error("Control API token missing - start with scripts/start-dashboard.ps1.")
+        return False
+    try:
+        CONTROL.get("/control/health")
+    except ApiError as exc:
+        st.error(f"Control API not reachable ({exc.message}).")
+        return False
+    return True
+
+
+def comprehensive_page() -> None:
+    st.markdown("#### Comprehensive Research")
+    st.caption(
+        "Five research agents analyse one company. Every agent step waits for your "
+        "approval; you see live progress and logs, and can retry a failed step."
+    )
+    run: dict[str, Any] | None = None
+    if _control_ready() and ss.get("comp_run"):
+        run = safe(CONTROL.get, f"/control/runs/{ss.comp_run}", default=None)
+    steps: list[dict[str, Any]] = (run or {}).get("steps", [])
+    states = agent_states(steps)
+    cols = st.columns(len(RESEARCH_AGENTS))
+    for col, (kind, name, what) in zip(cols, RESEARCH_AGENTS, strict=True):
+        col.markdown(
+            f'<div class="agent"><div class="agent-h"><b>{esc(name)}</b>'
+            f"{_step_label(states[kind])}</div><small>{esc(what)}</small></div>",
+            unsafe_allow_html=True,
+        )
+    if not CONTROL.token:
+        return
+    with st.form("comp_start"):
+        c1, c2 = st.columns([4, 1])
+        q = c1.text_input(
+            "Company",
+            value="",
+            placeholder="Company name or ticker, e.g. RELIANCE.NS or AAPL",
+            label_visibility="collapsed",
+        )
+        start = c2.form_submit_button(
+            "Start Comprehensive Research", type="primary", use_container_width=True
+        )
+    try:
+        if start and not q.strip():
+            st.warning("Enter a company name or ticker first.")
+        elif start:
+            CONTROL.put(
+                "/control/settings", {"approval_mode": True, "auto_approve_low_risk": False}
+            )
+            created = CONTROL.post(
+                "/control/runs",
+                {"params": {"q": q.strip(), "objective": "comprehensive_equity_research"}},
+            )
+            ss.comp_run, ss.comp_company = created["run_id"], q.strip()
+            st.rerun()
+        if run is None:
+            st.info("Start a run to see the approval gate, per-step progress and live logs.")
+            return
+        status = str(run.get("status"))
+        done = sum(1 for s in steps if s.get("state") in ("succeeded", "failed", "rejected"))
+        total = max(len(steps), len(RESEARCH_AGENTS))
+        st.markdown(
+            f"**{esc(ss.get('comp_company', ''))}** · run `{ss.comp_run[:8]}` · "
+            f"status **{status}** · {done}/{total} steps finished"
+        )
+        st.progress(min(1.0, done / total) if total else 0.0)
+        waiting = pending_steps(steps)
+        if waiting:
+            with st.container(key="comp_pending"):
+                st.markdown(
+                    f'<div class="banner-amber">⏸ <b>Approval needed</b> - {len(waiting)} '
+                    "step(s) are waiting for you. Nothing runs until you approve.</div>",
+                    unsafe_allow_html=True,
+                )
+        for step in steps:
+            sid, state = step["step_id"], str(step["state"])
+            with st.container(border=True):
+                head, b1, b2, b3 = st.columns([6, 1, 1, 1])
+                head.markdown(
+                    f"{_step_label(state)} **{esc(str(step.get('kind') or ''))}** - "
+                    f"{esc(str(step.get('name') or ''))[:140]}",
+                    unsafe_allow_html=True,
+                )
+                out = step.get("output") or {}
+                if out.get("summary"):
+                    head.caption(str(out["summary"])[:400])
+                if step.get("error"):
+                    head.caption(f"error: {step['error']}")
+                if state == "pending_approval":
+                    if b1.button("Approve", key=f"ca{sid}", type="primary"):
+                        CONTROL.post(f"/control/runs/{ss.comp_run}/steps/{sid}/approve", {})
+                        st.rerun()
+                    if b2.button("Reject", key=f"cr{sid}"):
+                        CONTROL.post(f"/control/runs/{ss.comp_run}/steps/{sid}/reject", {})
+                        st.rerun()
+                if state in ("failed", "rejected") and b3.button("Retry", key=f"ct{sid}"):
+                    CONTROL.post(f"/control/runs/{ss.comp_run}/steps/{sid}/retry", {})
+                    st.rerun()
+        logs = CONTROL.get(f"/control/runs/{ss.comp_run}/logs").get("logs", [])
+        st.markdown("**Live log**")
+        st.code(
+            "\n".join(f"{x.get('level', 'info'):5} {x.get('message')}" for x in logs[-40:])
+            or "(no logs yet)"
+        )
+        if status in ("succeeded", "completed", "failed", "partial", "stopped"):
+            res = run.get("result") or {}
+            st.success(
+                f"Run finished: {res.get('status', status)} · "
+                f"{res.get('completed_count', '?')} agents completed, "
+                f"{len(res.get('evidence_refs') or [])} evidence references."
+            )
+            if st.button("📄 Open the finished report", type="primary", key="comp_report"):
+                start_research(
+                    str(ss.get("comp_company", "")), objective="comprehensive_equity_research"
+                )
+                if ss.get("result"):
+                    ss.nav = "Research Report"
+                    st.rerun()
+            st.caption(
+                "The formatted report (tabs, charts, evidence tags) is built by the REST API "
+                "from a comprehensive workflow for the same company."
+            )
+        elif status in ("running", "queued") and not waiting:
+            time.sleep(1.5)
+            st.rerun()
+    except ApiError as exc:
+        st.error(exc.message)
+
+
+# ---------------------------------------------------------------- commodity market
+@st.cache_data(ttl=900, show_spinner=False)
+def commodity_series(name: str, india: bool) -> ml.Daily | None:
+    return cm.price_series(cm.COMMODITIES[name], india)
+
+
+@st.cache_data(ttl=900, show_spinner=False)
+def commodity_news(name: str, india: bool) -> list[ml.NewsItem]:
+    return cm.related_news(cm.COMMODITIES[name], india)
+
+
+def commodity_page() -> None:
+    st.markdown("#### Commodity Market")
+    st.caption("Live futures prices, a 1-month graph and the latest related news.")
+    c1, c2 = st.columns(2)
+    market = c1.radio("Market", cm.MARKETS, horizontal=True, key="cm_market")
+    name = c2.radio("Commodity", list(cm.COMMODITIES), horizontal=True, key="cm_name")
+    india = market.startswith("India")
+    com = cm.COMMODITIES[name]
+    with st.spinner("Loading live prices…"):
+        d = commodity_series(name, india)
+    left, right = st.columns([2.2, 1])
+    with left.container(border=True, key="cm_price"):
+        if d is None:
+            st.markdown(
+                f'<div class="na">{esc(name)} price: {NA} (Yahoo Finance / USD-INR '
+                "unreachable)</div>",
+                unsafe_allow_html=True,
+            )
+        else:
+            last = d.bars[-1].close
+            day = (last / d.bars[-2].close - 1) if len(d.bars) > 1 and d.bars[-2].close else None
+            unit = f"₹ per {com.mcx_unit}" if india else f"US$ per {com.us_unit}"
+            cur = "₹" if india else "$"
+            tone = "s-green" if (day or 0) >= 0 else "s-red"
+            mtone = "s-green" if (d.change or 0) >= 0 else "s-red"
+            st.markdown(
+                f'<div class="cm-h"><div><b>{esc(name)}</b> '
+                f"{pill('LIVE', 'green')} <small>{esc(com.symbol)} · {esc(com.exchange)}"
+                f"{' → INR' if india else ''} · as of {_ist(d.as_of)}</small></div>"
+                f'<div class="cm-v">{cur}{last:,.2f} <small>{esc(unit)}</small></div>'
+                f'<div><span class="{tone}">{day:+.2%} 1d</span> · '
+                f'<span class="{mtone}">{(d.change or 0):+.2%} 1m</span></div></div>'
+                if day is not None
+                else f"<b>{esc(name)}</b> {cur}{last:,.2f} {esc(unit)}",
+                unsafe_allow_html=True,
+            )
+            st.altair_chart(area_chart(d, height=260, month=True), use_container_width=True)
+            if india:
+                st.markdown(
+                    f'<div class="banner-amber">Approx. from international futures, not the '
+                    f"MCX quote: {esc(com.symbol)} ({esc(com.exchange)}) x live USD/INR "
+                    f"(USDINR=X), converted to {esc(com.mcx_unit)}. MCX prices include import "
+                    "duty and differ.</div>",
+                    unsafe_allow_html=True,
+                )
+            st.caption("Daily closes, last 1 month · source: Yahoo Finance (cached 15 min)")
+    with right.container(border=True, key="cm_news"):
+        items = commodity_news(name, india)
+        body = (
+            "".join(
+                f'<div class="rr"><div class="n"><b><a href="{esc(n.link)}" target="_blank">'
+                f"{esc(n.title)}</a></b><small>{esc(n.source)} · {_ist(n.published)}</small>"
+                "</div></div>"
+                for n in items
+            )
+            or f'<div class="na">Related news: {NA}</div>'
+        )
+        st.markdown(
+            f'<div class="panel-t">Latest {esc(name)} news</div>{body}', unsafe_allow_html=True
+        )
+        st.caption("Yahoo Finance + Google News RSS" + (" (India edition)" if india else ""))
 
 
 # ---------------------------------------------------------------- shell
 PAGES = {
     "Home": ("home", home_page),
     "Research": ("research", research_page),
+    "Comprehensive Research": ("comprehensive", comprehensive_page),
     "Workflow Approvals": ("approvals", approvals_page),
     "Research Report": ("report", report_page),
     "Reports": ("reports", reports_page),
     "Watchlist": ("watchlist", watchlist_page),
     "Provider Health": ("health", health_page),
+    "Commodity Market": ("commodity", commodity_page),
     "Settings": ("settings", settings_page),
 }
 ss.setdefault("nav", "Home")

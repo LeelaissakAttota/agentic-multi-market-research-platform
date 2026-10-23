@@ -113,6 +113,11 @@ _NAV_SVG = {
         '<path d="M12 3.5l2.6 5.4 5.9.8-4.3 4.1 1 5.8-5.2-2.8-5.2 2.8 1-5.8-4.3-4.1 5.9-.8z"/>'
     ),
     "health": '<path d="M3 12h4l2-5 4 10 2-5h6"/>',
+    "comprehensive": (
+        '<circle cx="12" cy="5" r="2.5"/><circle cx="5" cy="18" r="2.5"/>'
+        '<circle cx="19" cy="18" r="2.5"/><path d="M12 7.5v4M12 11.5L6.5 16M12 11.5l5.5 4.5"/>'
+    ),
+    "commodity": ('<path d="M4 20h16"/><path d="M6 20l2-7h8l2 7"/><path d="M9 13l1.5-5h3L15 13"/>'),
     "settings": (
         '<circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3'
         'M4.9 4.9l2.1 2.1M17 17l2.1 2.1M4.9 19.1L7 17M17 7l2.1-2.1"/>'

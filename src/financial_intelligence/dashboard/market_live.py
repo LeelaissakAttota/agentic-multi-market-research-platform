@@ -84,7 +84,9 @@ def _client(client: httpx.Client | None) -> httpx.Client:
     return client or httpx.Client(timeout=8.0, headers=HEADERS, follow_redirects=True)
 
 
-def parse_chart(payload: dict[str, Any], symbol: str, name: str = "") -> Daily | None:
+def parse_chart(
+    payload: dict[str, Any], symbol: str, name: str = "", keep: int = 5
+) -> Daily | None:
     """Daily bars from a chart response; ``None`` unless at least one full bar is present."""
 
     try:
@@ -113,17 +115,19 @@ def parse_chart(payload: dict[str, Any], symbol: str, name: str = "") -> Daily |
         symbol=symbol,
         name=name or str(meta.get("shortName") or meta.get("longName") or symbol),
         currency=str(meta.get("currency") or ""),
-        bars=tuple(bars[-5:]),
+        bars=tuple(bars[-keep:]),
         as_of=datetime.fromtimestamp(int(t), UTC).isoformat(timespec="minutes"),
     )
 
 
-def fetch_daily(symbol: str, name: str = "", client: httpx.Client | None = None) -> Daily | None:
+def fetch_daily(
+    symbol: str, name: str = "", client: httpx.Client | None = None, range_: str = "5d"
+) -> Daily | None:
     c = _client(client)
     try:
-        r = c.get(CHART_URL.format(symbol=symbol), params={"range": "5d", "interval": "1d"})
+        r = c.get(CHART_URL.format(symbol=symbol), params={"range": range_, "interval": "1d"})
         r.raise_for_status()
-        return parse_chart(r.json(), symbol, name)
+        return parse_chart(r.json(), symbol, name, keep=5 if range_ == "5d" else 400)
     except (httpx.HTTPError, ValueError):
         return None
 

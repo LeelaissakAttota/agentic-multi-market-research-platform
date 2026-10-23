@@ -29,8 +29,6 @@ from financial_intelligence.observability.logging import get_logger
 
 logger = get_logger("financial_intelligence.infrastructure.llm.openrouter_adapter")
 
-_CHAT_COMPLETIONS_URL = "https://openrouter.ai/api/v1/chat/completions"
-
 
 class OpenRouterAdapter:
     """Live LlmRouterPort implementation targeting OpenRouter's free-model catalog.
@@ -49,6 +47,8 @@ class OpenRouterAdapter:
         api_key: SecretStr,
         model: str,
         max_output_tokens_ceiling: int,
+        base_url: str = "https://openrouter.ai/api/v1",
+        allow_paid: bool = False,
     ) -> None:
         if not model.strip():
             msg = "model is required"
@@ -59,7 +59,11 @@ class OpenRouterAdapter:
         self._http = http
         self._api_key = api_key
         self._model = model.strip()
+        self._chat_url = base_url.rstrip("/") + "/chat/completions"
         self._max_output_tokens_ceiling = max_output_tokens_ceiling
+        # ADR-0xx paid opt-in: only set when the user explicitly selected a paid
+        # model (ALLOW_PAID_MODELS + OPENROUTER_SELECTED_MODEL). Otherwise $0 only.
+        self._allow_paid = allow_paid
 
     def complete(self, request: ModelRequest) -> ModelResponse:
         if request.max_output_tokens > self._max_output_tokens_ceiling:
@@ -84,7 +88,7 @@ class OpenRouterAdapter:
         headers = {"Authorization": f"Bearer {self._api_key.get_secret_value()}"}
 
         try:
-            body = self._http.post_json(_CHAT_COMPLETIONS_URL, payload, extra_headers=headers)
+            body = self._http.post_json(self._chat_url, payload, extra_headers=headers)
         except HttpTransportError as exc:
             failure_kind = self._map_transport_failure(exc)
             logger.info(
@@ -140,7 +144,7 @@ class OpenRouterAdapter:
         usage = self._map_usage(body.get("usage"))
         # $0 cost policy: require explicitly known finite zero cost.
         # Missing, malformed, non-finite, or positive cost → POLICY_VIOLATION.
-        if not usage.cost_known or usage.estimated_cost > 0:
+        if not self._allow_paid and (not usage.cost_known or usage.estimated_cost > 0):
             logger.error(
                 "openrouter_nonzero_cost_policy_violation",
                 extra={"call_id": request.call_id.as_text(), "model": model_used},

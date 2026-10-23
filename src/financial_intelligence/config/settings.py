@@ -74,6 +74,16 @@ class Settings(BaseSettings):
     primary_free_model: str = Field(default="", alias="PRIMARY_FREE_MODEL")
     fallback_free_model_1: str = Field(default="", alias="FALLBACK_FREE_MODEL_1")
     fallback_free_model_2: str = Field(default="", alias="FALLBACK_FREE_MODEL_2")
+    # ADR-0xx (paid models opt-in): an explicitly selected model overrides the
+    # automatic free-model choice. A non-":free" selection is only accepted together
+    # with ALLOW_PAID_MODELS=true, and ALLOW_PAID_MODELS=true is only accepted with an
+    # explicit selection (the dashboard sets both when the user picks a paid model).
+    openrouter_selected_model: str = Field(
+        default="", alias="OPENROUTER_SELECTED_MODEL", max_length=200
+    )
+    openrouter_base_url: str = Field(
+        default="https://openrouter.ai/api/v1", alias="OPENROUTER_BASE_URL", max_length=512
+    )
 
     # LLM Foundation Phase 1 — configuration only; no live OpenRouter calls exist yet.
     openrouter_live_enabled: bool = Field(default=False, alias="OPENROUTER_LIVE_ENABLED")
@@ -138,7 +148,7 @@ class Settings(BaseSettings):
         default=SecretStr(""),
         alias="ALPHA_VANTAGE_API_KEY",
     )
-    # Reserved: no Finnhub adapter exists (Yahoo + Alpha Vantage cover US/India).
+    # Optional Finnhub free tier: US company news, analyst consensus, earnings date.
     finnhub_api_key: SecretStr = Field(default=SecretStr(""), alias="FINNHUB_API_KEY")
     alpha_vantage_daily_limit: int = Field(
         default=25,
@@ -372,19 +382,33 @@ class Settings(BaseSettings):
         max_length=1024,
     )
 
-    @field_validator("allow_paid_models")
+    @field_validator("openrouter_base_url")
     @classmethod
-    def paid_models_must_remain_disabled(cls, value: bool) -> bool:
-        """Fail closed: paid models are prohibited in development policy."""
-
-        if value is True:
-            msg = "ALLOW_PAID_MODELS=true is rejected; paid models are disabled"
+    def base_url_must_be_http(cls, value: str) -> str:
+        value = value.strip().rstrip("/") or "https://openrouter.ai/api/v1"
+        if not value.startswith(("https://", "http://127.0.0.1", "http://localhost")):
+            msg = "OPENROUTER_BASE_URL must be https:// (or a local http URL)"
             raise ValueError(msg)
-        return False
+        return value
+
+    def selected_model_is_paid(self) -> bool:
+        model = self.openrouter_selected_model.strip()
+        return bool(model) and not model.endswith(":free")
 
     @model_validator(mode="after")
     def reject_duplicate_free_model_ids(self) -> Self:
         """Reject unsafe or internally inconsistent runtime configuration."""
+
+        selected = self.openrouter_selected_model.strip()
+        if self.allow_paid_models and not selected:
+            msg = (
+                "ALLOW_PAID_MODELS=true is rejected without an explicitly selected "
+                "model (OPENROUTER_SELECTED_MODEL); paid models are opt-in only"
+            )
+            raise ValueError(msg)
+        if self.selected_model_is_paid() and not self.allow_paid_models:
+            msg = "a paid OPENROUTER_SELECTED_MODEL requires ALLOW_PAID_MODELS=true (opt-in)"
+            raise ValueError(msg)
 
         configured = [
             model_id
@@ -422,7 +446,11 @@ class Settings(BaseSettings):
         if self.financial_data_live_enabled and self.financial_data_primary_provider == "none":
             msg = "live financial data requires an enabled primary provider"
             raise ValueError(msg)
-        if self.openrouter_live_enabled and not self.primary_free_model:
+        if (
+            self.openrouter_live_enabled
+            and not self.primary_free_model
+            and not self.openrouter_selected_model
+        ):
             msg = "live OpenRouter routing requires a configured primary free model"
             raise ValueError(msg)
         if self.planner_mode == "llm" or self.replan_mode == "llm":
@@ -501,6 +529,7 @@ class Settings(BaseSettings):
             "api_max_request_body_bytes": self.api_max_request_body_bytes,
             "allow_paid_models": self.allow_paid_models,
             "primary_free_model": self.primary_free_model or None,
+            "openrouter_selected_model": self.openrouter_selected_model or None,
             "fallback_free_model_1": self.fallback_free_model_1 or None,
             "fallback_free_model_2": self.fallback_free_model_2 or None,
             "openrouter_live_enabled": self.openrouter_live_enabled,
