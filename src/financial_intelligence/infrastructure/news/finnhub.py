@@ -28,6 +28,7 @@ from financial_intelligence.domain.news import EventType, QualitativeEvent
 from financial_intelligence.domain.sources import SourceAuthorityTier
 from financial_intelligence.infrastructure.http import BoundedHttpClient
 from financial_intelligence.infrastructure.http.feeds import HostRateLimiter, assert_allowlisted
+from financial_intelligence.infrastructure.http.provider_health import PROVIDER_HEALTH
 from financial_intelligence.infrastructure.news.live_events import build_event
 from financial_intelligence.infrastructure.news.live_feeds import _CachedSource, _domain_tier
 
@@ -136,17 +137,26 @@ class FinnhubSource(_CachedSource):
             clock=clock,
         )
         self._key = api_key
+        if api_key.get_secret_value():
+            PROVIDER_HEALTH.register(self.name)
 
     def _get(self, path: str, params: dict[str, str]) -> object:
         url = f"{_BASE}{path}?{urlencode(params)}"
         assert_allowlisted(url, frozenset({FINNHUB_HOST}))
         self._limiter.acquire(FINNHUB_HOST)
-        response = self._http.get_response(
-            url,
-            accept="application/json",
-            extra_headers={"X-Finnhub-Token": self._key.get_secret_value()},
-        )
-        return json.loads(response.body.decode("utf-8") or "null")
+        try:
+            response = self._http.get_response(
+                url,
+                accept="application/json",
+                extra_headers={"X-Finnhub-Token": self._key.get_secret_value()},
+            )
+            payload = json.loads(response.body.decode("utf-8") or "null")
+        except Exception as exc:
+            kind = getattr(getattr(exc, "kind", None), "value", None) or type(exc).__name__
+            PROVIDER_HEALTH.record_failure(self.name, str(kind))
+            raise
+        PROVIDER_HEALTH.record_success(self.name)
+        return payload
 
     def _fetch(self, company: CompanyIdentity) -> list[QualitativeEvent]:
         symbol = us_ticker(company)
