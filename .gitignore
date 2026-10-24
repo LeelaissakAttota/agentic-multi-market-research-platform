@@ -53,8 +53,7 @@ temp/
 # Acquired source data and generated reports; preserve directory sentinels
 data/*
 !data/.gitkeep
-reports/*
-!reports/.gitkeep
+reports/
 
 # Generated documentation/report render artifacts
 docs/reports/generated/

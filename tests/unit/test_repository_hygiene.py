@@ -26,11 +26,8 @@ def test_root_markdown_is_limited_to_control_documents() -> None:
     assert present == ALLOWED_ROOT_MARKDOWN
 
 
-def test_history_reports_live_under_docs_reports() -> None:
-    reports = ROOT / "docs" / "reports"
-    assert (reports / "PHASE_HISTORY.md").is_file()
-    assert (reports / "README.md").is_file()
-    # Detailed phase and defect reports are archived outside the repository.
+def test_history_reports_live_outside_repository_root() -> None:
+    # Phase history and detailed phase and defect reports are archived outside the repository.
     archived = [
         path.name for path in ROOT.glob("*.md") if path.name.startswith(("F0", "F1", "PHASE_"))
     ]

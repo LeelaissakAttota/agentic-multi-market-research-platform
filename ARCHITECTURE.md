@@ -234,7 +234,7 @@ English and Telugu are the initial presentation targets; Hindi and other languag
 
 ## Report boundary
 
-Future report generation consumes a versioned report model; it does not query providers directly. DOCX rendering, charts, citation formatting, and filename sanitization belong to reporting adapters. Report artifacts retain research-run linkage and generation metadata. The frozen section/classification contract is documented in [docs/reports/README.md](docs/reports/README.md).
+Future report generation consumes a versioned report model; it does not query providers directly. DOCX rendering, charts, citation formatting, and filename sanitization belong to reporting adapters. Report artifacts retain research-run linkage and generation metadata.
 
 ## Integration boundaries
 
