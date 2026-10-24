@@ -1,4 +1,4 @@
-# AERP (Equity Research Platform) demo data
+# AMRP (Agentic Multi-Market Research Platform) demo data
 
 Fictional company names in this folder (Zentrix Robotics, Zentrix Dynamics, Bluepeak Lithium Corp, Kaveri Quantum Foods,
 Moonlit Robotics) are made up on purpose and **must return `NOT_FOUND`** - the platform must never invent data.

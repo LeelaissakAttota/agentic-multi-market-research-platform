@@ -485,7 +485,7 @@ class DeterministicResearchReportGenerator:
             'xmlns:dcterms="http://purl.org/dc/terms/" '
             'xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">'
             f"<dc:title>{xml_escape(title)}</dc:title>"
-            "<dc:creator>Agentic Financial Intelligence Platform</dc:creator>"
+            "<dc:creator>Agentic Multi-Market Research Platform</dc:creator>"
             f'<dcterms:created xsi:type="dcterms:W3CDTF">{xml_escape(generated)}</dcterms:created>'
             "</cp:coreProperties>"
         )
@@ -497,6 +497,6 @@ class DeterministicResearchReportGenerator:
             '<Properties xmlns="'
             'http://schemas.openxmlformats.org/officeDocument/2006/extended-properties" '
             'xmlns:vt="http://schemas.openxmlformats.org/officeDocument/2006/docPropsVTypes">'
-            "<Application>Agentic Financial Intelligence Platform</Application>"
+            "<Application>Agentic Multi-Market Research Platform</Application>"
             "</Properties>"
         )

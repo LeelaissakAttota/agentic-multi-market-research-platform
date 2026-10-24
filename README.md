@@ -8,14 +8,16 @@ Production-oriented, evidence-first research infrastructure for equities (India 
 
 AMRP turns a company and a question into a traceable, bounded research run. It resolves the company, plans bounded research, runs five specialist agents (Market, Financial, News, Industry, Regulatory), verifies every claim against time-aware evidence, and produces a traceable report in JSON, Markdown or Word. Each claim in the output is tagged with its evidence (`[M1]` market, `[F1]` financial, `[N1]` news, `[R1]` regulatory).
 
+<!-- DEMO VIDEO (hidden until the shared link is available; replace https://VIDEO_LINK and remove this comment wrapper)
 ## Demo video
 
-<!-- DEMO VIDEO LINK: replace both occurrences of https://VIDEO_LINK below with the shared video link
-     (for a Drive file use https://drive.google.com/file/d/<FILE_ID>/preview so it plays directly). -->
+ DEMO VIDEO LINK: replace both occurrences of https://VIDEO_LINK below with the shared video link
+     (for a Drive file use https://drive.google.com/file/d/<FILE_ID>/preview so it plays directly). 
 [![Watch the demo](https://img.shields.io/badge/%E2%96%B6%20Watch%20the%20demo-AMRP%20walkthrough-red?style=for-the-badge)](https://VIDEO_LINK)
 
 ▶ [Watch the AMRP demo video](https://VIDEO_LINK)
-<!-- END DEMO VIDEO LINK -->
+ END DEMO VIDEO LINK
+-->
 
 ## See it working
 

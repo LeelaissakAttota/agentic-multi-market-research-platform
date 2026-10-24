@@ -1061,7 +1061,7 @@ def reports_page() -> None:
         "⬇ Export All",
         to_csv(shown) or "no rows\n",
         type="primary",
-        file_name="aerp-reports.csv",
+        file_name="amrp-reports.csv",
         mime="text/csv",
         disabled=not shown,
         width="stretch",
