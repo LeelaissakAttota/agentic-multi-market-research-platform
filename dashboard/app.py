@@ -1177,13 +1177,16 @@ def health_page() -> None:
     with right.container(border=True):
         logs: list[str] = []
         if CONTROL.token:
-            runs = (safe(CONTROL.get, "/control/runs", default={}) or {}).get("runs", [])
-            if runs:
+            payload = safe(CONTROL.get, "/control/runs", default={}) or {}
+            runs = payload.get("runs", []) if isinstance(payload, dict) else payload
+            if isinstance(runs, list) and runs and isinstance(runs[-1], dict):
                 rid = runs[-1].get("run_id")
                 lg = safe(CONTROL.get, f"/control/runs/{rid}/logs", default={}) or {}
+                items = lg.get("logs", []) if isinstance(lg, dict) else lg
                 logs = [
                     f"{x.get('level', 'info'):5} {x.get('message')}"
-                    for x in lg.get("logs", [])[-12:]
+                    for x in (items if isinstance(items, list) else [])[-12:]
+                    if isinstance(x, dict)
                 ]
         st.markdown('<div class="panel-t">Recent Logs</div>', unsafe_allow_html=True)
         st.code("\n".join(logs) or "(no step-by-step run logs yet)")
