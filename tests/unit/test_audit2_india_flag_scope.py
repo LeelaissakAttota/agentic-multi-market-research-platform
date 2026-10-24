@@ -1,12 +1,12 @@
 from __future__ import annotations
 
-from financial_intelligence.composition import build_container
-from financial_intelligence.config.settings import Settings
-from financial_intelligence.infrastructure.market import (
+from amrp.composition import build_container
+from amrp.config.settings import Settings
+from amrp.infrastructure.market import (
     FallbackMarketDataAdapter,
     YahooChartMarketDataAdapter,
 )
-from financial_intelligence.infrastructure.market.india_quotes import (
+from amrp.infrastructure.market.india_quotes import (
     IndiaLiveQuoteMarketDataAdapter,
 )
 

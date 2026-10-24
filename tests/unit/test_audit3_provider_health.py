@@ -3,12 +3,12 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
-from financial_intelligence.infrastructure.company.in_memory_catalog import InMemoryCompanyCatalog
-from financial_intelligence.infrastructure.company.universe import (
+from amrp.infrastructure.company.in_memory_catalog import InMemoryCompanyCatalog
+from amrp.infrastructure.company.universe import (
     BseEquityUniverseSource,
     UniverseCompanyCatalog,
 )
-from financial_intelligence.infrastructure.http.provider_health import PROVIDER_HEALTH
+from amrp.infrastructure.http.provider_health import PROVIDER_HEALTH
 from tests.unit.test_audit2_universe import BSE_ROWS, _Src
 
 

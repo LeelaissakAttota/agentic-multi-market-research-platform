@@ -8,9 +8,9 @@ from typing import Any
 
 from pydantic import SecretStr
 
-from financial_intelligence.config.settings import Settings
-from financial_intelligence.infrastructure.http import BoundedHttpClient, HttpResponse
-from financial_intelligence.infrastructure.market.alpha_vantage import (
+from amrp.config.settings import Settings
+from amrp.infrastructure.http import BoundedHttpClient, HttpResponse
+from amrp.infrastructure.market.alpha_vantage import (
     AlphaVantageMarketDataAdapter,
     DailyRequestBudget,
     alpha_vantage_symbol,
@@ -118,7 +118,7 @@ def test_settings_defaults_and_key_not_in_log_context() -> None:
 
 
 def test_composition_wires_alpha_only_with_key(tmp_path: Path) -> None:
-    from financial_intelligence.composition import _build_alpha_vantage
+    from amrp.composition import _build_alpha_vantage
 
     budget = str(tmp_path / "b.json")
     no_key = Settings(_env_file=None, APP_ENV="test", ALPHA_VANTAGE_BUDGET_PATH=budget)

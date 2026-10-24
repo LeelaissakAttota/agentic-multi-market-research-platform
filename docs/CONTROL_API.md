@@ -5,8 +5,8 @@ A small local API that lets the ToolBridge dashboard supervise runs of this proj
 Start it (binds to **127.0.0.1 only**):
 
 ```bash
-export EQUITY_RESEARCH_CONTROL_TOKEN="$(python -c 'import secrets;print(secrets.token_urlsafe(32))')"
-python -m financial_intelligence.control.server --port 8712
+export AMRP_CONTROL_TOKEN="$(python -c 'import secrets;print(secrets.token_urlsafe(32))')"
+python -m amrp.control.server --port 8712
 ```
 
 Every endpoint except `GET /control/health` requires `Authorization: Bearer <token>`
@@ -36,7 +36,7 @@ With approval mode off, behaviour is unchanged.
 
 ## Keys
 
-Stored in `~/.config/equity-research/secrets.json` (dir 0700, file 0600, atomic writes), outside
+Stored in `~/.config/amrp/secrets.json` (dir 0700, file 0600, atomic writes), outside
 the repo. Values are never returned by the API (masked to `****` + last 4), the update
 endpoint is write-only, and key changes are audited by name only. The file is re-read on
 each run, so new keys apply without a restart.

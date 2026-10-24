@@ -12,15 +12,15 @@ from datetime import UTC, datetime
 from decimal import Decimal
 from unittest import TestCase
 
-from financial_intelligence.domain.verification.claim import Claim, ClaimId, ClaimType
-from financial_intelligence.domain.verification.engine import VerificationEngine
-from financial_intelligence.domain.verification.evidence import (
+from amrp.domain.verification.claim import Claim, ClaimId, ClaimType
+from amrp.domain.verification.engine import VerificationEngine
+from amrp.domain.verification.evidence import (
     AuthorityTier,
     DataOrigin,
     EvidenceBundle,
     EvidenceRef,
 )
-from financial_intelligence.domain.verification.result import VerificationStatus
+from amrp.domain.verification.result import VerificationStatus
 
 NOW = datetime(2025, 1, 15, tzinfo=UTC)
 

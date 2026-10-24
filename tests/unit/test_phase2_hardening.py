@@ -6,18 +6,18 @@ from difflib import SequenceMatcher
 from unittest import TestCase
 from uuid import UUID
 
-from financial_intelligence.api import create_app
-from financial_intelligence.application.company_resolution import (
+from amrp.api import create_app
+from amrp.application.company_resolution import (
     CompanyQuery,
     ConfidenceBand,
     MatchMethod,
     ResolutionResult,
     ResolutionStatus,
 )
-from financial_intelligence.application.resolve_company import ResolveCompany
-from financial_intelligence.composition import build_container
-from financial_intelligence.config.settings import Settings
-from financial_intelligence.domain.identity import (
+from amrp.application.resolve_company import ResolveCompany
+from amrp.composition import build_container
+from amrp.config.settings import Settings
+from amrp.domain.identity import (
     AliasType,
     CompanyAlias,
     CompanyId,
@@ -37,9 +37,9 @@ from financial_intelligence.domain.identity import (
     normalize_company_display_name,
     normalize_ticker,
 )
-from financial_intelligence.infrastructure.company import InMemoryCompanyCatalog
-from financial_intelligence.infrastructure.company.in_memory_catalog import FUZZY_RATIO_FLOOR
-from financial_intelligence.infrastructure.company.reference_dataset import (
+from amrp.infrastructure.company import InMemoryCompanyCatalog
+from amrp.infrastructure.company.in_memory_catalog import FUZZY_RATIO_FLOOR
+from amrp.infrastructure.company.reference_dataset import (
     build_reference_companies,
 )
 from tests.support.asgi_client import TestClient

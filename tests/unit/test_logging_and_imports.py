@@ -11,11 +11,11 @@ from io import StringIO
 from pathlib import Path
 from unittest import TestCase
 
-from financial_intelligence.observability.correlation import (
+from amrp.observability.correlation import (
     bind_correlation_id,
     reset_correlation_id,
 )
-from financial_intelligence.observability.logging import StructuredFormatter
+from amrp.observability.logging import StructuredFormatter
 
 ROOT = Path(__file__).resolve().parents[2]
 
@@ -27,7 +27,7 @@ class NestedLoggingRedactionTests(TestCase):
         stream = StringIO()
         handler = logging.StreamHandler(stream)
         handler.setFormatter(StructuredFormatter())
-        logger = logging.getLogger("financial_intelligence.test.nested")
+        logger = logging.getLogger("amrp.test.nested")
         logger.handlers = [handler]
         logger.setLevel(logging.INFO)
         logger.propagate = False
@@ -72,8 +72,8 @@ class ImportSideEffectTests(TestCase):
                 sys.executable,
                 "-c",
                 (
-                    "import financial_intelligence as fi; "
-                    "from financial_intelligence.api import create_app; "
+                    "import amrp as fi; "
+                    "from amrp.api import create_app; "
                     "print(fi.__version__); "
                     "print(create_app.__name__)"
                 ),

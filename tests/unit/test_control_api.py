@@ -1,4 +1,4 @@
-"""Equity Research supervised-control API: gates, lifecycle, risk auto-approval, masked keys."""
+"""AMRP supervised-control API: gates, lifecycle, risk auto-approval, masked keys."""
 
 from __future__ import annotations
 
@@ -11,11 +11,11 @@ from typing import Any
 
 import pytest
 
-from financial_intelligence.config.settings import Settings
-from financial_intelligence.control.api import build_control_app
-from financial_intelligence.control.risk import RiskLevel, classify_step
-from financial_intelligence.control.runtime import AuditLog, ControlRun, DecisionKind
-from financial_intelligence.control.service import EquityResearchControl
+from amrp.config.settings import Settings
+from amrp.control.api import build_control_app
+from amrp.control.risk import RiskLevel, classify_step
+from amrp.control.runtime import AuditLog, ControlRun, DecisionKind
+from amrp.control.service import EquityResearchControl
 from tests.support.asgi_client import TestClient
 
 TOKEN = "t" * 32

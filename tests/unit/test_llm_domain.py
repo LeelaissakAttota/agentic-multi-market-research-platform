@@ -6,7 +6,7 @@ from decimal import Decimal
 from unittest import TestCase
 from uuid import UUID
 
-from financial_intelligence.domain.llm import (
+from amrp.domain.llm import (
     ModelCallId,
     ModelCallStatus,
     ModelFailureKind,

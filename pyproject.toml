@@ -3,14 +3,14 @@ requires = ["setuptools>=75,<81"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "agentic-financial-intelligence"
+name = "agentic-multi-market-research-platform"
 version = "1.0.0"
 description = "AMRP - Agentic Multi-Market Research Platform: evidence-first research for equities, commodities, forex and crypto."
 readme = "README.md"
 requires-python = ">=3.12,<3.14"
 license = "MIT"
 authors = [{ name = "attota leelaissak", email = "leelaissak@users.noreply.github.com" }]
-keywords = ["financial-research", "equity-research", "evidence", "agentic-ai"]
+keywords = ["financial-research", "multi-market-research", "evidence", "agentic-ai"]
 classifiers = [
   "Development Status :: 4 - Beta",
   "Programming Language :: Python :: 3.12",
@@ -54,7 +54,7 @@ select = ["E", "F", "I", "UP", "B", "SIM", "RUF"]
 [tool.mypy]
 python_version = "3.12"
 strict = true
-packages = ["financial_intelligence"]
+packages = ["amrp"]
 plugins = ["pydantic.mypy"]
 
 [[tool.mypy.overrides]]

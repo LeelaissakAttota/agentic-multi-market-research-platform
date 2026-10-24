@@ -7,14 +7,14 @@ from datetime import UTC, datetime
 from unittest import TestCase
 from uuid import UUID
 
-from financial_intelligence.api import create_app
-from financial_intelligence.application.company_resolution import (
+from amrp.api import create_app
+from amrp.application.company_resolution import (
     CompanyQuery,
     ResolutionStatus,
 )
-from financial_intelligence.application.resolve_company import ResolveCompany
-from financial_intelligence.config.settings import Settings
-from financial_intelligence.domain.identity import (
+from amrp.application.resolve_company import ResolveCompany
+from amrp.config.settings import Settings
+from amrp.domain.identity import (
     CompanyId,
     CompanyIdentity,
     CountryCode,
@@ -27,13 +27,13 @@ from financial_intelligence.domain.identity import (
     SecurityType,
     TickerSymbol,
 )
-from financial_intelligence.domain.sources import (
+from amrp.domain.sources import (
     SourceAuthorityTier,
     SourceId,
     SourceMetadata,
     SourceType,
 )
-from financial_intelligence.infrastructure.company import (
+from amrp.infrastructure.company import (
     InMemoryCompanyCatalog,
     build_reference_companies,
 )

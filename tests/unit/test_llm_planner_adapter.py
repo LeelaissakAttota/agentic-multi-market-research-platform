@@ -12,33 +12,33 @@ from unittest import TestCase
 from unittest.mock import patch
 from uuid import uuid4
 
-from financial_intelligence.application.capability_registry import (
+from amrp.application.capability_registry import (
     CapabilityAvailability,
     CapabilityDescriptor,
     CapabilityRegistry,
     default_capability_registry,
 )
-from financial_intelligence.application.company_resolution import CompanyQuery
-from financial_intelligence.application.create_research_plan import (
+from amrp.application.company_resolution import CompanyQuery
+from amrp.application.create_research_plan import (
     PLANNER_BUDGET_EXCEEDED_MESSAGE,
     CreateResearchPlan,
 )
-from financial_intelligence.application.deterministic_planner import DeterministicPlanner
-from financial_intelligence.application.ports import LlmRouterPort, PlannerPort
-from financial_intelligence.application.research_plan_contracts import (
+from amrp.application.deterministic_planner import DeterministicPlanner
+from amrp.application.ports import LlmRouterPort, PlannerPort
+from amrp.application.research_plan_contracts import (
     CreateResearchPlanQuery,
     ResearchPlanStatus,
 )
-from financial_intelligence.application.resolve_company import ResolveCompany
-from financial_intelligence.domain.identity import ExchangeCode
-from financial_intelligence.domain.llm import (
+from amrp.application.resolve_company import ResolveCompany
+from amrp.domain.identity import ExchangeCode
+from amrp.domain.llm import (
     ModelCallStatus,
     ModelFailureKind,
     ModelRequest,
     ModelResponse,
     ModelUsage,
 )
-from financial_intelligence.domain.orchestration import (
+from amrp.domain.orchestration import (
     PLANNER_VERSION,
     PlannerOutcomeStatus,
     PlanStatus,
@@ -50,18 +50,18 @@ from financial_intelligence.domain.orchestration import (
     TaskStatus,
     TaskType,
 )
-from financial_intelligence.domain.orchestration.planner_output import (
+from amrp.domain.orchestration.planner_output import (
     MAX_PLANNER_TASKS,
     PlannerOutput,
     PlannerTaskSpec,
 )
-from financial_intelligence.domain.research_run import ResearchRunId
-from financial_intelligence.infrastructure.company import InMemoryCompanyCatalog
-from financial_intelligence.infrastructure.orchestration import (
+from amrp.domain.research_run import ResearchRunId
+from amrp.infrastructure.company import InMemoryCompanyCatalog
+from amrp.infrastructure.orchestration import (
     DeterministicPlannerAdapter,
 )
-from financial_intelligence.infrastructure.orchestration import llm_planner_adapter as module
-from financial_intelligence.infrastructure.orchestration.llm_planner_adapter import (
+from amrp.infrastructure.orchestration import llm_planner_adapter as module
+from amrp.infrastructure.orchestration.llm_planner_adapter import (
     LLM_PLANNER_PROMPT_VERSION,
     LLM_PLANNER_VERSION,
     LlmPlannerAdapter,
@@ -127,7 +127,7 @@ class FakeRouter:
             raise self.raises
         call_id = request.call_id
         if self.mismatched_call_id:
-            from financial_intelligence.domain.llm import ModelCallId
+            from amrp.domain.llm import ModelCallId
 
             call_id = ModelCallId.new()
         if self.status is ModelCallStatus.FAILED:
@@ -304,7 +304,7 @@ class SuccessTests(LlmPlannerAdapterTestCase):
 
 
 def _query_for(request: ResearchRequest) -> Any:
-    from financial_intelligence.application.company_resolution import CompanyQuery
+    from amrp.application.company_resolution import CompanyQuery
 
     return CompanyQuery(
         raw_query=request.raw_query,
@@ -954,7 +954,7 @@ class ResponseHandlingTests(LlmPlannerAdapterTestCase):
         )
 
     def test_real_disabled_router_maps_to_unavailable(self) -> None:
-        from financial_intelligence.infrastructure.llm.disabled_router import (
+        from amrp.infrastructure.llm.disabled_router import (
             DisabledLlmRouterAdapter,
         )
 
@@ -1182,7 +1182,7 @@ class RequestAndCompanyTests(LlmPlannerAdapterTestCase):
 
 
 def _blank_request() -> ResearchRequest:
-    from financial_intelligence.domain.identity import TickerSymbol
+    from amrp.domain.identity import TickerSymbol
 
     # Ticker-only request with no usable catalog match.
     return _request("", ticker=TickerSymbol("ZZZZQ"), exchange=None)

@@ -5,18 +5,18 @@ from __future__ import annotations
 from datetime import UTC, datetime, timedelta
 from unittest import TestCase
 
-from financial_intelligence.api import create_app
-from financial_intelligence.application.capability_registry import CapabilityRegistry
-from financial_intelligence.application.company_resolution import CompanyQuery
-from financial_intelligence.application.create_research_plan import CreateResearchPlan
-from financial_intelligence.application.deterministic_planner import DeterministicPlanner
-from financial_intelligence.application.research_plan_contracts import (
+from amrp.api import create_app
+from amrp.application.capability_registry import CapabilityRegistry
+from amrp.application.company_resolution import CompanyQuery
+from amrp.application.create_research_plan import CreateResearchPlan
+from amrp.application.deterministic_planner import DeterministicPlanner
+from amrp.application.research_plan_contracts import (
     CreateResearchPlanQuery,
     ResearchPlanStatus,
 )
-from financial_intelligence.application.resolve_company import ResolveCompany
-from financial_intelligence.config.settings import Settings
-from financial_intelligence.domain.orchestration import (
+from amrp.application.resolve_company import ResolveCompany
+from amrp.config.settings import Settings
+from amrp.domain.orchestration import (
     PLANNER_VERSION,
     BudgetExceededError,
     OrchestrationState,
@@ -35,8 +35,8 @@ from financial_intelligence.domain.orchestration import (
     topological_order,
     validate_task_graph,
 )
-from financial_intelligence.infrastructure.company import InMemoryCompanyCatalog
-from financial_intelligence.infrastructure.orchestration import DeterministicPlannerAdapter
+from amrp.infrastructure.company import InMemoryCompanyCatalog
+from amrp.infrastructure.orchestration import DeterministicPlannerAdapter
 from tests.support.asgi_client import TestClient
 
 

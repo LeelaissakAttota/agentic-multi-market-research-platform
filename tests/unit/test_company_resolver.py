@@ -4,13 +4,13 @@ from __future__ import annotations
 
 from unittest import TestCase
 
-from financial_intelligence.application.company_resolution import (
+from amrp.application.company_resolution import (
     CompanyQuery,
     MatchMethod,
     ResolutionStatus,
 )
-from financial_intelligence.application.resolve_company import ResolveCompany
-from financial_intelligence.domain.identity import (
+from amrp.application.resolve_company import ResolveCompany
+from amrp.domain.identity import (
     AliasType,
     CompanyAlias,
     CompanyId,
@@ -25,7 +25,7 @@ from financial_intelligence.domain.identity import (
     SecurityType,
     TickerSymbol,
 )
-from financial_intelligence.infrastructure.company import (
+from amrp.infrastructure.company import (
     InMemoryCompanyCatalog,
     build_reference_companies,
 )

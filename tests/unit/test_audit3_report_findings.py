@@ -2,17 +2,17 @@ from __future__ import annotations
 
 from decimal import Decimal
 
-from financial_intelligence.application.company_resolution import CompanyQuery
-from financial_intelligence.application.workflow_contracts import CreateResearchWorkflowQuery
-from financial_intelligence.composition import build_container
-from financial_intelligence.domain.identity import ExchangeCode
-from financial_intelligence.domain.llm import (
+from amrp.application.company_resolution import CompanyQuery
+from amrp.application.workflow_contracts import CreateResearchWorkflowQuery
+from amrp.composition import build_container
+from amrp.domain.identity import ExchangeCode
+from amrp.domain.llm import (
     ModelCallStatus,
     ModelRequest,
     ModelResponse,
     ModelUsage,
 )
-from financial_intelligence.domain.orchestration import ResearchObjective
+from amrp.domain.orchestration import ResearchObjective
 
 QUESTION = "Is Apple's growth holding up?"
 
@@ -90,7 +90,7 @@ def test_llm_summary_without_citations_falls_back_to_deterministic() -> None:
 
 
 def test_truncated_llm_answer_is_cut_to_complete_sentences() -> None:
-    from financial_intelligence.application.report_findings import _clean_summary
+    from amrp.application.report_findings import _clean_summary
 
     text = "Revenue grew [F1]. Margins held [F3]. Product execution risk appears in the"
     assert _clean_summary(text) == "Revenue grew [F1]. Margins held [F3]."
@@ -98,7 +98,7 @@ def test_truncated_llm_answer_is_cut_to_complete_sentences() -> None:
 
 
 def test_composition_caps_summary_tokens_at_router_ceiling() -> None:
-    from financial_intelligence.config.settings import Settings
+    from amrp.config.settings import Settings
 
     settings = Settings(_env_file=None, OPENROUTER_MAX_OUTPUT_TOKENS=512)  # type: ignore[call-arg]
     llm = _FakeLlm("Fine [F1].")

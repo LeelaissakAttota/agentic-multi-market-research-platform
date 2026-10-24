@@ -6,8 +6,8 @@ from datetime import UTC, date, datetime, timedelta
 from unittest import TestCase
 from uuid import UUID
 
-from financial_intelligence.domain.identity import CompanyId
-from financial_intelligence.domain.news import (
+from amrp.domain.identity import CompanyId
+from amrp.domain.news import (
     EventConflictState,
     EventEvidenceRef,
     EventId,
@@ -19,9 +19,9 @@ from financial_intelligence.domain.news import (
     deduplicate_events_with_conflicts,
     process_events,
 )
-from financial_intelligence.domain.sources import SourceAuthorityTier, SourceId
-from financial_intelligence.infrastructure.news.cache import CachingNewsEventAdapter
-from financial_intelligence.infrastructure.news.in_memory import InMemoryNewsEventAdapter
+from amrp.domain.sources import SourceAuthorityTier, SourceId
+from amrp.infrastructure.news.cache import CachingNewsEventAdapter
+from amrp.infrastructure.news.in_memory import InMemoryNewsEventAdapter
 
 APPLE = CompanyId.from_string("22222222-2222-4222-8222-222222222001")
 OTHER = CompanyId.from_string("22222222-2222-4222-8222-222222222002")
@@ -153,8 +153,8 @@ class NewsEventHardeningTests(TestCase):
         self.assertEqual(age.days_since_retrieval, 10)
 
     def test_package_rejects_cross_company_contamination(self) -> None:
-        from financial_intelligence.domain.data_origin import DataOrigin
-        from financial_intelligence.domain.news import CompanyEventPackage, NewsEventAvailability
+        from amrp.domain.data_origin import DataOrigin
+        from amrp.domain.news import CompanyEventPackage, NewsEventAvailability
 
         foreign = _ev(
             event_id="93333333-3333-4333-8333-333333333001",

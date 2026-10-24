@@ -1,4 +1,4 @@
-# Start AERP: REST API (8000) + control API (8712) + dashboard (8501), all on 127.0.0.1.
+# Start AMRP: REST API (8000) + control API (8712) + dashboard (8501), all on 127.0.0.1.
 # Usage (from the repo root, PowerShell 7+ or Windows PowerShell 5.1):
 #   .\scripts\start-dashboard.ps1            # then open http://127.0.0.1:8501
 # Press Ctrl+C in this window to stop everything.
@@ -22,15 +22,15 @@ if ($LASTEXITCODE -ne 0) {
 $env:APP_ENV = "development"
 $env:LOG_FORMAT = "text"
 $env:AUTH_ENABLED = "false"
-$env:EQUITY_RESEARCH_CONTROL_TOKEN = [Convert]::ToBase64String((1..32 | ForEach-Object { Get-Random -Maximum 256 }) -as [byte[]])
-$env:AERP_API_URL = "http://127.0.0.1:$ApiPort"
-$env:AERP_CONTROL_URL = "http://127.0.0.1:$ControlPort"
+$env:AMRP_CONTROL_TOKEN = [Convert]::ToBase64String((1..32 | ForEach-Object { Get-Random -Maximum 256 }) -as [byte[]])
+$env:AMRP_API_URL = "http://127.0.0.1:$ApiPort"
+$env:AMRP_CONTROL_URL = "http://127.0.0.1:$ControlPort"
 
 $logDir = Join-Path $root "logs"; New-Item -ItemType Directory -Force $logDir | Out-Null
 $hide = @{}; if ($PSVersionTable.PSEdition -eq "Desktop" -or $IsWindows) { $hide.WindowStyle = "Hidden" }
-$api = Start-Process $py -ArgumentList "-m financial_intelligence.dashboard.launch api --port $ApiPort" `
+$api = Start-Process $py -ArgumentList "-m amrp.dashboard.launch api --port $ApiPort" `
   -RedirectStandardOutput "$logDir/api.out.log" -RedirectStandardError "$logDir/api.log" -PassThru @hide
-$ctl = Start-Process $py -ArgumentList "-m financial_intelligence.dashboard.launch control --port $ControlPort" `
+$ctl = Start-Process $py -ArgumentList "-m amrp.dashboard.launch control --port $ControlPort" `
   -RedirectStandardOutput "$logDir/control.out.log" -RedirectStandardError "$logDir/control.log" -PassThru @hide
 
 Write-Host "Waiting for the API..." -NoNewline

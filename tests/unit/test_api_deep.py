@@ -5,8 +5,8 @@ from __future__ import annotations
 from concurrent.futures import ThreadPoolExecutor
 from unittest import TestCase
 
-from financial_intelligence.api import create_app
-from financial_intelligence.config.settings import Settings
+from amrp.api import create_app
+from amrp.config.settings import Settings
 from tests.support.asgi_client import TestClient
 
 
@@ -169,7 +169,7 @@ class CorrelationConcurrencyTests(TestCase):
 
         # Non-ASCII cannot be transported as an HTTP header via httpx; validate
         # resolver behavior directly instead.
-        from financial_intelligence.observability.correlation import resolve_correlation_id
+        from amrp.observability.correlation import resolve_correlation_id
 
         replaced = resolve_correlation_id("unicodé")
         self.assertNotEqual(replaced.value, "unicodé")

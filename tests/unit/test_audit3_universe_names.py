@@ -1,8 +1,8 @@
 from __future__ import annotations
 
-from financial_intelligence.domain.identity import CountryCode, company_match_key
-from financial_intelligence.infrastructure.company.in_memory_catalog import InMemoryCompanyCatalog
-from financial_intelligence.infrastructure.company.universe import (
+from amrp.domain.identity import CountryCode, company_match_key
+from amrp.infrastructure.company.in_memory_catalog import InMemoryCompanyCatalog
+from amrp.infrastructure.company.universe import (
     BseEquityUniverseSource,
     SecTickerUniverseSource,
     UniverseCompanyCatalog,

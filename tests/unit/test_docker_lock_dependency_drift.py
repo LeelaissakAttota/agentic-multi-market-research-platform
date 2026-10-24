@@ -45,7 +45,7 @@ _PLATFORM_ONLY_EXTRAS = frozenset({"uvloop"})
 # Packages that legitimately appear in the image but are not part of the
 # application's own dependency graph (the venv's package manager, and the
 # project's own self-installed wheel).
-_NON_DEPENDENCY_PACKAGES = frozenset({"pip", "agentic-financial-intelligence"})
+_NON_DEPENDENCY_PACKAGES = frozenset({"pip", "agentic-multi-market-research-platform"})
 
 _FROM_LINE_PATTERN = re.compile(r"^FROM\s+(\S+)(?:\s+AS\s+(\S+))?", re.MULTILINE)
 _COPY_LOCK_PATTERN = re.compile(r"^COPY\s+.*requirements-lock\.txt.*$", re.MULTILINE)
@@ -212,7 +212,7 @@ class DockerfileLockEnforcementNonVacuousTests(TestCase):
 class DockerBuildDependencyDriftTests(TestCase):
     """Live build verification: skipped when Docker is unavailable."""
 
-    _IMAGE_TAG = "agentic-financial-intelligence:f07-regression-test"
+    _IMAGE_TAG = "agentic-multi-market-research-platform:f07-regression-test"
 
     def test_built_image_matches_lock_file_except_platform_only_extras(self) -> None:
         if shutil.which("docker") is None:

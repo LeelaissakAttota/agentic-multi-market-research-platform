@@ -5,7 +5,7 @@ from __future__ import annotations
 import json
 from unittest import TestCase
 
-from financial_intelligence.domain.llm.structured_output import (
+from amrp.domain.llm.structured_output import (
     StructuredModelOutput,
     StructuredOutputKind,
     ToolCallPayload,

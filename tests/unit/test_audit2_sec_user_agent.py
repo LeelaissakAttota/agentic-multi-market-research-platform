@@ -3,8 +3,8 @@ import logging
 import pytest
 from pydantic import ValidationError
 
-from financial_intelligence.composition import _sec_user_agent
-from financial_intelligence.config.settings import Settings
+from amrp.composition import _sec_user_agent
+from amrp.config.settings import Settings
 
 
 def _settings(**kw: object) -> Settings:
@@ -29,7 +29,7 @@ def test_missing_sec_user_agent_warns_and_disables(caplog: pytest.LogCaptureFixt
 
 
 def test_live_financial_without_agent_uses_fixture_only() -> None:
-    from financial_intelligence.composition import build_container
+    from amrp.composition import build_container
 
     container = build_container(_settings(FINANCIAL_DATA_LIVE_ENABLED=True))
     assert container is not None

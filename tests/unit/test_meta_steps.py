@@ -6,8 +6,8 @@ from datetime import UTC, datetime
 from unittest import TestCase
 from uuid import UUID
 
-from financial_intelligence.application.capability_registry import CapabilityRegistry
-from financial_intelligence.domain.orchestration import (
+from amrp.application.capability_registry import CapabilityRegistry
+from amrp.domain.orchestration import (
     MetaStep,
     MetaStepId,
     MetaStepStatus,

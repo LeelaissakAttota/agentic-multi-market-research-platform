@@ -1,4 +1,4 @@
-from financial_intelligence.config.settings import Settings
+from amrp.config.settings import Settings
 
 
 def test_default_financial_cap_fits_large_cap_companyfacts() -> None:

@@ -5,20 +5,20 @@ from __future__ import annotations
 from unittest import TestCase
 from urllib.parse import parse_qs, urlsplit
 
-from financial_intelligence.config.settings import Settings
-from financial_intelligence.domain.data_origin import DataOrigin
-from financial_intelligence.domain.news import InformationClass
-from financial_intelligence.domain.sources import SourceAuthorityTier
-from financial_intelligence.infrastructure.http import HttpResponse
-from financial_intelligence.infrastructure.http.feeds import parse_feed
-from financial_intelligence.infrastructure.news import InMemoryNewsEventAdapter
-from financial_intelligence.infrastructure.news.live_events import (
+from amrp.config.settings import Settings
+from amrp.domain.data_origin import DataOrigin
+from amrp.domain.news import InformationClass
+from amrp.domain.sources import SourceAuthorityTier
+from amrp.infrastructure.http import HttpResponse
+from amrp.infrastructure.http.feeds import parse_feed
+from amrp.infrastructure.news import InMemoryNewsEventAdapter
+from amrp.infrastructure.news.live_events import (
     FallbackNewsEventAdapter,
     LiveCompanyEventAdapter,
     headline_key,
     rank_news_source,
 )
-from financial_intelligence.infrastructure.news.live_feeds import (
+from amrp.infrastructure.news.live_feeds import (
     GdeltDocSource,
     GoogleNewsRssSource,
     RssFeedSource,
@@ -186,7 +186,7 @@ class AggregationTests(TestCase):
         self.assertEqual(headline_key("Big News - Reuters"), headline_key("big news!"))
 
     def test_settings_default_off_and_container_builds(self) -> None:
-        from financial_intelligence.composition import build_container
+        from amrp.composition import build_container
 
         self.assertFalse(Settings(_env_file=None, APP_ENV="test").live_news_enabled)  # type: ignore[call-arg]
         container = build_container(

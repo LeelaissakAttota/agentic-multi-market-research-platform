@@ -6,26 +6,26 @@ from datetime import UTC, datetime, timedelta
 from decimal import Decimal
 from unittest import TestCase
 
-from financial_intelligence.application.company_resolution import CompanyQuery
-from financial_intelligence.application.market_contracts import (
+from amrp.application.company_resolution import CompanyQuery
+from amrp.application.market_contracts import (
     MarketSnapshotQuery,
     MarketSnapshotStatus,
 )
-from financial_intelligence.application.market_freshness import MarketFreshnessPolicy
-from financial_intelligence.application.market_snapshot import GetMarketSnapshot
-from financial_intelligence.application.resolve_company import ResolveCompany
-from financial_intelligence.domain.identity import (
+from amrp.application.market_freshness import MarketFreshnessPolicy
+from amrp.application.market_snapshot import GetMarketSnapshot
+from amrp.application.resolve_company import ResolveCompany
+from amrp.domain.identity import (
     CompanyId,
     ExchangeCode,
 )
-from financial_intelligence.domain.market import (
+from amrp.domain.market import (
     FreshnessStatus,
     MarketDataAvailability,
     MarketObservationSeries,
 )
-from financial_intelligence.domain.sources import SourceAuthorityTier, SourceId, SourceType
-from financial_intelligence.infrastructure.company import InMemoryCompanyCatalog
-from financial_intelligence.infrastructure.market import (
+from amrp.domain.sources import SourceAuthorityTier, SourceId, SourceType
+from amrp.infrastructure.company import InMemoryCompanyCatalog
+from amrp.infrastructure.market import (
     CachingMarketDataAdapter,
     FallbackMarketDataAdapter,
     InMemoryMarketDataAdapter,

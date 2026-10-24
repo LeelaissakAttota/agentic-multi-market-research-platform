@@ -13,28 +13,28 @@ import threading
 from datetime import UTC, datetime
 from unittest import TestCase
 
-from financial_intelligence.application.company_resolution import CompanyQuery
-from financial_intelligence.application.create_research_workflow import CreateResearchWorkflow
-from financial_intelligence.application.manage_research_workflow import ManageResearchWorkflow
-from financial_intelligence.application.workflow_contracts import (
+from amrp.application.company_resolution import CompanyQuery
+from amrp.application.create_research_workflow import CreateResearchWorkflow
+from amrp.application.manage_research_workflow import ManageResearchWorkflow
+from amrp.application.workflow_contracts import (
     CreateResearchWorkflowQuery,
     WorkflowOperationStatus,
 )
-from financial_intelligence.composition import build_container
-from financial_intelligence.config.settings import Settings
-from financial_intelligence.domain.identity import ExchangeCode
-from financial_intelligence.domain.orchestration import (
+from amrp.composition import build_container
+from amrp.config.settings import Settings
+from amrp.domain.identity import ExchangeCode
+from amrp.domain.orchestration import (
     ResearchObjective,
     TaskExecutionResult,
     TaskResultStatus,
 )
-from financial_intelligence.domain.workflow import (
+from amrp.domain.workflow import (
     WorkflowId,
     WorkflowStatus,
     WorkflowTransitionError,
     assert_transition,
 )
-from financial_intelligence.infrastructure.workflow import InMemoryResearchWorkflowStore
+from amrp.infrastructure.workflow import InMemoryResearchWorkflowStore
 
 
 def _settings() -> Settings:
@@ -166,14 +166,14 @@ class StoreLevelTransitionGuardTests(TestCase):
         """Regression guard: the new guard must not weaken or bypass the
         store's existing invariants (request_id/company_id/plan_id immutable,
         checkpoint_version must not regress)."""
-        from financial_intelligence.infrastructure.workflow import WorkflowStoreError
+        from amrp.infrastructure.workflow import WorkflowStoreError
 
         workflow = self._new_workflow()
         self.store.save_workflow(workflow)
         from dataclasses import replace
         from uuid import uuid4
 
-        from financial_intelligence.domain.orchestration import RequestId
+        from amrp.domain.orchestration import RequestId
 
         tampered = replace(workflow, request_id=RequestId(value=uuid4()))
         with self.assertRaises(WorkflowStoreError):

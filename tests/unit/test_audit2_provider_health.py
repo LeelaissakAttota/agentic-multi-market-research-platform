@@ -1,8 +1,8 @@
 from __future__ import annotations
 
-from financial_intelligence.api.app import create_app
-from financial_intelligence.config.settings import Settings
-from financial_intelligence.infrastructure.http.provider_health import (
+from amrp.api.app import create_app
+from amrp.config.settings import Settings
+from amrp.infrastructure.http.provider_health import (
     PROVIDER_HEALTH,
     ProviderHealthRegistry,
 )

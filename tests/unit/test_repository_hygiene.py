@@ -46,7 +46,7 @@ def test_root_markdown_relative_links_resolve() -> None:
 
 
 def test_no_empty_placeholder_source_packages() -> None:
-    package = ROOT / "src" / "financial_intelligence"
+    package = ROOT / "src" / "amrp"
     assert list(package.rglob(".gitkeep")) == []
     for directory in (path for path in package.rglob("*") if path.is_dir()):
         if directory.name == "__pycache__":

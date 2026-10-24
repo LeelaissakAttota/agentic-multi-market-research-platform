@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from financial_intelligence.domain.identity import (
+from amrp.domain.identity import (
     CompanyId,
     CountryCode,
     CurrencyCode,

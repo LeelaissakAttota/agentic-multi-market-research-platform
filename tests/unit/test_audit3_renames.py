@@ -1,15 +1,15 @@
 from __future__ import annotations
 
-from financial_intelligence.application.company_resolution import CompanyQuery
-from financial_intelligence.application.resolve_company import ResolveCompany
-from financial_intelligence.domain.identity import (
+from amrp.application.company_resolution import CompanyQuery
+from amrp.application.resolve_company import ResolveCompany
+from amrp.domain.identity import (
     CountryCode,
     ExchangeCode,
     TickerSymbol,
     company_match_key,
 )
-from financial_intelligence.infrastructure.company.in_memory_catalog import InMemoryCompanyCatalog
-from financial_intelligence.infrastructure.company.universe import (
+from amrp.infrastructure.company.in_memory_catalog import InMemoryCompanyCatalog
+from amrp.infrastructure.company.universe import (
     BseEquityUniverseSource,
     UniverseCompanyCatalog,
 )

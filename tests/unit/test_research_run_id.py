@@ -6,7 +6,7 @@ from datetime import UTC, datetime
 from unittest import TestCase
 from uuid import UUID
 
-from financial_intelligence.domain.research_run import ResearchRunId
+from amrp.domain.research_run import ResearchRunId
 
 
 class ResearchRunIdTests(TestCase):

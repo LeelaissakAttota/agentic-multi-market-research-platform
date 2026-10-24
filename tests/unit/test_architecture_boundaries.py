@@ -6,7 +6,7 @@ import ast
 from pathlib import Path
 from unittest import TestCase
 
-PACKAGE_ROOT = Path(__file__).resolve().parents[2] / "src" / "financial_intelligence"
+PACKAGE_ROOT = Path(__file__).resolve().parents[2] / "src" / "amrp"
 DOMAIN_ROOT = PACKAGE_ROOT / "domain"
 APPLICATION_ROOT = PACKAGE_ROOT / "application"
 
@@ -24,12 +24,12 @@ FORBIDDEN_DOMAIN_IMPORT_PREFIXES = (
     "sqlalchemy",
     "streamlit",
     "mcp",
-    "financial_intelligence.api",
-    "financial_intelligence.infrastructure",
-    "financial_intelligence.composition",
-    "financial_intelligence.config",
-    "financial_intelligence.observability",
-    "financial_intelligence.security",
+    "amrp.api",
+    "amrp.infrastructure",
+    "amrp.composition",
+    "amrp.config",
+    "amrp.observability",
+    "amrp.security",
 )
 
 FORBIDDEN_APPLICATION_IMPORT_PREFIXES = (
@@ -37,9 +37,9 @@ FORBIDDEN_APPLICATION_IMPORT_PREFIXES = (
     "starlette",
     "uvicorn",
     "httpx",
-    "financial_intelligence.api",
-    "financial_intelligence.infrastructure",
-    "financial_intelligence.composition",
+    "amrp.api",
+    "amrp.infrastructure",
+    "amrp.composition",
 )
 
 
@@ -83,11 +83,8 @@ class ArchitectureBoundaryTests(TestCase):
         resolve_path = APPLICATION_ROOT / "resolve_company.py"
         imports = _imported_modules(resolve_path)
         self.assertTrue(
-            any(
-                name.endswith("ports") or name == "financial_intelligence.application.ports"
-                for name in imports
-            )
-            or "financial_intelligence.application.ports" in imports
+            any(name.endswith("ports") or name == "amrp.application.ports" for name in imports)
+            or "amrp.application.ports" in imports
         )
         self.assertFalse(
             any("infrastructure" in name for name in imports),
@@ -107,10 +104,7 @@ class ArchitectureBoundaryTests(TestCase):
         imports = _imported_modules(snapshot_path)
         self.assertIn("MarketDataPort", source)
         self.assertTrue(
-            any(
-                name.endswith("ports") or name == "financial_intelligence.application.ports"
-                for name in imports
-            )
+            any(name.endswith("ports") or name == "amrp.application.ports" for name in imports)
         )
         self.assertFalse(any("infrastructure" in name for name in imports))
         self.assertNotIn("InMemoryMarketDataAdapter", source)
@@ -122,10 +116,7 @@ class ArchitectureBoundaryTests(TestCase):
         imports = _imported_modules(snapshot_path)
         self.assertIn("FinancialDataPort", source)
         self.assertTrue(
-            any(
-                name.endswith("ports") or name == "financial_intelligence.application.ports"
-                for name in imports
-            )
+            any(name.endswith("ports") or name == "amrp.application.ports" for name in imports)
         )
         self.assertFalse(any("infrastructure" in name for name in imports))
         self.assertNotIn("InMemoryFinancialDataAdapter", source)
@@ -136,10 +127,7 @@ class ArchitectureBoundaryTests(TestCase):
         imports = _imported_modules(snapshot_path)
         self.assertIn("NewsEventPort", source)
         self.assertTrue(
-            any(
-                name.endswith("ports") or name == "financial_intelligence.application.ports"
-                for name in imports
-            )
+            any(name.endswith("ports") or name == "amrp.application.ports" for name in imports)
         )
         self.assertFalse(any("infrastructure" in name for name in imports))
         self.assertNotIn("InMemoryNewsEventAdapter", source)
@@ -154,10 +142,7 @@ class ArchitectureBoundaryTests(TestCase):
             imports = _imported_modules(snapshot_path)
             self.assertIn(port_name, source)
             self.assertTrue(
-                any(
-                    name.endswith("ports") or name == "financial_intelligence.application.ports"
-                    for name in imports
-                )
+                any(name.endswith("ports") or name == "amrp.application.ports" for name in imports)
             )
             self.assertFalse(any("infrastructure" in name for name in imports))
             self.assertNotIn(forbidden_adapter, source)
@@ -189,14 +174,7 @@ class ArchitectureBoundaryTests(TestCase):
             msg="DeterministicPlannerAdapter must not import LLM/provider/HTTP modules",
         )
         # The adapter may depend inward (application/domain) but never on composition/api.
-        self.assertFalse(
-            any(
-                name.startswith(
-                    ("financial_intelligence.composition", "financial_intelligence.api")
-                )
-                for name in imports
-            )
-        )
+        self.assertFalse(any(name.startswith(("amrp.composition", "amrp.api")) for name in imports))
 
     def test_execute_research_plan_depends_on_ports_not_adapters(self) -> None:
         path = APPLICATION_ROOT / "execute_research_plan.py"
@@ -247,9 +225,7 @@ class ArchitectureBoundaryTests(TestCase):
         # "OpenRouter" appearing in a docstring's flow diagram is fine.
         self.assertFalse(any("openrouter" in name.lower() for name in imports))
         self.assertFalse(any("openai" in name.lower() for name in imports))
-        self.assertFalse(
-            any(name.startswith("financial_intelligence.infrastructure") for name in imports)
-        )
+        self.assertFalse(any(name.startswith("amrp.infrastructure") for name in imports))
 
     def test_meta_step_type_is_not_registered_in_capability_registry(self) -> None:
         registry_path = APPLICATION_ROOT / "capability_registry.py"

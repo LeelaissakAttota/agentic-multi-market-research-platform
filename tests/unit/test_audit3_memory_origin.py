@@ -2,14 +2,14 @@ from __future__ import annotations
 
 from datetime import UTC, datetime
 
-from financial_intelligence.application.company_resolution import CompanyQuery
-from financial_intelligence.application.manage_research_workflow import _memory_origin
-from financial_intelligence.application.workflow_contracts import CreateResearchWorkflowQuery
-from financial_intelligence.composition import build_container
-from financial_intelligence.domain.data_origin import DataOrigin
-from financial_intelligence.domain.identity import ExchangeCode
-from financial_intelligence.domain.orchestration import ResearchObjective, TaskEvidenceRef
-from financial_intelligence.domain.sources import SourceId
+from amrp.application.company_resolution import CompanyQuery
+from amrp.application.manage_research_workflow import _memory_origin
+from amrp.application.workflow_contracts import CreateResearchWorkflowQuery
+from amrp.composition import build_container
+from amrp.domain.data_origin import DataOrigin
+from amrp.domain.identity import ExchangeCode
+from amrp.domain.orchestration import ResearchObjective, TaskEvidenceRef
+from amrp.domain.sources import SourceId
 from tests.unit.market_fixtures import APPLE_COMPANY_ID
 
 

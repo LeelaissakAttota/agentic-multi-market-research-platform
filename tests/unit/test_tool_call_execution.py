@@ -12,30 +12,30 @@ from __future__ import annotations
 import json
 from unittest import TestCase
 
-from financial_intelligence.application.capability_registry import (
+from amrp.application.capability_registry import (
     CapabilityAvailability,
     CapabilityDescriptor,
     CapabilityRegistry,
     default_capability_registry,
 )
-from financial_intelligence.application.company_resolution import CompanyQuery
-from financial_intelligence.application.resolve_company import ResolveCompany
-from financial_intelligence.application.tool_call_execution import (
+from amrp.application.company_resolution import CompanyQuery
+from amrp.application.resolve_company import ResolveCompany
+from amrp.application.tool_call_execution import (
     ToolCallExecutionService,
     ToolCallResult,
     ToolCallResultStatus,
     build_company_query,
 )
-from financial_intelligence.domain.identity import CompanyIdentity
-from financial_intelligence.domain.llm.ids import ToolCallId
-from financial_intelligence.domain.orchestration import (
+from amrp.domain.identity import CompanyIdentity
+from amrp.domain.llm.ids import ToolCallId
+from amrp.domain.orchestration import (
     ResearchTask,
     TaskExecutionResult,
     TaskId,
     TaskResultStatus,
     TaskType,
 )
-from financial_intelligence.infrastructure.company import (
+from amrp.infrastructure.company import (
     InMemoryCompanyCatalog,
     build_reference_companies,
 )

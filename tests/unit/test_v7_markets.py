@@ -6,11 +6,11 @@ from datetime import UTC, datetime
 from decimal import Decimal
 from typing import Any
 
-from financial_intelligence.control.analysis import analyze, build_messages
-from financial_intelligence.control.api import build_control_app
-from financial_intelligence.dashboard import market_live as ml
-from financial_intelligence.dashboard import markets as mk
-from financial_intelligence.domain.llm import (
+from amrp.control.analysis import analyze, build_messages
+from amrp.control.api import build_control_app
+from amrp.dashboard import market_live as ml
+from amrp.dashboard import markets as mk
+from amrp.domain.llm import (
     ModelCallStatus,
     ModelFailureKind,
     ModelRequest,
@@ -167,7 +167,7 @@ def test_analyze_endpoint_validates_and_requires_token() -> None:
 
 
 def test_final_answer_drops_leaked_reasoning() -> None:
-    from financial_intelligence.control.analysis import final_answer
+    from amrp.control.analysis import final_answer
 
     raw = (
         "Let me analyze the evidence:\nKey points:\n- draft without tag\n"

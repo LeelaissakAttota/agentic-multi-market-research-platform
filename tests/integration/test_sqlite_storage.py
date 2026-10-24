@@ -8,19 +8,19 @@ from pathlib import Path
 
 import pytest
 
-from financial_intelligence.api.app import create_app
-from financial_intelligence.application.company_resolution import CompanyQuery
-from financial_intelligence.application.manage_watchlist import (
+from amrp.api.app import create_app
+from amrp.application.company_resolution import CompanyQuery
+from amrp.application.manage_watchlist import (
     CreateWatchlistQuery,
     WatchlistEntryInput,
 )
-from financial_intelligence.application.workflow_contracts import CreateResearchWorkflowQuery
-from financial_intelligence.composition import AppContainer, build_container
-from financial_intelligence.config.settings import Settings
-from financial_intelligence.domain.identity import CountryCode, ExchangeCode
-from financial_intelligence.domain.orchestration import ResearchObjective
-from financial_intelligence.infrastructure.memory import ResearchMemoryStoreError
-from financial_intelligence.infrastructure.sqlite import (
+from amrp.application.workflow_contracts import CreateResearchWorkflowQuery
+from amrp.composition import AppContainer, build_container
+from amrp.config.settings import Settings
+from amrp.domain.identity import CountryCode, ExchangeCode
+from amrp.domain.orchestration import ResearchObjective
+from amrp.infrastructure.memory import ResearchMemoryStoreError
+from amrp.infrastructure.sqlite import (
     CodecError,
     SqliteApiKeyStore,
     SqliteDatabase,
@@ -29,8 +29,8 @@ from financial_intelligence.infrastructure.sqlite import (
     SqliteWorkflowReportStore,
     hash_api_key,
 )
-from financial_intelligence.infrastructure.sqlite.codec import dumps, loads
-from financial_intelligence.infrastructure.workflow import WorkflowStoreError
+from amrp.infrastructure.sqlite.codec import dumps, loads
+from amrp.infrastructure.workflow import WorkflowStoreError
 from tests.support.asgi_client import TestClient
 
 

@@ -4,8 +4,8 @@ from __future__ import annotations
 
 import httpx
 
-from financial_intelligence.dashboard import market_live as ml
-from financial_intelligence.dashboard.providers import (
+from amrp.dashboard import market_live as ml
+from amrp.dashboard.providers import (
     detect_provider,
     models_request,
     parse_model_ids,

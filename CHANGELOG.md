@@ -4,6 +4,16 @@ All notable changes are documented here. Release versions follow Semantic Versio
 
 ## [Unreleased]
 
+### Changed
+- Renamed the project to AMRP (Agentic Multi-Market Research Platform) everywhere: Python package
+  `financial_intelligence` -> `amrp`, distribution `agentic-financial-intelligence` ->
+  `agentic-multi-market-research-platform`, GitHub repo -> `agentic-multi-market-research-platform`,
+  `aerp.css` -> `amrp.css`, architecture diagram -> `docs/architecture/amrp-architecture.png`.
+- Environment variables `AERP_*` -> `AMRP_*` and `EQUITY_RESEARCH_CONTROL_TOKEN` -> `AMRP_CONTROL_TOKEN`;
+  the old names are still read as deprecated fallbacks (DeprecationWarning).
+- Config dir `equity-research` -> `amrp`; on first use the old dir is copied (never moved or deleted).
+- SQLite codec still decodes rows stored under the old `financial_intelligence.domain` type names.
+
 ### Live regulatory feeds
 
 - `LIVE_REGULATORY_ENABLED` (default off): SEC litigation releases and

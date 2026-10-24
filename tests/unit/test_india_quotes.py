@@ -8,18 +8,18 @@ from datetime import UTC, date, datetime, timedelta
 from decimal import Decimal
 from unittest import TestCase
 
-from financial_intelligence.config.settings import Settings
-from financial_intelligence.domain.identity import CompanyId
-from financial_intelligence.domain.market import (
+from amrp.config.settings import Settings
+from amrp.domain.identity import CompanyId
+from amrp.domain.market import (
     DataOrigin,
     MarketDataAvailability,
     MarketObservationSeries,
     OhlcvBar,
 )
-from financial_intelligence.domain.sources import SourceId
-from financial_intelligence.infrastructure.http import BoundedHttpClient, HttpResponse
-from financial_intelligence.infrastructure.market import InMemoryMarketDataAdapter
-from financial_intelligence.infrastructure.market.india_quotes import (
+from amrp.domain.sources import SourceId
+from amrp.infrastructure.http import BoundedHttpClient, HttpResponse
+from amrp.infrastructure.market import InMemoryMarketDataAdapter
+from amrp.infrastructure.market.india_quotes import (
     ALLOWED_HOSTS,
     BROWSER_USER_AGENT,
     HostRateLimiter,
@@ -332,7 +332,7 @@ class SettingsTests(TestCase):
             )
 
     def test_container_builds_with_feature_enabled_without_network(self) -> None:
-        from financial_intelligence.composition import build_container
+        from amrp.composition import build_container
 
         settings = Settings(  # type: ignore[call-arg]
             _env_file=None, APP_ENV="test", INDIA_LIVE_QUOTES_ENABLED="true"

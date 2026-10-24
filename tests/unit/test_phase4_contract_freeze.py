@@ -7,17 +7,17 @@ from datetime import UTC, date, datetime
 from decimal import Decimal
 from unittest import TestCase
 
-from financial_intelligence.api import create_app
-from financial_intelligence.application.company_resolution import CompanyQuery
-from financial_intelligence.application.financial_contracts import (
+from amrp.api import create_app
+from amrp.application.company_resolution import CompanyQuery
+from amrp.application.financial_contracts import (
     FinancialSnapshotQuery,
     FinancialSnapshotStatus,
 )
-from financial_intelligence.application.financial_snapshot import GetFinancialSnapshot
-from financial_intelligence.application.resolve_company import ResolveCompany
-from financial_intelligence.config.settings import Settings
-from financial_intelligence.domain.data_origin import DataOrigin
-from financial_intelligence.domain.financial import (
+from amrp.application.financial_snapshot import GetFinancialSnapshot
+from amrp.application.resolve_company import ResolveCompany
+from amrp.config.settings import Settings
+from amrp.domain.data_origin import DataOrigin
+from amrp.domain.financial import (
     CALCULATION_LIBRARY_VERSION,
     ConflictResolutionRule,
     FinancialConcept,
@@ -32,27 +32,27 @@ from financial_intelligence.domain.financial import (
     compute_financial_metrics_result,
     resolve_fact_conflict,
 )
-from financial_intelligence.domain.identity import CompanyId, CurrencyCode
-from financial_intelligence.domain.sources import SourceAuthorityTier, SourceId
-from financial_intelligence.infrastructure.company import InMemoryCompanyCatalog
-from financial_intelligence.infrastructure.financial import (
+from amrp.domain.identity import CompanyId, CurrencyCode
+from amrp.domain.sources import SourceAuthorityTier, SourceId
+from amrp.infrastructure.company import InMemoryCompanyCatalog
+from amrp.infrastructure.financial import (
     IndiaFilingAuthority,
     InMemoryFinancialDataAdapter,
 )
-from financial_intelligence.infrastructure.financial.concept_mapping import (
+from amrp.infrastructure.financial.concept_mapping import (
     map_india_results_label,
     map_us_gaap,
 )
-from financial_intelligence.infrastructure.financial.india_filings import india_authority_rank
-from financial_intelligence.infrastructure.financial.reference_dataset import (
+from amrp.infrastructure.financial.india_filings import india_authority_rank
+from amrp.infrastructure.financial.reference_dataset import (
     APPLE_ID,
     RELIANCE_ID,
     build_reference_financial_packages,
 )
-from financial_intelligence.infrastructure.financial.sec_company_facts import (
+from amrp.infrastructure.financial.sec_company_facts import (
     SecCompanyFactsFinancialDataAdapter,
 )
-from financial_intelligence.infrastructure.http import BoundedHttpClient, HttpResponse
+from amrp.infrastructure.http import BoundedHttpClient, HttpResponse
 from tests.support.asgi_client import TestClient
 
 

@@ -6,13 +6,13 @@ from pathlib import Path
 
 import pytest
 
-from financial_intelligence.control import server
-from financial_intelligence.dashboard.markets import forex_relevant
-from financial_intelligence.dashboard.views import agent_states
+from amrp.control import server
+from amrp.dashboard.markets import forex_relevant
+from amrp.dashboard.views import agent_states
 
 ROOT = Path(__file__).resolve().parents[2]
 APP = ROOT / "dashboard" / "app.py"
-CSS = ROOT / "dashboard" / "assets" / "aerp.css"
+CSS = ROOT / "dashboard" / "assets" / "amrp.css"
 
 
 @pytest.mark.parametrize(
@@ -79,15 +79,15 @@ def test_research_page_renders_suggested_boxes(
     pytest.importorskip("streamlit")
     from streamlit.testing.v1 import AppTest
 
-    from financial_intelligence.dashboard import market_live
+    from amrp.dashboard import market_live
 
     monkeypatch.setattr(market_live, "fetch_daily", lambda *a, **k: None)
     monkeypatch.setattr(market_live, "trending_us", lambda *a, **k: [])
     monkeypatch.setattr(market_live, "most_active_india", lambda *a, **k: [])
     monkeypatch.setattr(market_live, "news_one_per_company", lambda *a, **k: [])
-    monkeypatch.setenv("AERP_API_URL", "http://127.0.0.1:9")
-    monkeypatch.setenv("AERP_CONTROL_URL", "http://127.0.0.1:9")
-    monkeypatch.setenv("EQUITY_RESEARCH_CONTROL_TOKEN", "")
+    monkeypatch.setenv("AMRP_API_URL", "http://127.0.0.1:9")
+    monkeypatch.setenv("AMRP_CONTROL_URL", "http://127.0.0.1:9")
+    monkeypatch.setenv("AMRP_CONTROL_TOKEN", "")
     monkeypatch.setenv("APPDATA", str(tmp_path))
     monkeypatch.setenv("XDG_CONFIG_HOME", str(tmp_path))
     at = AppTest.from_file(str(APP), default_timeout=30)

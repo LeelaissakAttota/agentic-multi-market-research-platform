@@ -11,19 +11,19 @@ from zoneinfo import ZoneInfo
 
 from pydantic import ValidationError
 
-from financial_intelligence.api import create_app
-from financial_intelligence.application.company_resolution import CompanyQuery
-from financial_intelligence.application.market_contracts import (
+from amrp.api import create_app
+from amrp.application.company_resolution import CompanyQuery
+from amrp.application.market_contracts import (
     MarketSnapshotQuery,
     MarketSnapshotResult,
     MarketSnapshotStatus,
 )
-from financial_intelligence.application.market_freshness import MarketFreshnessPolicy
-from financial_intelligence.application.market_snapshot import GetMarketSnapshot
-from financial_intelligence.application.resolve_company import ResolveCompany
-from financial_intelligence.composition import build_container
-from financial_intelligence.config.settings import Settings
-from financial_intelligence.domain.identity import (
+from amrp.application.market_freshness import MarketFreshnessPolicy
+from amrp.application.market_snapshot import GetMarketSnapshot
+from amrp.application.resolve_company import ResolveCompany
+from amrp.composition import build_container
+from amrp.config.settings import Settings
+from amrp.domain.identity import (
     CompanyId,
     CurrencyCode,
     ExchangeCode,
@@ -31,7 +31,7 @@ from financial_intelligence.domain.identity import (
     SecurityId,
     TickerSymbol,
 )
-from financial_intelligence.domain.market import (
+from amrp.domain.market import (
     FreshnessStatus,
     MarketDataAvailability,
     MarketObservationSeries,
@@ -44,9 +44,9 @@ from financial_intelligence.domain.market import (
     simple_return,
     volume_sum,
 )
-from financial_intelligence.domain.sources import SourceId
-from financial_intelligence.infrastructure.company import InMemoryCompanyCatalog
-from financial_intelligence.infrastructure.market import (
+from amrp.domain.sources import SourceId
+from amrp.infrastructure.company import InMemoryCompanyCatalog
+from amrp.infrastructure.market import (
     CachingMarketDataAdapter,
     FallbackMarketDataAdapter,
     InMemoryMarketDataAdapter,

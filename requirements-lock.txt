@@ -1,4 +1,4 @@
-# Pinned dependency lock for agentic-financial-intelligence v1.0.0
+# Pinned dependency lock for agentic-multi-market-research-platform v1.0.0
 # Generated from the verified development venv (Python 3.12.10) via:
 #   python -m pip freeze | grep -v "^-e "
 # Install with:

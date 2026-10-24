@@ -4,12 +4,12 @@ from __future__ import annotations
 
 from unittest import TestCase
 
-from financial_intelligence.api import create_app
-from financial_intelligence.application.ports import CompanyCatalogPort
-from financial_intelligence.application.resolve_company import ResolveCompany
-from financial_intelligence.composition import build_container
-from financial_intelligence.config.settings import Settings
-from financial_intelligence.infrastructure.company import InMemoryCompanyCatalog
+from amrp.api import create_app
+from amrp.application.ports import CompanyCatalogPort
+from amrp.application.resolve_company import ResolveCompany
+from amrp.composition import build_container
+from amrp.config.settings import Settings
+from amrp.infrastructure.company import InMemoryCompanyCatalog
 from tests.support.asgi_client import TestClient
 
 

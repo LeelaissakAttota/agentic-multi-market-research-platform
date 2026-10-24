@@ -13,7 +13,7 @@ from unittest import TestCase
 
 from pydantic import SecretStr
 
-from financial_intelligence.domain.llm import (
+from amrp.domain.llm import (
     ModelCallId,
     ModelCallStatus,
     ModelFailureKind,
@@ -21,15 +21,15 @@ from financial_intelligence.domain.llm import (
     ModelRequest,
     ModelUsage,
 )
-from financial_intelligence.infrastructure.http import (
+from amrp.infrastructure.http import (
     BoundedHttpClient,
     HttpResponse,
     HttpTransport,
 )
-from financial_intelligence.infrastructure.llm import (
+from amrp.infrastructure.llm import (
     openrouter_adapter as openrouter_adapter_module,
 )
-from financial_intelligence.infrastructure.llm.openrouter_adapter import OpenRouterAdapter
+from amrp.infrastructure.llm.openrouter_adapter import OpenRouterAdapter
 
 _SECRET_TOKEN = "sk-or-test-secret-value-should-never-leak"
 
@@ -325,7 +325,7 @@ class FailureMappingTests(TestCase):
         self.assertEqual(response.failure_kind, ModelFailureKind.UPSTREAM_ERROR)
 
     def test_timeout_maps_to_timeout(self) -> None:
-        from financial_intelligence.infrastructure.http import HttpFailureKind, HttpTransportError
+        from amrp.infrastructure.http import HttpFailureKind, HttpTransportError
 
         def handler(method, url, headers, timeout, body):
             raise HttpTransportError(HttpFailureKind.TIMEOUT, "timed out")
@@ -337,7 +337,7 @@ class FailureMappingTests(TestCase):
         self.assertEqual(response.failure_kind, ModelFailureKind.TIMEOUT)
 
     def test_network_error_maps_to_network_error(self) -> None:
-        from financial_intelligence.infrastructure.http import HttpFailureKind, HttpTransportError
+        from amrp.infrastructure.http import HttpFailureKind, HttpTransportError
 
         def handler(method, url, headers, timeout, body):
             raise HttpTransportError(HttpFailureKind.NETWORK_ERROR, "boom")

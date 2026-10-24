@@ -4,13 +4,13 @@
 
 This document defines the frozen **target architecture** and its layer boundaries. Phases 0–10 have implemented an accepted subset that includes deterministic company and specialist intelligence foundations, bounded planning/workflows, verification/synthesis/reporting, REST `/v1` aliases, a selected in-process MCP facade, and local production-hardening evidence. The conceptual diagram still contains deferred target-state components; no box should be interpreted as implemented unless `PROJECT_STATUS.md` and the implemented-versus-deferred documentation say so.
 
-The supplied conceptual diagram is preserved at [docs/architecture/agentic-financial-intelligence-platform.png](docs/architecture/agentic-financial-intelligence-platform.png). The image and this document together are the **Master Architecture**. Written decisions and explicit phase gates take precedence where visual shorthand is ambiguous. Once Phase 0 Prompt 3 is approved, changes to the Master Architecture require owner approval and a new or superseding ADR.
+The supplied conceptual diagram is preserved at [docs/architecture/amrp-architecture.png](docs/architecture/amrp-architecture.png). The image and this document together are the **Master Architecture**. Written decisions and explicit phase gates take precedence where visual shorthand is ambiguous. Once Phase 0 Prompt 3 is approved, changes to the Master Architecture require owner approval and a new or superseding ADR.
 
-This is a new standalone financial-intelligence platform. It is not the previous Financial Research Agent, ToolBridge, JARVIS, a trading bot/system, a generic stock or RAG chatbot, or a single-prompt report generator. JARVIS and trading systems are future external consumers only.
+This is a new standalone multi-market research platform (AMRP). It is not the previous Financial Research Agent, ToolBridge, JARVIS, a trading bot/system, a generic stock or RAG chatbot, or a single-prompt report generator. JARVIS and trading systems are future external consumers only.
 
 ## Architectural drivers
 
-- verifiable, time-aware equity research rather than generic chat;
+- verifiable, time-aware multi-market research (equities, commodities, forex, crypto) rather than generic chat;
 - source authority and preserved provenance;
 - zero-cost development using configurable free-model routes;
 - deterministic computation where software is more reliable than an LLM;
@@ -83,7 +83,7 @@ ExecuteResearchPlan
 Key properties:
 
 - `PlannerPort` is the application boundary. The planner is an implementation detail behind this port.
-- Concrete planner selection happens **only** in the composition root (`_build_planner` in `src/financial_intelligence/composition/__init__.py`).
+- Concrete planner selection happens **only** in the composition root (`_build_planner` in `src/amrp/composition/__init__.py`).
 - `LlmPlannerAdapter` depends on `LlmRouterPort`, not directly on OpenRouter/HTTP.
 - LLM planner output is validated by `PlannerOutput.parse()` before `ResearchPlan` construction.
 - Workflow execution uses the persisted `ResearchPlan` and does **not** re-plan.
@@ -126,7 +126,7 @@ An “agent” is reserved for a bounded reasoning responsibility with a clear c
 |---|---|---|
 | Research Planner | Research Request, normalized intent, available capability descriptors, budgets | Research Plan and dependency-ordered Research Tasks |
 | Market Intelligence | Company Identity, market-data task, as-of/freshness constraints | Market observations/calculations plus Source and Evidence references |
-| Financial Intelligence | Company Identity, periods, normalized filing/financial facts | Statements, ratios/trends, calculation lineage, claims and evidence references |
+| Financial analysis | Company Identity, periods, normalized filing/financial facts | Statements, ratios/trends, calculation lineage, claims and evidence references |
 | Filing Intelligence | Company Identity, filing task and source constraints | Filing metadata, governed extracts, claims and evidence references |
 | News & Event Intelligence | Company Identity, time window, event scope | Deduplicated events, dates, source authority, claims and evidence references |
 | Industry & Competitor Intelligence | Company Identity, comparison scope, evidence constraints | Comparable entities, benchmarks, findings and evidence references |

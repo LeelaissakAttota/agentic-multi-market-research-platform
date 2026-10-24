@@ -5,16 +5,16 @@ from __future__ import annotations
 from datetime import UTC, datetime
 from unittest import TestCase
 
-from financial_intelligence.application.company_resolution import CompanyQuery
-from financial_intelligence.application.financial_contracts import (
+from amrp.application.company_resolution import CompanyQuery
+from amrp.application.financial_contracts import (
     FinancialSnapshotQuery,
     FinancialSnapshotStatus,
 )
-from financial_intelligence.application.financial_snapshot import GetFinancialSnapshot
-from financial_intelligence.application.resolve_company import ResolveCompany
-from financial_intelligence.domain.data_origin import DataOrigin
-from financial_intelligence.infrastructure.company import InMemoryCompanyCatalog
-from financial_intelligence.infrastructure.financial import InMemoryFinancialDataAdapter
+from amrp.application.financial_snapshot import GetFinancialSnapshot
+from amrp.application.resolve_company import ResolveCompany
+from amrp.domain.data_origin import DataOrigin
+from amrp.infrastructure.company import InMemoryCompanyCatalog
+from amrp.infrastructure.financial import InMemoryFinancialDataAdapter
 
 
 class FinancialSnapshotTests(TestCase):

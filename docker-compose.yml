@@ -8,7 +8,7 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
-    image: agentic-financial-intelligence:1.0.0
+    image: agentic-multi-market-research-platform:1.0.0
     ports:
       # Bound to loopback only (F06): APP_ENV=development below bypasses both
       # API-key authentication and ALLOWED_HOSTS enforcement, so this must not

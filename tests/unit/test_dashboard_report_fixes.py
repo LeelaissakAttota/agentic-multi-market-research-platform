@@ -9,8 +9,8 @@ from pathlib import Path
 
 import pytest
 
-from financial_intelligence.dashboard.client import ApiError, JsonClient
-from financial_intelligence.dashboard.views import (
+from amrp.dashboard.client import ApiError, JsonClient
+from amrp.dashboard.views import (
     latest_run_logs,
     load_saved_report,
     save_report,

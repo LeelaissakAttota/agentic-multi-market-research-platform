@@ -5,7 +5,7 @@ from pathlib import Path
 from tomllib import load
 from unittest import TestCase
 
-from financial_intelligence import __version__
+from amrp import __version__
 
 REPOSITORY_ROOT = Path(__file__).resolve().parents[2]
 EXPECTED_ARCHITECTURE_SHA256 = "c0f7b98d3b2c335828c58428d7c3b4abea00cfbf418fed5ed19d2a1427f2c83a"
@@ -109,7 +109,9 @@ class RepositoryBaselineTests(TestCase):
             project_metadata = load(pyproject_file)
 
         dependencies = set(project_metadata["project"]["dependencies"])
-        self.assertEqual(project_metadata["project"]["name"], "agentic-financial-intelligence")
+        self.assertEqual(
+            project_metadata["project"]["name"], "agentic-multi-market-research-platform"
+        )
         self.assertEqual(project_metadata["project"]["version"], __version__)
         self.assertEqual(dependencies, PHASE1_RUNTIME_DEPENDENCIES)
         joined = " ".join(dependencies).lower()
@@ -130,12 +132,7 @@ class RepositoryBaselineTests(TestCase):
     def test_architecture_image_matches_the_approved_baseline(self) -> None:
         """The preserved architecture reference should not change accidentally."""
 
-        image_path = (
-            REPOSITORY_ROOT
-            / "docs"
-            / "architecture"
-            / "agentic-financial-intelligence-platform.png"
-        )
+        image_path = REPOSITORY_ROOT / "docs" / "architecture" / "amrp-architecture.png"
         actual_hash = sha256(image_path.read_bytes()).hexdigest()
 
         self.assertEqual(actual_hash, EXPECTED_ARCHITECTURE_SHA256)
@@ -143,7 +140,7 @@ class RepositoryBaselineTests(TestCase):
     def test_deferred_live_provider_and_unapproved_modules_are_absent(self) -> None:
         """Live provider clients and still-unapproved modules must remain absent."""
 
-        package_root = REPOSITORY_ROOT / "src" / "financial_intelligence"
+        package_root = REPOSITORY_ROOT / "src" / "amrp"
         present = {
             path.name
             for path in package_root.rglob("*.py")

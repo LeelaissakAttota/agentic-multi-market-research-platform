@@ -5,11 +5,11 @@ from __future__ import annotations
 from decimal import Decimal
 from unittest import TestCase
 
-from financial_intelligence.domain.financial import (
+from amrp.domain.financial import (
     FinancialMetricName,
     compute_standard_financial_metrics,
 )
-from financial_intelligence.infrastructure.financial.reference_dataset import (
+from amrp.infrastructure.financial.reference_dataset import (
     APPLE_ID,
     build_reference_financial_packages,
 )

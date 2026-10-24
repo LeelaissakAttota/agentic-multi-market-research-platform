@@ -7,8 +7,8 @@ from decimal import Decimal
 from unittest import TestCase
 from uuid import UUID
 
-from financial_intelligence.domain.data_origin import DataOrigin
-from financial_intelligence.domain.financial import (
+from amrp.domain.data_origin import DataOrigin
+from amrp.domain.financial import (
     CashFlowStatement,
     CompanyFinancialPackage,
     ConflictResolutionRule,
@@ -26,8 +26,8 @@ from financial_intelligence.domain.financial import (
     build_fact,
     resolve_fact_conflict,
 )
-from financial_intelligence.domain.identity import CompanyId, CurrencyCode
-from financial_intelligence.domain.sources import SourceAuthorityTier, SourceId
+from amrp.domain.identity import CompanyId, CurrencyCode
+from amrp.domain.sources import SourceAuthorityTier, SourceId
 
 
 def _company() -> CompanyId:
@@ -77,7 +77,7 @@ class FinancialDomainHardeningTests(TestCase):
 
     def test_rejects_normalized_scale_mismatch(self) -> None:
         with self.assertRaises(ValueError):
-            from financial_intelligence.domain.financial.facts import FinancialFact
+            from amrp.domain.financial.facts import FinancialFact
 
             FinancialFact(
                 company_id=_company(),
@@ -293,7 +293,7 @@ class FinancialDomainHardeningTests(TestCase):
         self.assertIsNone(serialized["published_at"])
 
     def test_package_rejects_listing_without_security(self) -> None:
-        from financial_intelligence.domain.identity import ListingId
+        from amrp.domain.identity import ListingId
 
         period = _fy()
         company = _company()

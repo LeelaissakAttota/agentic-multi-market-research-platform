@@ -5,13 +5,13 @@ from __future__ import annotations
 from unittest import TestCase
 from urllib.parse import urlsplit
 
-from financial_intelligence.config.settings import Settings
-from financial_intelligence.domain.data_origin import DataOrigin
-from financial_intelligence.domain.regulatory import RegulatorCode, RegulatoryActionType
-from financial_intelligence.domain.sources import SourceAuthorityTier
-from financial_intelligence.infrastructure.http import HttpResponse
-from financial_intelligence.infrastructure.regulatory import InMemoryRegulatoryAdapter
-from financial_intelligence.infrastructure.regulatory.live_feeds import (
+from amrp.config.settings import Settings
+from amrp.domain.data_origin import DataOrigin
+from amrp.domain.regulatory import RegulatorCode, RegulatoryActionType
+from amrp.domain.sources import SourceAuthorityTier
+from amrp.infrastructure.http import HttpResponse
+from amrp.infrastructure.regulatory import InMemoryRegulatoryAdapter
+from amrp.infrastructure.regulatory.live_feeds import (
     FallbackRegulatoryAdapter,
     LiveRegulatoryAdapter,
     SebiOrdersFeedSource,
@@ -119,7 +119,7 @@ class RegulatoryFeedTests(TestCase):
         self.assertIsNone(_adapter(transport).get_regulatory_package(company("TCS").company_id))
 
     def test_setting_default_off_and_container_builds(self) -> None:
-        from financial_intelligence.composition import build_container
+        from amrp.composition import build_container
 
         self.assertFalse(Settings(_env_file=None, APP_ENV="test").live_regulatory_enabled)  # type: ignore[call-arg]
         container = build_container(

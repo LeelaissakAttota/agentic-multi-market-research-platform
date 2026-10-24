@@ -7,7 +7,7 @@ from unittest import TestCase, mock
 
 from pydantic import ValidationError
 
-from financial_intelligence.config.settings import Settings
+from amrp.config.settings import Settings
 
 _BASE_ENV = {
     "APP_ENV": "development",

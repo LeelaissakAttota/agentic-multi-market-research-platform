@@ -6,7 +6,7 @@ from typing import Any
 
 from pydantic import SecretStr
 
-from financial_intelligence.infrastructure.llm.free_model_router import FreeModelCatalog
+from amrp.infrastructure.llm.free_model_router import FreeModelCatalog
 
 MODELS = ["a/fast:free", "b/hang:free", "c/broken:free"]
 

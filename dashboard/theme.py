@@ -25,7 +25,7 @@ def asset_uri(name: str) -> str:
     return "data:image/png;base64," + base64.b64encode(data).decode()
 
 
-CSS = "<style>" + (ASSETS / "aerp.css").read_text(encoding="utf-8") + "</style>"
+CSS = "<style>" + (ASSETS / "amrp.css").read_text(encoding="utf-8") + "</style>"
 
 
 def esc(value: object) -> str:

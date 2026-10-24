@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import threading
 
-from financial_intelligence.infrastructure.http import HttpResponse
+from amrp.infrastructure.http import HttpResponse
 from tests.unit.test_india_quotes import FakeTransport, _client, _home, _json, _nse_payload
 
 

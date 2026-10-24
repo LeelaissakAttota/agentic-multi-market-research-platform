@@ -6,27 +6,27 @@ from datetime import UTC, datetime, timedelta
 from threading import Thread
 from unittest import TestCase
 
-from financial_intelligence.application.filing_pipeline import (
+from amrp.application.filing_pipeline import (
     FilingPipelineStage,
     assemble_package_from_facts,
 )
-from financial_intelligence.domain.data_origin import DataOrigin
-from financial_intelligence.domain.financial import (
+from amrp.domain.data_origin import DataOrigin
+from amrp.domain.financial import (
     FinancialConcept,
 )
-from financial_intelligence.infrastructure.financial import (
+from amrp.infrastructure.financial import (
     CachingFinancialDataAdapter,
     FallbackFinancialDataAdapter,
     IndiaFilingAuthority,
     InMemoryFinancialDataAdapter,
     parse_india_results_fixture,
 )
-from financial_intelligence.infrastructure.financial.concept_mapping import (
+from amrp.infrastructure.financial.concept_mapping import (
     map_india_results_label,
     map_us_gaap,
 )
-from financial_intelligence.infrastructure.financial.india_filings import india_authority_rank
-from financial_intelligence.infrastructure.financial.reference_dataset import (
+from amrp.infrastructure.financial.india_filings import india_authority_rank
+from amrp.infrastructure.financial.reference_dataset import (
     APPLE_ID,
     RELIANCE_ID,
     build_reference_financial_packages,

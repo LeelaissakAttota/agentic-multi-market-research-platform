@@ -7,9 +7,9 @@ import logging
 from io import StringIO
 from unittest import TestCase
 
-from financial_intelligence.api import create_app
-from financial_intelligence.config.settings import Settings
-from financial_intelligence.observability.logging import (
+from amrp.api import create_app
+from amrp.config.settings import Settings
+from amrp.observability.logging import (
     StructuredFormatter,
     configure_logging,
     reset_logging_configuration,
@@ -34,7 +34,7 @@ class LoggingConfigurationTests(TestCase):
         our_handlers = [
             handler
             for handler in second_handlers
-            if getattr(handler, "name", None) == "financial_intelligence.structured"
+            if getattr(handler, "name", None) == "amrp.structured"
         ]
         self.assertEqual(len(our_handlers), 1)
         self.assertEqual(len(second_handlers), len(first_handlers))
@@ -45,7 +45,7 @@ class LoggingConfigurationTests(TestCase):
         our_handlers = [
             handler
             for handler in logging.getLogger().handlers
-            if getattr(handler, "name", None) == "financial_intelligence.structured"
+            if getattr(handler, "name", None) == "amrp.structured"
         ]
         self.assertEqual(len(our_handlers), 1)
         self.assertEqual(logging.getLogger().level, logging.ERROR)
@@ -58,7 +58,7 @@ class ExtendedRedactionTests(TestCase):
         stream = StringIO()
         handler = logging.StreamHandler(stream)
         handler.setFormatter(StructuredFormatter())
-        logger = logging.getLogger("financial_intelligence.test.redact")
+        logger = logging.getLogger("amrp.test.redact")
         logger.handlers = [handler]
         logger.setLevel(logging.INFO)
         logger.propagate = False

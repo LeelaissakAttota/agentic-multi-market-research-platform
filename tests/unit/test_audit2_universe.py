@@ -2,23 +2,23 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from financial_intelligence.config.settings import Settings
-from financial_intelligence.domain.identity import (
+from amrp.config.settings import Settings
+from amrp.domain.identity import (
     CompanyId,
     CountryCode,
     ExchangeCode,
     TickerSymbol,
     company_match_key,
 )
-from financial_intelligence.infrastructure.company.in_memory_catalog import InMemoryCompanyCatalog
-from financial_intelligence.infrastructure.company.universe import (
+from amrp.infrastructure.company.in_memory_catalog import InMemoryCompanyCatalog
+from amrp.infrastructure.company.universe import (
     BseEquityUniverseSource,
     SecTickerUniverseSource,
     UniverseCompanyCatalog,
     stable_v4_uuid,
 )
-from financial_intelligence.infrastructure.financial.sec_cik_mapping import sec_cik_for_company
-from financial_intelligence.infrastructure.http import HttpFailureKind, HttpTransportError
+from amrp.infrastructure.financial.sec_cik_mapping import sec_cik_for_company
+from amrp.infrastructure.http import HttpFailureKind, HttpTransportError
 
 BSE_ROWS = [
     {"SCRIP_CD": "543320", "scrip_id": "ETERNAL", "Issuer_Name": "Eternal Limited"},

@@ -1,6 +1,6 @@
 ﻿<#
 .SYNOPSIS
-  Runs every AERP demo request (N* normal, E* error) and prints a PASS/FAIL table.
+  Runs every AMRP demo request (N* normal, E* error) and prints a PASS/FAIL table.
 .EXAMPLE
   .\run-all.ps1
   .\run-all.ps1 -Filter "E*"

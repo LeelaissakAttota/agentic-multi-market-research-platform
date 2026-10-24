@@ -4,19 +4,19 @@ from __future__ import annotations
 
 from unittest import TestCase
 
-from financial_intelligence.config.settings import Settings
-from financial_intelligence.domain.data_origin import DataOrigin
-from financial_intelligence.domain.news import InformationClass
-from financial_intelligence.domain.sources import SourceAuthorityTier
-from financial_intelligence.infrastructure.financial.india_filings import (
+from amrp.config.settings import Settings
+from amrp.domain.data_origin import DataOrigin
+from amrp.domain.news import InformationClass
+from amrp.domain.sources import SourceAuthorityTier
+from amrp.infrastructure.financial.india_filings import (
     INDIA_FILINGS_ALLOWED_HOSTS,
     IndiaCorporateAnnouncementsSource,
     IndiaFilingAuthority,
     india_authority_rank,
 )
-from financial_intelligence.infrastructure.http import HttpResponse
-from financial_intelligence.infrastructure.news import InMemoryNewsEventAdapter
-from financial_intelligence.infrastructure.news.live_events import (
+from amrp.infrastructure.http import HttpResponse
+from amrp.infrastructure.news import InMemoryNewsEventAdapter
+from amrp.infrastructure.news.live_events import (
     FallbackNewsEventAdapter,
     LiveCompanyEventAdapter,
 )
@@ -139,7 +139,7 @@ class AdapterFallbackTests(TestCase):
         )
 
     def test_setting_default_off_and_container_builds(self) -> None:
-        from financial_intelligence.composition import build_container
+        from amrp.composition import build_container
 
         self.assertFalse(
             Settings(_env_file=None, APP_ENV="test").india_filings_live_enabled  # type: ignore[call-arg]

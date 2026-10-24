@@ -8,13 +8,13 @@ from datetime import UTC, date, datetime
 from decimal import Decimal
 from unittest import TestCase
 
-from financial_intelligence.application.company_resolution import CompanyQuery
-from financial_intelligence.application.financial_contracts import (
+from amrp.application.company_resolution import CompanyQuery
+from amrp.application.financial_contracts import (
     FinancialSnapshotQuery,
     FinancialSnapshotResult,
     FinancialSnapshotStatus,
 )
-from financial_intelligence.domain.financial import (
+from amrp.domain.financial import (
     CompanyFinancialPackage,
     FilingFormType,
     FilingId,
@@ -27,8 +27,8 @@ from financial_intelligence.domain.financial import (
     ReportingPeriod,
     build_fact,
 )
-from financial_intelligence.domain.identity import CompanyId, CurrencyCode
-from financial_intelligence.domain.sources import SourceAuthorityTier, SourceId
+from amrp.domain.identity import CompanyId, CurrencyCode
+from amrp.domain.sources import SourceAuthorityTier, SourceId
 
 _COMPANY = CompanyId.from_string("22222222-2222-4222-8222-222222222001")
 _RETRIEVED = datetime(2026, 8, 8, tzinfo=UTC)

@@ -7,9 +7,9 @@ from pathlib import Path
 
 import pytest
 
-from financial_intelligence.api import create_app
-from financial_intelligence.composition import build_container
-from financial_intelligence.infrastructure.mcp import McpResultStatus
+from amrp.api import create_app
+from amrp.composition import build_container
+from amrp.infrastructure.mcp import McpResultStatus
 from tests.support.asgi_client import TestClient
 from tests.unit.test_phase9_prompt2_hardening import NOW
 from tests.unit.test_phase10_prompt2_hardening import _settings
@@ -22,7 +22,7 @@ from tests.unit.test_synthesis_api import (
 )
 
 ROOT = Path(__file__).resolve().parents[2]
-MCP_SOURCE = ROOT / "src" / "financial_intelligence" / "infrastructure" / "mcp" / "selected.py"
+MCP_SOURCE = ROOT / "src" / "amrp" / "infrastructure" / "mcp" / "selected.py"
 
 
 def test_openapi_freezes_v1_and_legacy_compatibility_policy() -> None:

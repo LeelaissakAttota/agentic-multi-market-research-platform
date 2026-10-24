@@ -6,10 +6,10 @@ import json
 from collections.abc import Callable
 from datetime import UTC, datetime
 
-from financial_intelligence.domain.identity import CompanyIdentity, TickerSymbol
-from financial_intelligence.infrastructure.company import InMemoryCompanyCatalog
-from financial_intelligence.infrastructure.http import BoundedHttpClient, HttpResponse
-from financial_intelligence.infrastructure.http.feeds import HostRateLimiter
+from amrp.domain.identity import CompanyIdentity, TickerSymbol
+from amrp.infrastructure.company import InMemoryCompanyCatalog
+from amrp.infrastructure.http import BoundedHttpClient, HttpResponse
+from amrp.infrastructure.http.feeds import HostRateLimiter
 
 NOW = datetime(2026, 10, 14, 6, 0, tzinfo=UTC)
 

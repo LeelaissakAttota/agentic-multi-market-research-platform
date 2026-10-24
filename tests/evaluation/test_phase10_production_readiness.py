@@ -9,17 +9,17 @@ from decimal import Decimal
 
 import pytest
 
-from financial_intelligence.api import create_app
-from financial_intelligence.composition import build_container
-from financial_intelligence.domain.report import ReportFormat
-from financial_intelligence.domain.sources import SourceAuthorityTier
-from financial_intelligence.domain.synthesis import (
+from amrp.api import create_app
+from amrp.composition import build_container
+from amrp.domain.report import ReportFormat
+from amrp.domain.sources import SourceAuthorityTier
+from amrp.domain.synthesis import (
     ClaimDisposition,
     FreshnessClassification,
     MaterialClaimKind,
     MissingDataReason,
 )
-from financial_intelligence.domain.verification import VerificationStatus
+from amrp.domain.verification import VerificationStatus
 from tests.support.asgi_client import TestClient
 from tests.unit.test_phase9_prompt2_hardening import NOW, _item, _synthesis
 from tests.unit.test_phase10_prompt2_hardening import _settings

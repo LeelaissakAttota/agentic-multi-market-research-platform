@@ -23,7 +23,7 @@ cp .env.example .env
 #   OPENROUTER_API_KEY=...                  # never commit this
 #   PRIMARY_FREE_MODEL=auto                 # picks a working :free model automatically
 #   PLANNER_MODE=llm                        # optional; deterministic planner otherwise
-python -m uvicorn financial_intelligence.main:app --reload
+python -m uvicorn amrp.main:app --reload
 ```
 
 Open **http://127.0.0.1:8000/docs** (Swagger UI; on by default in development,

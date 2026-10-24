@@ -4,14 +4,14 @@ from __future__ import annotations
 
 from unittest import TestCase
 
-from financial_intelligence.api import create_app
-from financial_intelligence.application.contracts import (
+from amrp.api import create_app
+from amrp.application.contracts import (
     ApplicationMetadata,
     ReadinessCheckResult,
 )
-from financial_intelligence.application.readiness import ReadinessRegistry
-from financial_intelligence.composition import build_container
-from financial_intelligence.config.settings import Settings
+from amrp.application.readiness import ReadinessRegistry
+from amrp.composition import build_container
+from amrp.config.settings import Settings
 from tests.support.asgi_client import TestClient
 
 

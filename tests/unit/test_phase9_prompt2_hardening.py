@@ -10,10 +10,10 @@ from pathlib import Path
 
 import pytest
 
-from financial_intelligence.domain.data_origin import DataOrigin
-from financial_intelligence.domain.report import ReportFormat, ResearchReportGenerationRequest
-from financial_intelligence.domain.sources import SourceAuthorityTier
-from financial_intelligence.domain.synthesis import (
+from amrp.domain.data_origin import DataOrigin
+from amrp.domain.report import ReportFormat, ResearchReportGenerationRequest
+from amrp.domain.sources import SourceAuthorityTier
+from amrp.domain.synthesis import (
     CitationSourceContext,
     ClaimDisposition,
     DeterministicSynthesisAssembler,
@@ -24,7 +24,7 @@ from financial_intelligence.domain.synthesis import (
     ResearchSectionType,
     VerifiedClaimInput,
 )
-from financial_intelligence.domain.verification import (
+from amrp.domain.verification import (
     Claim,
     ClaimId,
     ClaimType,
@@ -33,10 +33,10 @@ from financial_intelligence.domain.verification import (
     VerificationEngine,
     VerificationStatus,
 )
-from financial_intelligence.infrastructure.company.reference_dataset import (
+from amrp.infrastructure.company.reference_dataset import (
     build_reference_companies,
 )
-from financial_intelligence.infrastructure.reporting import DeterministicResearchReportGenerator
+from amrp.infrastructure.reporting import DeterministicResearchReportGenerator
 
 NOW = datetime(2026, 8, 10, 8, 0, tzinfo=UTC)
 RUN_ID = "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa"
@@ -265,7 +265,7 @@ def test_json_and_markdown_reports_are_stable_bounded_and_inert() -> None:
 
 
 def test_phase9_runtime_surface_has_no_execution_fetch_or_file_write_primitives() -> None:
-    package = ROOT / "src" / "financial_intelligence"
+    package = ROOT / "src" / "amrp"
     paths = [
         *(package / "domain" / "synthesis").glob("*.py"),
         package / "infrastructure" / "reporting" / "deterministic.py",

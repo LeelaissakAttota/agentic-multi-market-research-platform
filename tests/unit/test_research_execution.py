@@ -6,18 +6,18 @@ from datetime import UTC, datetime
 from unittest import TestCase
 from uuid import uuid4
 
-from financial_intelligence.api import create_app
-from financial_intelligence.application.company_resolution import CompanyQuery, ResolutionStatus
-from financial_intelligence.application.execute_research_plan import ExecuteResearchPlan
-from financial_intelligence.application.research_execution_contracts import (
+from amrp.api import create_app
+from amrp.application.company_resolution import CompanyQuery, ResolutionStatus
+from amrp.application.execute_research_plan import ExecuteResearchPlan
+from amrp.application.research_execution_contracts import (
     ExecuteResearchPlanQuery,
     ResearchExecutionStatus,
 )
-from financial_intelligence.composition import build_container
-from financial_intelligence.config.settings import Settings
-from financial_intelligence.domain.data_origin import DataOrigin
-from financial_intelligence.domain.identity import CompanyId, CountryCode, ExchangeCode
-from financial_intelligence.domain.orchestration import (
+from amrp.composition import build_container
+from amrp.config.settings import Settings
+from amrp.domain.data_origin import DataOrigin
+from amrp.domain.identity import CompanyId, CountryCode, ExchangeCode
+from amrp.domain.orchestration import (
     ExecutionControl,
     PlanId,
     PlanStatus,
@@ -35,8 +35,8 @@ from financial_intelligence.domain.orchestration import (
     dedupe_evidence_refs,
     ready_tasks,
 )
-from financial_intelligence.domain.orchestration.results import TaskEvidenceRef
-from financial_intelligence.domain.research_run import ResearchRunId
+from amrp.domain.orchestration.results import TaskEvidenceRef
+from amrp.domain.research_run import ResearchRunId
 from tests.support.asgi_client import TestClient
 
 
@@ -130,7 +130,7 @@ class ResearchExecutionEngineTests(TestCase):
     def test_reliance_bse_does_not_reuse_nse_series_identity(self) -> None:
         nse = self.container.get_market_snapshot.execute(
             __import__(
-                "financial_intelligence.application.market_contracts",
+                "amrp.application.market_contracts",
                 fromlist=["MarketSnapshotQuery"],
             ).MarketSnapshotQuery(
                 company_query=CompanyQuery(
@@ -142,7 +142,7 @@ class ResearchExecutionEngineTests(TestCase):
         )
         bse = self.container.get_market_snapshot.execute(
             __import__(
-                "financial_intelligence.application.market_contracts",
+                "amrp.application.market_contracts",
                 fromlist=["MarketSnapshotQuery"],
             ).MarketSnapshotQuery(
                 company_query=CompanyQuery(
@@ -781,9 +781,7 @@ class ArchitectureExecutionBoundaryTests(TestCase):
     def test_phase2_5_do_not_import_orchestration_executor(self) -> None:
         from pathlib import Path
 
-        root = (
-            Path(__file__).resolve().parents[2] / "src" / "financial_intelligence" / "application"
-        )
+        root = Path(__file__).resolve().parents[2] / "src" / "amrp" / "application"
         forbidden = ("Phase6CapabilityExecutor", "execute_research_plan")
         for name in (
             "market_snapshot.py",
@@ -800,13 +798,7 @@ class ArchitectureExecutionBoundaryTests(TestCase):
     def test_domain_orchestration_has_no_fastapi(self) -> None:
         from pathlib import Path
 
-        root = (
-            Path(__file__).resolve().parents[2]
-            / "src"
-            / "financial_intelligence"
-            / "domain"
-            / "orchestration"
-        )
+        root = Path(__file__).resolve().parents[2] / "src" / "amrp" / "domain" / "orchestration"
         for path in root.rglob("*.py"):
             text = path.read_text(encoding="utf-8").lower()
             self.assertNotIn("fastapi", text)

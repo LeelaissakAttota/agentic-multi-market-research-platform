@@ -1,4 +1,4 @@
-from financial_intelligence.config.settings import Settings
+from amrp.config.settings import Settings
 
 
 def _s(**kw: object) -> Settings:

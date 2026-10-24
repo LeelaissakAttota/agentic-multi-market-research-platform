@@ -26,16 +26,16 @@ PAGES = [
 def test_page_renders_with_api_down(
     page: str, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
 ) -> None:
-    from financial_intelligence.dashboard import market_live
+    from amrp.dashboard import market_live
 
     # Offline: the public market/news fetchers report "not available".
     monkeypatch.setattr(market_live, "fetch_daily", lambda *a, **k: None)
     monkeypatch.setattr(market_live, "trending_us", lambda *a, **k: [])
     monkeypatch.setattr(market_live, "most_active_india", lambda *a, **k: [])
     monkeypatch.setattr(market_live, "news_one_per_company", lambda *a, **k: [])
-    monkeypatch.setenv("AERP_API_URL", "http://127.0.0.1:9")
-    monkeypatch.setenv("AERP_CONTROL_URL", "http://127.0.0.1:9")
-    monkeypatch.setenv("EQUITY_RESEARCH_CONTROL_TOKEN", "")
+    monkeypatch.setenv("AMRP_API_URL", "http://127.0.0.1:9")
+    monkeypatch.setenv("AMRP_CONTROL_URL", "http://127.0.0.1:9")
+    monkeypatch.setenv("AMRP_CONTROL_TOKEN", "")
     monkeypatch.setenv("APPDATA", str(tmp_path))
     monkeypatch.setenv("XDG_CONFIG_HOME", str(tmp_path))
     at = AppTest.from_file(APP, default_timeout=30)

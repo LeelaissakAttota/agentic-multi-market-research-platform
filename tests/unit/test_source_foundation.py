@@ -5,8 +5,8 @@ from __future__ import annotations
 from datetime import UTC, datetime
 from unittest import TestCase
 
-from financial_intelligence.domain.identity import CompanyId
-from financial_intelligence.domain.sources import (
+from amrp.domain.identity import CompanyId
+from amrp.domain.sources import (
     SourceAuthorityTier,
     SourceId,
     SourceMetadata,

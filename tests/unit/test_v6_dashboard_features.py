@@ -10,12 +10,12 @@ from unittest import mock
 import pytest
 from pydantic import SecretStr, ValidationError
 
-from financial_intelligence.composition import build_container
-from financial_intelligence.config.settings import Settings
-from financial_intelligence.control.service import EquityResearchControl
-from financial_intelligence.dashboard import commodity as cm
-from financial_intelligence.dashboard import market_live as ml
-from financial_intelligence.dashboard.prefs import (
+from amrp.composition import build_container
+from amrp.config.settings import Settings
+from amrp.control.service import EquityResearchControl
+from amrp.dashboard import commodity as cm
+from amrp.dashboard import market_live as ml
+from amrp.dashboard.prefs import (
     env_from_prefs,
     is_paid_model,
     load_prefs,
@@ -24,16 +24,16 @@ from financial_intelligence.dashboard.prefs import (
     settings_update,
     uses_custom_router,
 )
-from financial_intelligence.dashboard.views import (
+from amrp.dashboard.views import (
     agent_states,
     analyst_rows,
     model_options,
     pending_steps,
 )
-from financial_intelligence.domain.llm import ModelCallStatus
-from financial_intelligence.infrastructure.http import BoundedHttpClient, HttpResponse
-from financial_intelligence.infrastructure.llm.openrouter_adapter import OpenRouterAdapter
-from financial_intelligence.infrastructure.news.finnhub import (
+from amrp.domain.llm import ModelCallStatus
+from amrp.infrastructure.http import BoundedHttpClient, HttpResponse
+from amrp.infrastructure.llm.openrouter_adapter import OpenRouterAdapter
+from amrp.infrastructure.news.finnhub import (
     RECOMMENDATION_PROVIDER,
     FinnhubSource,
     parse_next_earnings,
@@ -179,7 +179,7 @@ class _PostTransport:
 
 
 def test_adapter_posts_to_custom_base_url() -> None:
-    from financial_intelligence.domain.llm import ModelCallId, ModelMessage, ModelRequest
+    from amrp.domain.llm import ModelCallId, ModelMessage, ModelRequest
 
     t = _PostTransport()
     http = BoundedHttpClient(t, timeout_seconds=2.0, max_retries=0, user_agent="t/1")
@@ -276,7 +276,7 @@ def test_finnhub_failure_returns_empty() -> None:
 
 
 def test_finnhub_wired_only_with_key() -> None:
-    from financial_intelligence.composition import _live_news_sources
+    from amrp.composition import _live_news_sources
 
     assert not any(isinstance(s, FinnhubSource) for s in _live_news_sources(_settings(), None))
     with_key = _settings(FINNHUB_API_KEY="fh-secret")
@@ -345,7 +345,7 @@ def test_agent_states_and_analyst_rows() -> None:
 
 
 def test_paid_cost_rejected_unless_adapter_opted_in() -> None:
-    from financial_intelligence.domain.llm import ModelCallId, ModelMessage, ModelRequest
+    from amrp.domain.llm import ModelCallId, ModelMessage, ModelRequest
 
     def run(allow_paid: bool) -> ModelCallStatus:
         http = BoundedHttpClient(

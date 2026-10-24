@@ -7,7 +7,7 @@ from copy import deepcopy
 from typing import Any
 from uuid import uuid4
 
-from financial_intelligence.api.app import create_app
+from amrp.api.app import create_app
 from tests.support.asgi_client import TestClient
 
 RUN_ID = "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa"

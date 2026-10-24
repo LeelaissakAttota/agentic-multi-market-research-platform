@@ -6,8 +6,8 @@ from datetime import UTC, date, datetime
 from unittest import TestCase
 from uuid import UUID
 
-from financial_intelligence.domain.identity import CompanyId
-from financial_intelligence.domain.news import (
+from amrp.domain.identity import CompanyId
+from amrp.domain.news import (
     EventEvidenceRef,
     EventId,
     EventType,
@@ -15,7 +15,7 @@ from financial_intelligence.domain.news import (
     QualitativeEvent,
     deduplicate_events,
 )
-from financial_intelligence.domain.sources import SourceAuthorityTier, SourceId
+from amrp.domain.sources import SourceAuthorityTier, SourceId
 
 
 def _event(

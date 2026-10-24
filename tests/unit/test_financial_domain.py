@@ -6,7 +6,7 @@ from datetime import UTC, date, datetime
 from decimal import Decimal
 from unittest import TestCase
 
-from financial_intelligence.domain.financial import (
+from amrp.domain.financial import (
     BalanceSheet,
     FinancialConcept,
     FinancialScale,
@@ -16,8 +16,8 @@ from financial_intelligence.domain.financial import (
     ReportingPeriod,
     build_fact,
 )
-from financial_intelligence.domain.identity import CompanyId, CurrencyCode
-from financial_intelligence.domain.sources import SourceAuthorityTier, SourceId
+from amrp.domain.identity import CompanyId, CurrencyCode
+from amrp.domain.sources import SourceAuthorityTier, SourceId
 
 
 class FinancialDomainTests(TestCase):

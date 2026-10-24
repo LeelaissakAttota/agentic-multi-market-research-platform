@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from decimal import Decimal
 
-from financial_intelligence.domain.llm import (
+from amrp.domain.llm import (
     ModelCallId,
     ModelCallStatus,
     ModelFailureKind,
@@ -11,7 +11,7 @@ from financial_intelligence.domain.llm import (
     ModelResponse,
     ModelUsage,
 )
-from financial_intelligence.infrastructure.llm.free_model_router import AutoFreeModelRouter
+from amrp.infrastructure.llm.free_model_router import AutoFreeModelRouter
 
 
 class _Catalog:

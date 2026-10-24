@@ -4,8 +4,8 @@ from __future__ import annotations
 
 from concurrent.futures import ThreadPoolExecutor
 
-from financial_intelligence.api import create_app
-from financial_intelligence.composition import build_container
+from amrp.api import create_app
+from amrp.composition import build_container
 from tests.support.asgi_client import TestClient
 from tests.unit.test_phase9_prompt2_hardening import NOW
 from tests.unit.test_phase10_prompt2_hardening import _settings

@@ -5,7 +5,7 @@ from __future__ import annotations
 import json
 from unittest import TestCase
 
-from financial_intelligence.infrastructure.http import (
+from amrp.infrastructure.http import (
     BoundedHttpClient,
     HttpFailureKind,
     HttpResponse,
@@ -332,7 +332,7 @@ class SecretAndBodyNonLeakageTests(TestCase):
     def test_module_source_contains_no_logging_calls(self) -> None:
         import inspect
 
-        from financial_intelligence.infrastructure.http import bounded_client
+        from amrp.infrastructure.http import bounded_client
 
         source = inspect.getsource(bounded_client)
         self.assertNotIn("logging.", source)

@@ -8,9 +8,9 @@ from typing import Any
 from unittest import TestCase
 from uuid import uuid4
 
-from financial_intelligence.domain.llm.structured_output import _MAX_STRUCTURED_CONTENT_LENGTH
-from financial_intelligence.domain.orchestration.budget import ResearchExecutionBudget
-from financial_intelligence.domain.orchestration.planner_output import (
+from amrp.domain.llm.structured_output import _MAX_STRUCTURED_CONTENT_LENGTH
+from amrp.domain.orchestration.budget import ResearchExecutionBudget
+from amrp.domain.orchestration.planner_output import (
     MAX_CAPABILITY_ID_LENGTH,
     MAX_DESCRIPTION_LENGTH,
     MAX_PLANNER_OUTPUT_LENGTH,
@@ -22,7 +22,7 @@ from financial_intelligence.domain.orchestration.planner_output import (
     PlannerOutputErrorKind,
     PlannerTaskSpec,
 )
-from financial_intelligence.domain.orchestration.tasks import ResearchTask, TaskId, TaskType
+from amrp.domain.orchestration.tasks import ResearchTask, TaskId, TaskType
 
 
 def _task(**overrides: Any) -> dict[str, Any]:

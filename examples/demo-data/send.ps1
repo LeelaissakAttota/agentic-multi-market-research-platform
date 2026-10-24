@@ -1,11 +1,11 @@
 ﻿<#
 .SYNOPSIS
-  Sends ONE AERP demo request file and prints the status + response.
+  Sends ONE AMRP demo request file and prints the status + response.
 .EXAMPLE
   .\send.ps1 requests\N05_resolve_apple.json
   .\send.ps1 requests\E02_country_too_long.json -Quiet
 .NOTES
-  If AUTH is enabled, set $env:AERP_DEMO_API_KEY to one of your API_KEYS first. It is never printed.
+  If AUTH is enabled, set $env:AMRP_DEMO_API_KEY to one of your API_KEYS first. It is never printed.
 #>
 param(
     [Parameter(Mandatory = $true)][string]$File,
@@ -19,7 +19,8 @@ if ($spec.query) {
     $url += "?" + ($pairs -join "&")
 }
 $headers = @{ "Accept" = "application/json" }
-if ($env:AERP_DEMO_API_KEY) { $headers["Authorization"] = "Bearer $($env:AERP_DEMO_API_KEY)" }
+if (-not $env:AMRP_DEMO_API_KEY -and $env:AERP_DEMO_API_KEY) { Write-Warning "AERP_DEMO_API_KEY is deprecated; rename it to AMRP_DEMO_API_KEY"; $env:AMRP_DEMO_API_KEY = $env:AERP_DEMO_API_KEY }
+if ($env:AMRP_DEMO_API_KEY) { $headers["Authorization"] = "Bearer $($env:AMRP_DEMO_API_KEY)" }
 $params = @{ Uri = $url; Method = $spec.method; Headers = $headers; UseBasicParsing = $true }
 if ($null -ne $spec.body) {
     $params["ContentType"] = "application/json"

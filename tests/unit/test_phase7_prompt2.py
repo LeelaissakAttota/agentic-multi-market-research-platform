@@ -7,52 +7,52 @@ from dataclasses import replace
 from datetime import UTC, datetime
 from unittest import TestCase
 
-from financial_intelligence.api import create_app
-from financial_intelligence.application.company_resolution import CompanyQuery
-from financial_intelligence.application.manage_watchlist import (
+from amrp.api import create_app
+from amrp.application.company_resolution import CompanyQuery
+from amrp.application.manage_watchlist import (
     CreateWatchlistQuery,
     WatchlistEntryInput,
     WatchlistOperationStatus,
 )
-from financial_intelligence.application.workflow_contracts import (
+from amrp.application.workflow_contracts import (
     ApprovalActionQuery,
     CreateResearchWorkflowQuery,
     WorkflowOperationStatus,
 )
-from financial_intelligence.composition import build_container
-from financial_intelligence.config.settings import Settings
-from financial_intelligence.domain.identity import CountryCode, ExchangeCode
-from financial_intelligence.domain.memory import (
+from amrp.composition import build_container
+from amrp.config.settings import Settings
+from amrp.domain.identity import CountryCode, ExchangeCode
+from amrp.domain.memory import (
     MemoryRecordId,
     MemoryRecordStatus,
     ResearchMemoryRecord,
 )
-from financial_intelligence.domain.notification import (
+from amrp.domain.notification import (
     NotificationEvent,
     NotificationId,
     NotificationType,
 )
-from financial_intelligence.domain.orchestration import (
+from amrp.domain.orchestration import (
     ExecutionControl,
     ResearchObjective,
     ResearchTask,
     TaskExecutionResult,
     TaskId,
 )
-from financial_intelligence.domain.workflow import (
+from amrp.domain.workflow import (
     ApprovalStatus,
     WorkflowCheckpoint,
     WorkflowId,
     WorkflowStatus,
 )
-from financial_intelligence.infrastructure.memory import (
+from amrp.infrastructure.memory import (
     InMemoryResearchMemoryStore,
     ResearchMemoryStoreError,
 )
-from financial_intelligence.infrastructure.notification import (
+from amrp.infrastructure.notification import (
     InMemoryNotificationAdapter,
 )
-from financial_intelligence.infrastructure.workflow import (
+from amrp.infrastructure.workflow import (
     InMemoryResearchWorkflowStore,
     WorkflowStoreError,
 )

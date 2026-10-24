@@ -1,6 +1,6 @@
 import os
 
-from financial_intelligence.config.settings import Settings
+from amrp.config.settings import Settings
 
 
 def test_host_secret_env_is_not_visible_to_tests() -> None:

@@ -4,9 +4,9 @@ import json
 from datetime import UTC, datetime
 from typing import Any
 
-from financial_intelligence.infrastructure.http import BoundedHttpClient, HttpResponse
-from financial_intelligence.infrastructure.market import yahoo_chart
-from financial_intelligence.infrastructure.market.yahoo_chart import YahooChartMarketDataAdapter
+from amrp.infrastructure.http import BoundedHttpClient, HttpResponse
+from amrp.infrastructure.market import yahoo_chart
+from amrp.infrastructure.market.yahoo_chart import YahooChartMarketDataAdapter
 from tests.unit.market_fixtures import APPLE_COMPANY_ID, apple_listing
 from tests.unit.test_market_live import FakeTransport
 

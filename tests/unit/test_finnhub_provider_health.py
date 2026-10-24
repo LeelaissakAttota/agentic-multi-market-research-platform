@@ -4,8 +4,8 @@ from __future__ import annotations
 
 from pydantic import SecretStr
 
-from financial_intelligence.infrastructure.http.provider_health import PROVIDER_HEALTH
-from financial_intelligence.infrastructure.news.finnhub import FinnhubSource
+from amrp.infrastructure.http.provider_health import PROVIDER_HEALTH
+from amrp.infrastructure.news.finnhub import FinnhubSource
 from tests.unit.test_v6_dashboard_features import (
     EARN,
     NEWS,

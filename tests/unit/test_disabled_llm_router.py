@@ -4,15 +4,15 @@ from __future__ import annotations
 
 from unittest import TestCase
 
-from financial_intelligence.application.ports import LlmRouterPort
-from financial_intelligence.domain.llm import (
+from amrp.application.ports import LlmRouterPort
+from amrp.domain.llm import (
     ModelCallId,
     ModelCallStatus,
     ModelFailureKind,
     ModelMessage,
     ModelRequest,
 )
-from financial_intelligence.infrastructure.llm import DisabledLlmRouterAdapter
+from amrp.infrastructure.llm import DisabledLlmRouterAdapter
 
 
 def _request() -> ModelRequest:

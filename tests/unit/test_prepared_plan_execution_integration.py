@@ -13,16 +13,16 @@ from __future__ import annotations
 from datetime import UTC, datetime
 from unittest import TestCase
 
-from financial_intelligence.application.company_resolution import CompanyQuery
-from financial_intelligence.application.research_orchestrator import ResearchOrchestrator
-from financial_intelligence.application.workflow_contracts import (
+from amrp.application.company_resolution import CompanyQuery
+from amrp.application.research_orchestrator import ResearchOrchestrator
+from amrp.application.workflow_contracts import (
     CreateResearchWorkflowQuery,
     WorkflowOperationStatus,
 )
-from financial_intelligence.composition import build_container
-from financial_intelligence.config.settings import Settings
-from financial_intelligence.domain.identity import ExchangeCode
-from financial_intelligence.domain.orchestration import (
+from amrp.composition import build_container
+from amrp.config.settings import Settings
+from amrp.domain.identity import ExchangeCode
+from amrp.domain.orchestration import (
     PLANNER_VERSION,
     PlanId,
     PlannerOutcome,
@@ -34,8 +34,8 @@ from financial_intelligence.domain.orchestration import (
     TaskId,
     TaskType,
 )
-from financial_intelligence.domain.research_run import ResearchRunId
-from financial_intelligence.domain.workflow import WorkflowStatus
+from amrp.domain.research_run import ResearchRunId
+from amrp.domain.workflow import WorkflowStatus
 
 
 def _settings() -> Settings:

@@ -4,8 +4,8 @@ from __future__ import annotations
 
 from unittest import TestCase
 
-from financial_intelligence.api import create_app
-from financial_intelligence.config.settings import Settings
+from amrp.api import create_app
+from amrp.config.settings import Settings
 from tests.support.asgi_client import TestClient
 
 

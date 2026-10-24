@@ -5,19 +5,19 @@ from __future__ import annotations
 from datetime import UTC, datetime
 from unittest import TestCase
 
-from financial_intelligence.api import create_app
-from financial_intelligence.application.company_resolution import CompanyQuery
-from financial_intelligence.application.news_event_contracts import (
+from amrp.api import create_app
+from amrp.application.company_resolution import CompanyQuery
+from amrp.application.news_event_contracts import (
     NewsEventSnapshotQuery,
     NewsEventSnapshotStatus,
 )
-from financial_intelligence.application.news_event_snapshot import GetNewsEventSnapshot
-from financial_intelligence.application.resolve_company import ResolveCompany
-from financial_intelligence.config.settings import Settings
-from financial_intelligence.domain.data_origin import DataOrigin
-from financial_intelligence.domain.news import EventType
-from financial_intelligence.infrastructure.company import InMemoryCompanyCatalog
-from financial_intelligence.infrastructure.news import InMemoryNewsEventAdapter
+from amrp.application.news_event_snapshot import GetNewsEventSnapshot
+from amrp.application.resolve_company import ResolveCompany
+from amrp.config.settings import Settings
+from amrp.domain.data_origin import DataOrigin
+from amrp.domain.news import EventType
+from amrp.infrastructure.company import InMemoryCompanyCatalog
+from amrp.infrastructure.news import InMemoryNewsEventAdapter
 from tests.support.asgi_client import TestClient
 
 

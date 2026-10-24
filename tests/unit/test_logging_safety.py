@@ -7,11 +7,11 @@ import logging
 from io import StringIO
 from unittest import TestCase
 
-from financial_intelligence.observability.correlation import (
+from amrp.observability.correlation import (
     bind_correlation_id,
     reset_correlation_id,
 )
-from financial_intelligence.observability.logging import StructuredFormatter
+from amrp.observability.logging import StructuredFormatter
 
 
 class LoggingSafetyTests(TestCase):
@@ -21,7 +21,7 @@ class LoggingSafetyTests(TestCase):
         stream = StringIO()
         handler = logging.StreamHandler(stream)
         handler.setFormatter(StructuredFormatter())
-        logger = logging.getLogger("financial_intelligence.test.logging")
+        logger = logging.getLogger("amrp.test.logging")
         logger.handlers = [handler]
         logger.setLevel(logging.INFO)
         logger.propagate = False

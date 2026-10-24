@@ -12,30 +12,30 @@ from typing import Any
 from unittest import TestCase
 from unittest.mock import patch
 
-from financial_intelligence.application.capability_registry import CapabilityRegistry
-from financial_intelligence.application.company_resolution import (
+from amrp.application.capability_registry import CapabilityRegistry
+from amrp.application.company_resolution import (
     CompanyQuery,
     ConfidenceBand,
     MatchMethod,
     ResolutionResult,
     ResolutionStatus,
 )
-from financial_intelligence.application.create_research_plan import (
+from amrp.application.create_research_plan import (
     PLANNER_BUDGET_EXCEEDED_MESSAGE,
     CreateResearchPlan,
 )
-from financial_intelligence.application.deterministic_planner import DeterministicPlanner
-from financial_intelligence.application.ports import LlmRouterPort, PlannerPort
-from financial_intelligence.application.research_plan_contracts import (
+from amrp.application.deterministic_planner import DeterministicPlanner
+from amrp.application.ports import LlmRouterPort, PlannerPort
+from amrp.application.research_plan_contracts import (
     CreateResearchPlanQuery,
     ResearchPlanStatus,
 )
-from financial_intelligence.application.resolve_company import ResolveCompany
-from financial_intelligence.composition import build_container
-from financial_intelligence.config.settings import Settings
-from financial_intelligence.domain.identity import CompanyId, ExchangeCode
-from financial_intelligence.domain.llm import ModelRequest, ModelResponse
-from financial_intelligence.domain.orchestration import (
+from amrp.application.resolve_company import ResolveCompany
+from amrp.composition import build_container
+from amrp.config.settings import Settings
+from amrp.domain.identity import CompanyId, ExchangeCode
+from amrp.domain.llm import ModelRequest, ModelResponse
+from amrp.domain.orchestration import (
     PLANNER_VERSION,
     BudgetExceededError,
     PlannerOutcome,
@@ -46,16 +46,16 @@ from financial_intelligence.domain.orchestration import (
     ResearchRequest,
     TaskType,
 )
-from financial_intelligence.domain.research_run import ResearchRunId
-from financial_intelligence.infrastructure.company import InMemoryCompanyCatalog
-from financial_intelligence.infrastructure.orchestration import (
+from amrp.domain.research_run import ResearchRunId
+from amrp.infrastructure.company import InMemoryCompanyCatalog
+from amrp.infrastructure.orchestration import (
     DeterministicPlannerAdapter,
     deterministic_planner_adapter,
 )
 
 NOW = datetime(2026, 9, 19, 9, 30, tzinfo=UTC)
 SECRET = "sk-or-v1-SUPERSECRET /etc/internal/path Traceback"
-LOGGER_NAME = "financial_intelligence.infrastructure.orchestration.deterministic_planner_adapter"
+LOGGER_NAME = "amrp.infrastructure.orchestration.deterministic_planner_adapter"
 
 
 def _settings() -> Settings:
@@ -470,7 +470,7 @@ class CompositionTests(TestCase):
         self.assertFalse(container.settings.openrouter_live_enabled)
 
     def test_planner_is_constructed_once_and_shared(self) -> None:
-        from financial_intelligence import composition
+        from amrp import composition
 
         with (
             patch.object(

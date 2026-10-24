@@ -6,8 +6,8 @@ from datetime import date
 from unittest import TestCase
 from zoneinfo import ZoneInfo
 
-from financial_intelligence.domain.identity import ExchangeCode
-from financial_intelligence.domain.market import (
+from amrp.domain.identity import ExchangeCode
+from amrp.domain.market import (
     country_for_exchange,
     exchange_timezone,
     is_weekday_calendar_day,

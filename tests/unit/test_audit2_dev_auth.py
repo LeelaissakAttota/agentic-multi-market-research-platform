@@ -1,7 +1,7 @@
 from __future__ import annotations
 
-from financial_intelligence.api.app import create_app
-from financial_intelligence.config.settings import Settings
+from amrp.api.app import create_app
+from amrp.config.settings import Settings
 from tests.support.asgi_client import TestClient
 
 KEY = "dev-key-123456789"

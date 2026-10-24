@@ -6,18 +6,18 @@ from datetime import UTC, datetime
 from unittest import TestCase
 from uuid import uuid4
 
-from financial_intelligence.api import create_app
-from financial_intelligence.application.company_resolution import CompanyQuery, ResolutionStatus
-from financial_intelligence.application.execute_research_plan import ExecuteResearchPlan
-from financial_intelligence.application.research_execution_contracts import (
+from amrp.api import create_app
+from amrp.application.company_resolution import CompanyQuery, ResolutionStatus
+from amrp.application.execute_research_plan import ExecuteResearchPlan
+from amrp.application.research_execution_contracts import (
     ExecuteResearchPlanQuery,
     ResearchExecutionStatus,
 )
-from financial_intelligence.composition import build_container
-from financial_intelligence.config.settings import Settings
-from financial_intelligence.domain.data_origin import DataOrigin
-from financial_intelligence.domain.identity import CompanyId, CountryCode, ExchangeCode, ListingId
-from financial_intelligence.domain.orchestration import (
+from amrp.composition import build_container
+from amrp.config.settings import Settings
+from amrp.domain.data_origin import DataOrigin
+from amrp.domain.identity import CompanyId, CountryCode, ExchangeCode, ListingId
+from amrp.domain.orchestration import (
     BudgetExceededError,
     ExecutionControl,
     PlanId,
@@ -39,8 +39,8 @@ from financial_intelligence.domain.orchestration import (
     topological_order,
     validate_task_graph,
 )
-from financial_intelligence.domain.research_run import ResearchRunId
-from financial_intelligence.domain.sources import SourceAuthorityTier, SourceId
+from amrp.domain.research_run import ResearchRunId
+from amrp.domain.sources import SourceAuthorityTier, SourceId
 from tests.support.asgi_client import TestClient
 
 
@@ -646,7 +646,7 @@ class ArchitectureSecurityFreezeTests(TestCase):
     def test_phase2_5_do_not_import_phase6_orchestration(self) -> None:
         from pathlib import Path
 
-        root = Path(__file__).resolve().parents[2] / "src" / "financial_intelligence"
+        root = Path(__file__).resolve().parents[2] / "src" / "amrp"
         forbidden = ("ExecuteResearchPlan", "Phase6CapabilityExecutor", "domain.orchestration")
         for rel in (
             "application/market_snapshot.py",
@@ -664,19 +664,15 @@ class ArchitectureSecurityFreezeTests(TestCase):
         from pathlib import Path
 
         roots = [
+            Path(__file__).resolve().parents[2] / "src" / "amrp" / "domain" / "orchestration",
             Path(__file__).resolve().parents[2]
             / "src"
-            / "financial_intelligence"
-            / "domain"
-            / "orchestration",
-            Path(__file__).resolve().parents[2]
-            / "src"
-            / "financial_intelligence"
+            / "amrp"
             / "infrastructure"
             / "orchestration",
             Path(__file__).resolve().parents[2]
             / "src"
-            / "financial_intelligence"
+            / "amrp"
             / "application"
             / "execute_research_plan.py",
         ]

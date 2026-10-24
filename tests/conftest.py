@@ -15,7 +15,7 @@ from collections.abc import Iterator
 
 import pytest
 
-from financial_intelligence.config.settings import Settings, get_settings
+from amrp.config.settings import Settings, get_settings
 
 _ISOLATED_ENV_VARS = (
     "OPENROUTER_API_KEY",

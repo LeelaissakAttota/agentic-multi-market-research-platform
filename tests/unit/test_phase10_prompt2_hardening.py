@@ -13,9 +13,9 @@ from fastapi import HTTPException
 from pydantic import ValidationError
 from starlette.types import Message, Receive, Scope, Send
 
-from financial_intelligence.api import create_app
-from financial_intelligence.api.middleware import RequestSafetyMiddleware
-from financial_intelligence.config.settings import Settings
+from amrp.api import create_app
+from amrp.api.middleware import RequestSafetyMiddleware
+from amrp.config.settings import Settings
 from tests.support.asgi_client import TestClient
 
 
@@ -343,7 +343,7 @@ def test_success_telemetry_omits_body_query_headers_cookies_and_concrete_path(
 
     secrets = ("path-secret", "query-secret", "body-secret", "header-secret", "cookie-secret")
     with (
-        caplog.at_level(logging.INFO, logger="financial_intelligence.api.requests"),
+        caplog.at_level(logging.INFO, logger="amrp.api.requests"),
         TestClient(app) as client,
     ):
         response = client.post(
@@ -379,7 +379,7 @@ def test_rejection_telemetry_contains_only_safe_boundary_metadata(
     caplog: pytest.LogCaptureFixture,
 ) -> None:
     with (
-        caplog.at_level(logging.INFO, logger="financial_intelligence.api.requests"),
+        caplog.at_level(logging.INFO, logger="amrp.api.requests"),
         TestClient(create_app(settings=_production_settings())) as client,
     ):
         response = client.get(

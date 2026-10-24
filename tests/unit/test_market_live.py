@@ -7,15 +7,15 @@ from datetime import UTC, datetime
 from decimal import Decimal
 from unittest import TestCase
 
-from financial_intelligence.domain.market import DataOrigin
-from financial_intelligence.infrastructure.http import (
+from amrp.domain.market import DataOrigin
+from amrp.infrastructure.http import (
     BoundedHttpClient,
     HttpFailureKind,
     HttpResponse,
     HttpTransportError,
 )
-from financial_intelligence.infrastructure.market.symbol_mapping import yahoo_chart_symbol
-from financial_intelligence.infrastructure.market.yahoo_chart import YahooChartMarketDataAdapter
+from amrp.infrastructure.market.symbol_mapping import yahoo_chart_symbol
+from amrp.infrastructure.market.yahoo_chart import YahooChartMarketDataAdapter
 from tests.unit.market_fixtures import (
     APPLE_COMPANY_ID,
     apple_listing,
@@ -170,7 +170,7 @@ class YahooChartAdapterTests(TestCase):
                 FakeTransport(handler), timeout_seconds=1, max_retries=0, user_agent="test"
             ),
         )
-        from financial_intelligence.domain.identity import CompanyId
+        from amrp.domain.identity import CompanyId
 
         company = CompanyId.from_string("11111111-1111-4111-8111-111111111001")
         self.assertIsNone(adapter.get_ohlcv_series(reliance_nse_listing(), company_id=company))

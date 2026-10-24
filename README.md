@@ -109,18 +109,18 @@ Every dashboard section carries a badge: **LIVE**, **LIVE (cached)**, **SAMPLE D
 
 ## Architecture reference
 
-The master diagram is at [docs/architecture/agentic-financial-intelligence-platform.png](docs/architecture/agentic-financial-intelligence-platform.png). [ARCHITECTURE.md](ARCHITECTURE.md) and [EVIDENCE_MODEL.md](EVIDENCE_MODEL.md) define the written boundaries.
+The master diagram is at [docs/architecture/amrp-architecture.png](docs/architecture/amrp-architecture.png). [ARCHITECTURE.md](ARCHITECTURE.md) and [EVIDENCE_MODEL.md](EVIDENCE_MODEL.md) define the written boundaries.
 
 ## Repository map
 
 ```text
-src/financial_intelligence/   Python package: API, agents, providers, evidence, reporting, dashboard
+src/amrp/   Python package: API, agents, providers, evidence, reporting, dashboard
 tests/                        Unit, contract, integration, and evaluation tests
 docs/                         Demo, API examples, control API, architecture, operations, security, images
 scripts/                      start-dashboard.ps1 and helper scripts
 ```
 
-The Python package is `financial_intelligence` (distribution `agentic-financial-intelligence`), kept stable for compatibility.
+The Python package is `amrp` (distribution `agentic-multi-market-research-platform`), kept stable for compatibility.
 
 ## Development baseline
 
@@ -134,7 +134,7 @@ Create a local environment file from `.env.example`; never commit `.env` or real
 python -m pip install -r requirements-lock.txt
 python -m pip install -e . --no-deps
 Copy-Item .env.example .env        # add OPENROUTER_API_KEY (free models); everything else is optional
-python -m uvicorn financial_intelligence.main:app --reload   # REST API: http://127.0.0.1:8000/docs
+python -m uvicorn amrp.main:app --reload   # REST API: http://127.0.0.1:8000/docs
 .\scripts\start-dashboard.ps1       # dashboard: http://127.0.0.1:8501
 ```
 

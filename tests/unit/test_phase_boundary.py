@@ -7,7 +7,7 @@ from tomllib import load
 from unittest import TestCase
 
 ROOT = Path(__file__).resolve().parents[2]
-PACKAGE = ROOT / "src" / "financial_intelligence"
+PACKAGE = ROOT / "src" / "amrp"
 
 FORBIDDEN_CONTENT_MARKERS = (
     "langgraph",

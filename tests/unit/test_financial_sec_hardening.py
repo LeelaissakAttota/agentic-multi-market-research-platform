@@ -6,14 +6,14 @@ import json
 from datetime import UTC, date, datetime
 from unittest import TestCase
 
-from financial_intelligence.domain.data_origin import DataOrigin
-from financial_intelligence.domain.financial import FinancialConcept
-from financial_intelligence.domain.identity import CompanyId
-from financial_intelligence.infrastructure.financial.reference_dataset import APPLE_ID
-from financial_intelligence.infrastructure.financial.sec_company_facts import (
+from amrp.domain.data_origin import DataOrigin
+from amrp.domain.financial import FinancialConcept
+from amrp.domain.identity import CompanyId
+from amrp.infrastructure.financial.reference_dataset import APPLE_ID
+from amrp.infrastructure.financial.sec_company_facts import (
     SecCompanyFactsFinancialDataAdapter,
 )
-from financial_intelligence.infrastructure.http import (
+from amrp.infrastructure.http import (
     BoundedHttpClient,
     HttpFailureKind,
     HttpResponse,

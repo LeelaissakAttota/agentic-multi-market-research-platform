@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from financial_intelligence.dashboard import views as v
+from amrp.dashboard import views as v
 
 
 def _wf(wid: str, status: str = "completed", approval: str = "not_required", **kw: object):
@@ -134,7 +134,7 @@ def test_provider_cards_never_invent_latency() -> None:
 
 
 def test_revenue_profit_series_needs_two_periods_each() -> None:
-    from financial_intelligence.dashboard.views import revenue_profit_series
+    from amrp.dashboard.views import revenue_profit_series
 
     rows = [
         {"label": "Revenue", "value": "USD 383.3 B", "detail": "FY2023"},

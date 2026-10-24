@@ -5,9 +5,9 @@ from __future__ import annotations
 from datetime import UTC, datetime
 from unittest import TestCase
 
-from financial_intelligence.application.ports import LlmRouterPort, PlannerPort
-from financial_intelligence.domain.identity import CompanyId
-from financial_intelligence.domain.orchestration import (
+from amrp.application.ports import LlmRouterPort, PlannerPort
+from amrp.domain.identity import CompanyId
+from amrp.domain.orchestration import (
     PLANNER_VERSION,
     PlanId,
     PlannerOutcome,
@@ -21,8 +21,8 @@ from financial_intelligence.domain.orchestration import (
     TaskId,
     TaskType,
 )
-from financial_intelligence.domain.research_run import ResearchRunId
-from financial_intelligence.infrastructure.orchestration import UnavailablePlannerAdapter
+from amrp.domain.research_run import ResearchRunId
+from amrp.infrastructure.orchestration import UnavailablePlannerAdapter
 
 
 def _clock() -> datetime:

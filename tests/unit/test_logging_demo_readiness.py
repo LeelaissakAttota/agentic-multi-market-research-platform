@@ -7,9 +7,9 @@ import logging
 
 import pytest
 
-from financial_intelligence.api import create_app
-from financial_intelligence.config.settings import Settings
-from financial_intelligence.observability.logging import (
+from amrp.api import create_app
+from amrp.config.settings import Settings
+from amrp.observability.logging import (
     StructuredFormatter,
     TextFormatter,
     configure_logging,
@@ -50,9 +50,7 @@ def test_text_format_is_single_readable_line() -> None:
 
 def test_log_format_setting_selects_text_formatter() -> None:
     configure_logging("INFO", force=True, log_format="text")
-    ours = [
-        h for h in logging.getLogger().handlers if h.name == "financial_intelligence.structured"
-    ]
+    ours = [h for h in logging.getLogger().handlers if h.name == "amrp.structured"]
     assert isinstance(ours[0].formatter, TextFormatter)
     assert Settings(_env_file=None, LOG_FORMAT="text").log_format == "text"
 
@@ -100,7 +98,7 @@ def _client() -> TestClient:
 
 
 def test_404_is_logged_with_route_method_status(caplog: pytest.LogCaptureFixture) -> None:
-    with caplog.at_level(logging.WARNING, logger="financial_intelligence.api.errors"):
+    with caplog.at_level(logging.WARNING, logger="amrp.api.errors"):
         response = _client().get("/definitely-not-a-route?apikey=SECRET123")
     assert response.status_code == 404
     records = [r for r in caplog.records if r.getMessage() == "http_client_error"]
@@ -120,7 +118,7 @@ def test_validation_log_names_field_not_value(caplog: pytest.LogCaptureFixture) 
     def _demo(limit: int = Body(..., embed=True)) -> dict[str, int]:
         return {"limit": limit}
 
-    with caplog.at_level(logging.WARNING, logger="financial_intelligence.api.errors"):
+    with caplog.at_level(logging.WARNING, logger="amrp.api.errors"):
         response = TestClient(app).post("/__demo_validation", json={"limit": "SECRET-VALUE-42"})
     assert response.status_code == 422
     assert "SECRET-VALUE-42" not in response.text

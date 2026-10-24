@@ -2,7 +2,7 @@
 
 from unittest import TestCase
 
-from financial_intelligence import __version__
+from amrp import __version__
 
 
 class PackageHealthTests(TestCase):

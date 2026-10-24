@@ -1,8 +1,8 @@
 from datetime import UTC, date, datetime, timedelta
 
-from financial_intelligence.application.market_freshness import MarketFreshnessPolicy
-from financial_intelligence.domain.market import FreshnessStatus
-from financial_intelligence.infrastructure.market.india_quotes import _parse_ist
+from amrp.application.market_freshness import MarketFreshnessPolicy
+from amrp.domain.market import FreshnessStatus
+from amrp.infrastructure.market.india_quotes import _parse_ist
 
 NOW = datetime(2026, 10, 14, 12, 0, tzinfo=UTC)
 

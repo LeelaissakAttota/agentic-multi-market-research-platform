@@ -6,9 +6,9 @@ from uuid import UUID
 
 import pytest
 
-from financial_intelligence.api import create_app
-from financial_intelligence.config.settings import Settings
-from financial_intelligence.observability.correlation import resolve_correlation_id
+from amrp.api import create_app
+from amrp.config.settings import Settings
+from amrp.observability.correlation import resolve_correlation_id
 from tests.support.asgi_client import TestClient
 from tests.unit.test_phase10_prompt2_hardening import (
     _exercise_boundary,

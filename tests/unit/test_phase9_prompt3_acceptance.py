@@ -15,10 +15,10 @@ from xml.etree import ElementTree
 
 import pytest
 
-from financial_intelligence.api.app import create_app
-from financial_intelligence.domain.report import ReportFormat, ResearchReportGenerationRequest
-from financial_intelligence.domain.sources import SourceAuthorityTier
-from financial_intelligence.domain.synthesis import (
+from amrp.api.app import create_app
+from amrp.domain.report import ReportFormat, ResearchReportGenerationRequest
+from amrp.domain.sources import SourceAuthorityTier
+from amrp.domain.synthesis import (
     ClaimDisposition,
     DeterministicSynthesisAssembler,
     FreshnessClassification,
@@ -28,12 +28,12 @@ from financial_intelligence.domain.synthesis import (
     ResearchSectionType,
     SynthesisStatus,
 )
-from financial_intelligence.domain.verification import (
+from amrp.domain.verification import (
     ClaimId,
     EvidenceBundle,
     VerificationEngine,
 )
-from financial_intelligence.infrastructure.reporting import DeterministicResearchReportGenerator
+from amrp.infrastructure.reporting import DeterministicResearchReportGenerator
 from tests.support.asgi_client import TestClient
 from tests.unit.test_phase9_prompt2_hardening import NOW, _company, _item, _synthesis
 from tests.unit.test_synthesis_api import (
@@ -48,7 +48,7 @@ from tests.unit.test_synthesis_api import (
 )
 
 ROOT = Path(__file__).resolve().parents[2]
-PACKAGE = ROOT / "src" / "financial_intelligence"
+PACKAGE = ROOT / "src" / "amrp"
 
 
 def _artifact(report_format: ReportFormat, *items: object):  # type: ignore[no-untyped-def]
@@ -342,8 +342,8 @@ def test_phase9_reuses_cross_phase_contracts_without_importing_capability_implem
             for node in ast.walk(tree)
             if isinstance(node, ast.ImportFrom) and node.module is not None
         )
-    assert "financial_intelligence.domain.identity" in imports
-    assert any(name.startswith("financial_intelligence.domain.verification") for name in imports)
+    assert "amrp.domain.identity" in imports
+    assert any(name.startswith("amrp.domain.verification") for name in imports)
     forbidden_capabilities = {
         "market",
         "financial",

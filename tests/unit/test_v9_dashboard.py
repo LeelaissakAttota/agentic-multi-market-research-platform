@@ -10,14 +10,14 @@ sys.path.insert(0, str(ROOT / "dashboard"))
 
 import theme  # type: ignore[import-not-found]  # noqa: E402
 
-from financial_intelligence.config import settings  # noqa: E402
-from financial_intelligence.dashboard.views import (  # noqa: E402
+from amrp.config import settings  # noqa: E402
+from amrp.dashboard.views import (  # noqa: E402
     STEP_MODE_HELP,
     step_mode_company,
 )
 
 APP = (ROOT / "dashboard" / "app.py").read_text(encoding="utf-8")
-CSS = (ROOT / "dashboard" / "assets" / "aerp.css").read_text(encoding="utf-8")
+CSS = (ROOT / "dashboard" / "assets" / "amrp.css").read_text(encoding="utf-8")
 
 
 def test_agent_grid_wraps_and_keeps_pill_inside_card() -> None:

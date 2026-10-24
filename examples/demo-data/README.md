@@ -20,12 +20,12 @@ Offline, readable logs, auth off (local only, binds to 127.0.0.1):
 
 ```powershell
 $env:AUTH_ENABLED = "false"; $env:OPENROUTER_LIVE_ENABLED = "false"; $env:LOG_FORMAT = "text"
-.\.venv\Scripts\python.exe -m uvicorn financial_intelligence.main:app --host 127.0.0.1 --port 8000
+.\.venv\Scripts\python.exe -m uvicorn amrp.main:app --host 127.0.0.1 --port 8000
 ```
 
 Swagger UI: http://127.0.0.1:8000/docs
 
-With your normal `.env` (auth on): set `$env:AERP_DEMO_API_KEY` to one of your `API_KEYS` in the
+With your normal `.env` (auth on): set `$env:AMRP_DEMO_API_KEY` to one of your `API_KEYS` in the
 terminal that runs the scripts. The key is only sent as a Bearer header, never printed.
 
 ## Run

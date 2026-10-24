@@ -6,8 +6,8 @@ from datetime import date
 from decimal import Decimal
 from unittest import TestCase
 
-from financial_intelligence.domain.identity import CurrencyCode
-from financial_intelligence.domain.market import (
+from amrp.domain.identity import CurrencyCode
+from amrp.domain.market import (
     CALCULATION_LIBRARY_VERSION,
     OhlcvBar,
     adjusted_last_close,

@@ -7,26 +7,26 @@ from datetime import UTC, datetime
 from typing import Any
 from unittest import TestCase
 
-from financial_intelligence.application.agent_decisions import REPLAN_DESCRIPTION_PREFIX
-from financial_intelligence.application.capability_registry import CapabilityRegistry
-from financial_intelligence.application.company_resolution import CompanyQuery
-from financial_intelligence.application.replan_round import Replanner
-from financial_intelligence.application.workflow_contracts import (
+from amrp.application.agent_decisions import REPLAN_DESCRIPTION_PREFIX
+from amrp.application.capability_registry import CapabilityRegistry
+from amrp.application.company_resolution import CompanyQuery
+from amrp.application.replan_round import Replanner
+from amrp.application.workflow_contracts import (
     ApprovalActionQuery,
     CreateResearchWorkflowQuery,
     WorkflowOperationStatus,
 )
-from financial_intelligence.composition import build_container
-from financial_intelligence.config.settings import Settings
-from financial_intelligence.domain.identity import ExchangeCode
-from financial_intelligence.domain.llm import (
+from amrp.composition import build_container
+from amrp.config.settings import Settings
+from amrp.domain.identity import ExchangeCode
+from amrp.domain.llm import (
     ModelCallStatus,
     ModelFailureKind,
     ModelRequest,
     ModelResponse,
     ModelUsage,
 )
-from financial_intelligence.domain.orchestration import (
+from amrp.domain.orchestration import (
     PlanId,
     PlannerOutcome,
     PlannerOutcomeStatus,
@@ -37,13 +37,13 @@ from financial_intelligence.domain.orchestration import (
     TaskStatus,
     TaskType,
 )
-from financial_intelligence.domain.orchestration.results import (
+from amrp.domain.orchestration.results import (
     TaskExecutionResult,
     TaskResultStatus,
 )
-from financial_intelligence.domain.research_run import ResearchRunId
-from financial_intelligence.domain.workflow import ApprovalStatus, WorkflowStatus
-from financial_intelligence.infrastructure.orchestration import FallbackPlannerAdapter
+from amrp.domain.research_run import ResearchRunId
+from amrp.domain.workflow import ApprovalStatus, WorkflowStatus
+from amrp.infrastructure.orchestration import FallbackPlannerAdapter
 
 NOW = datetime(2026, 10, 16, 12, 0, tzinfo=UTC)
 Reply = str | ModelFailureKind
@@ -201,7 +201,7 @@ class _FixedPlanner:
 
 
 def _plan(version: str = "phase6-deterministic-v1") -> ResearchPlan:
-    from financial_intelligence.domain.identity import CompanyId
+    from amrp.domain.identity import CompanyId
 
     return ResearchPlan(
         plan_id=PlanId.new(),
@@ -276,7 +276,7 @@ class FallbackPlannerTests(TestCase):
 def _executed(
     statuses: dict[str, TaskResultStatus],
 ) -> tuple[ResearchPlan, tuple[TaskExecutionResult, ...]]:
-    from financial_intelligence.domain.identity import CompanyId
+    from amrp.domain.identity import CompanyId
 
     registry = CapabilityRegistry()
     tasks: list[ResearchTask] = []

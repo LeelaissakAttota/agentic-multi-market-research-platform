@@ -6,39 +6,39 @@ from datetime import UTC, date, datetime
 from unittest import TestCase
 from uuid import UUID
 
-from financial_intelligence.api import create_app
-from financial_intelligence.application.company_resolution import CompanyQuery
-from financial_intelligence.application.industry_contracts import (
+from amrp.api import create_app
+from amrp.application.company_resolution import CompanyQuery
+from amrp.application.industry_contracts import (
     IndustrySnapshotQuery,
     IndustrySnapshotStatus,
 )
-from financial_intelligence.application.industry_snapshot import GetIndustryContextSnapshot
-from financial_intelligence.application.regulatory_contracts import (
+from amrp.application.industry_snapshot import GetIndustryContextSnapshot
+from amrp.application.regulatory_contracts import (
     RegulatorySnapshotQuery,
     RegulatorySnapshotStatus,
 )
-from financial_intelligence.application.regulatory_snapshot import GetRegulatorySnapshot
-from financial_intelligence.application.resolve_company import ResolveCompany
-from financial_intelligence.config.settings import Settings
-from financial_intelligence.domain.data_origin import DataOrigin
-from financial_intelligence.domain.identity import CompanyId
-from financial_intelligence.domain.industry import (
+from amrp.application.regulatory_snapshot import GetRegulatorySnapshot
+from amrp.application.resolve_company import ResolveCompany
+from amrp.config.settings import Settings
+from amrp.domain.data_origin import DataOrigin
+from amrp.domain.identity import CompanyId
+from amrp.domain.industry import (
     CompetitorRelationship,
     IndustryClassification,
     IndustryTaxonomySource,
     PeerResolutionState,
 )
-from financial_intelligence.domain.news.events import EventEvidenceRef, InformationClass
-from financial_intelligence.domain.regulatory import (
+from amrp.domain.news.events import EventEvidenceRef, InformationClass
+from amrp.domain.regulatory import (
     RegulatorCode,
     RegulatoryActionType,
     RegulatoryEvent,
     RegulatoryStatus,
 )
-from financial_intelligence.domain.sources import SourceAuthorityTier, SourceId
-from financial_intelligence.infrastructure.company import InMemoryCompanyCatalog
-from financial_intelligence.infrastructure.industry import InMemoryIndustryAdapter
-from financial_intelligence.infrastructure.regulatory import InMemoryRegulatoryAdapter
+from amrp.domain.sources import SourceAuthorityTier, SourceId
+from amrp.infrastructure.company import InMemoryCompanyCatalog
+from amrp.infrastructure.industry import InMemoryIndustryAdapter
+from amrp.infrastructure.regulatory import InMemoryRegulatoryAdapter
 from tests.support.asgi_client import TestClient
 
 APPLE = CompanyId.from_string("22222222-2222-4222-8222-222222222001")

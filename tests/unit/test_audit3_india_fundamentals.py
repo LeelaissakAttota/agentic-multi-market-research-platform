@@ -3,14 +3,14 @@ from __future__ import annotations
 from datetime import UTC, datetime
 from typing import Any
 
-from financial_intelligence.application.company_resolution import CompanyQuery
-from financial_intelligence.application.financial_contracts import FinancialSnapshotQuery
-from financial_intelligence.composition import build_container
-from financial_intelligence.config.settings import Settings
-from financial_intelligence.domain.data_origin import DataOrigin
-from financial_intelligence.domain.financial.calculations import compute_financial_metrics_result
-from financial_intelligence.infrastructure.company.in_memory_catalog import InMemoryCompanyCatalog
-from financial_intelligence.infrastructure.financial.yahoo_fundamentals import (
+from amrp.application.company_resolution import CompanyQuery
+from amrp.application.financial_contracts import FinancialSnapshotQuery
+from amrp.composition import build_container
+from amrp.config.settings import Settings
+from amrp.domain.data_origin import DataOrigin
+from amrp.domain.financial.calculations import compute_financial_metrics_result
+from amrp.infrastructure.company.in_memory_catalog import InMemoryCompanyCatalog
+from amrp.infrastructure.financial.yahoo_fundamentals import (
     YahooFundamentalsFinancialDataAdapter,
 )
 
@@ -96,7 +96,7 @@ def test_fixture_fundamentals_are_labelled_not_ok_when_live_expected() -> None:
     assert result.status.value == "ok"
     assert "FIXTURE/DEMO SAMPLE" in result.message
 
-    from financial_intelligence.application.financial_snapshot import GetFinancialSnapshot
+    from amrp.application.financial_snapshot import GetFinancialSnapshot
 
     live = GetFinancialSnapshot(
         container.resolve_company, container.financial_data, live_expected=True

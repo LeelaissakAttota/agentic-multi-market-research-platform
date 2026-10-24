@@ -2,19 +2,19 @@ from __future__ import annotations
 
 from decimal import Decimal
 
-from financial_intelligence.application.company_resolution import CompanyQuery
-from financial_intelligence.application.workflow_contracts import CreateResearchWorkflowQuery
-from financial_intelligence.composition import build_container
-from financial_intelligence.config.settings import Settings
-from financial_intelligence.domain.identity import ExchangeCode
-from financial_intelligence.domain.llm import (
+from amrp.application.company_resolution import CompanyQuery
+from amrp.application.workflow_contracts import CreateResearchWorkflowQuery
+from amrp.composition import build_container
+from amrp.config.settings import Settings
+from amrp.domain.identity import ExchangeCode
+from amrp.domain.llm import (
     ModelCallStatus,
     ModelFailureKind,
     ModelRequest,
     ModelResponse,
     ModelUsage,
 )
-from financial_intelligence.domain.orchestration import ResearchObjective
+from amrp.domain.orchestration import ResearchObjective
 
 
 class _RateLimited:

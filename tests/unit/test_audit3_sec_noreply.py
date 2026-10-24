@@ -5,8 +5,8 @@ from pathlib import Path
 
 import pytest
 
-from financial_intelligence.composition import _sec_user_agent
-from financial_intelligence.config.settings import Settings
+from amrp.composition import _sec_user_agent
+from amrp.config.settings import Settings
 
 
 def test_noreply_sec_user_agent_warns(caplog: pytest.LogCaptureFixture) -> None:

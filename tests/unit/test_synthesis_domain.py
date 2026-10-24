@@ -8,10 +8,10 @@ from decimal import Decimal
 
 import pytest
 
-from financial_intelligence.domain.data_origin import DataOrigin
-from financial_intelligence.domain.identity import CompanyIdentity
-from financial_intelligence.domain.sources import SourceAuthorityTier
-from financial_intelligence.domain.synthesis import (
+from amrp.domain.data_origin import DataOrigin
+from amrp.domain.identity import CompanyIdentity
+from amrp.domain.sources import SourceAuthorityTier
+from amrp.domain.synthesis import (
     CitationSourceContext,
     ClaimDisposition,
     ConfidenceLabel,
@@ -24,7 +24,7 @@ from financial_intelligence.domain.synthesis import (
     VerifiedClaimGate,
     VerifiedClaimInput,
 )
-from financial_intelligence.domain.verification import (
+from amrp.domain.verification import (
     Claim,
     ClaimId,
     ClaimType,
@@ -33,7 +33,7 @@ from financial_intelligence.domain.verification import (
     VerificationEngine,
     VerificationStatus,
 )
-from financial_intelligence.infrastructure.company.reference_dataset import (
+from amrp.infrastructure.company.reference_dataset import (
     build_reference_companies,
 )
 

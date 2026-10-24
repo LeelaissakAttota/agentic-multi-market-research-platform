@@ -8,17 +8,17 @@ from typing import Protocol
 
 import pytest
 
-from financial_intelligence.application.reporting_ports import ResearchReportGeneratorPort
-from financial_intelligence.domain.report import (
+from amrp.application.reporting_ports import ResearchReportGeneratorPort
+from amrp.domain.report import (
     ReportArtifact,
     ReportArtifactStatus,
     ReportFormat,
     ResearchReportGenerationRequest,
 )
-from financial_intelligence.domain.synthesis import LanguagePreference, SynthesisId
+from amrp.domain.synthesis import LanguagePreference, SynthesisId
 
 ROOT = Path(__file__).resolve().parents[2]
-PACKAGE = ROOT / "src" / "financial_intelligence"
+PACKAGE = ROOT / "src" / "amrp"
 
 
 def _imports(path: Path) -> set[str]:
@@ -85,7 +85,7 @@ def test_synthesis_domain_has_no_framework_provider_or_report_library_imports() 
         "langchain",
         "docx",
         "reportlab",
-        "financial_intelligence.infrastructure",
+        "amrp.infrastructure",
     }
     violations: list[str] = []
     for path in (PACKAGE / "domain" / "synthesis").glob("*.py"):

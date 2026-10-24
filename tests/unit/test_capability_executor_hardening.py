@@ -15,13 +15,13 @@ import logging
 from io import StringIO
 from unittest import TestCase
 
-from financial_intelligence.api import create_app
-from financial_intelligence.composition import build_container
-from financial_intelligence.config.settings import Settings
-from financial_intelligence.infrastructure.orchestration.capability_executor import (
+from amrp.api import create_app
+from amrp.composition import build_container
+from amrp.config.settings import Settings
+from amrp.infrastructure.orchestration.capability_executor import (
     _SAFE_CAPABILITY_FAILURE_MESSAGE,
 )
-from financial_intelligence.observability.logging import StructuredFormatter
+from amrp.observability.logging import StructuredFormatter
 from tests.support.asgi_client import TestClient
 
 _SYNTHETIC_HOST = "internal-db-host.corp.local"
@@ -157,7 +157,7 @@ class ServerSideDiagnosticsTests(TestCase):
     though it no longer reaches the client."""
 
     def test_capability_execution_failure_is_logged_with_full_detail(self) -> None:
-        logger_name = "financial_intelligence.infrastructure.orchestration.capability_executor"
+        logger_name = "amrp.infrastructure.orchestration.capability_executor"
         stream = StringIO()
         handler = logging.StreamHandler(stream)
         handler.setFormatter(StructuredFormatter())

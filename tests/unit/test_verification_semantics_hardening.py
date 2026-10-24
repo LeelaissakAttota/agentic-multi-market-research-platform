@@ -18,27 +18,27 @@ from datetime import UTC, datetime
 from decimal import Decimal
 from unittest import TestCase
 
-from financial_intelligence.domain.data_origin import DataOrigin
-from financial_intelligence.domain.identity import CompanyIdentity
-from financial_intelligence.domain.synthesis import (
+from amrp.domain.data_origin import DataOrigin
+from amrp.domain.identity import CompanyIdentity
+from amrp.domain.synthesis import (
     ClaimDisposition,
     ResearchSectionType,
     VerifiedClaimGate,
     VerifiedClaimInput,
 )
-from financial_intelligence.domain.verification.claim import Claim, ClaimId, ClaimType
-from financial_intelligence.domain.verification.engine import VerificationEngine
-from financial_intelligence.domain.verification.evidence import (
+from amrp.domain.verification.claim import Claim, ClaimId, ClaimType
+from amrp.domain.verification.engine import VerificationEngine
+from amrp.domain.verification.evidence import (
     AuthorityTier,
     EvidenceBundle,
     EvidenceRef,
 )
-from financial_intelligence.domain.verification.result import (
+from amrp.domain.verification.result import (
     CriticAssessmentStatus,
     VerificationResult,
     VerificationStatus,
 )
-from financial_intelligence.infrastructure.company.reference_dataset import (
+from amrp.infrastructure.company.reference_dataset import (
     build_reference_companies,
 )
 

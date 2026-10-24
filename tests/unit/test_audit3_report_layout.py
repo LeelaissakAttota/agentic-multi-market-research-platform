@@ -1,10 +1,10 @@
 from __future__ import annotations
 
-from financial_intelligence.application.company_resolution import CompanyQuery
-from financial_intelligence.application.workflow_contracts import CreateResearchWorkflowQuery
-from financial_intelligence.composition import build_container
-from financial_intelligence.domain.identity import ExchangeCode
-from financial_intelligence.domain.orchestration import ResearchObjective
+from amrp.application.company_resolution import CompanyQuery
+from amrp.application.workflow_contracts import CreateResearchWorkflowQuery
+from amrp.composition import build_container
+from amrp.domain.identity import ExchangeCode
+from amrp.domain.orchestration import ResearchObjective
 
 
 def _report(objective: ResearchObjective = ResearchObjective.MARKET_ANALYSIS) -> str:

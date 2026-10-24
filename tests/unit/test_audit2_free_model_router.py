@@ -6,14 +6,14 @@ from typing import Any
 
 from pydantic import SecretStr
 
-from financial_intelligence.domain.llm import (
+from amrp.domain.llm import (
     ModelCallStatus,
     ModelFailureKind,
     ModelResponse,
     ModelUsage,
 )
-from financial_intelligence.infrastructure.http import BoundedHttpClient, HttpResponse
-from financial_intelligence.infrastructure.llm.free_model_router import (
+from amrp.infrastructure.http import BoundedHttpClient, HttpResponse
+from amrp.infrastructure.llm.free_model_router import (
     AutoFreeModelRouter,
     FreeModelCatalog,
 )
@@ -107,7 +107,7 @@ def test_disk_cache_reused_within_6h_and_refreshed_after(tmp_path: Path) -> None
 
 
 def _resp(ok: bool, model: str, kind: ModelFailureKind | None = None) -> ModelResponse:
-    from financial_intelligence.domain.llm import ModelCallId
+    from amrp.domain.llm import ModelCallId
 
     return ModelResponse(
         call_id=ModelCallId.new(),
@@ -164,8 +164,8 @@ def test_pinned_free_models_first_paid_ignored(tmp_path: Path) -> None:
 
 
 def test_composition_auto_wires_router(tmp_path: Path) -> None:
-    from financial_intelligence.composition import build_container
-    from financial_intelligence.config.settings import Settings
+    from amrp.composition import build_container
+    from amrp.config.settings import Settings
 
     settings = Settings(
         _env_file=None,

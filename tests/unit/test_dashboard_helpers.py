@@ -5,22 +5,22 @@ from pathlib import Path
 
 import pytest
 
-from financial_intelligence.control.service import EXTRA_PROVIDER_KEYS, EquityResearchControl
-from financial_intelligence.dashboard.client import _error_message, candidate_choices
-from financial_intelligence.dashboard.intent import (
+from amrp.control.service import EXTRA_PROVIDER_KEYS, EquityResearchControl
+from amrp.dashboard.client import _error_message, candidate_choices
+from amrp.dashboard.intent import (
     EXAMPLE_PROMPTS,
     company_candidates,
     detect_objective,
 )
-from financial_intelligence.dashboard.prefs import env_from_prefs, load_prefs, save_prefs
-from financial_intelligence.dashboard.providers import (
+from amrp.dashboard.prefs import env_from_prefs, load_prefs, save_prefs
+from amrp.dashboard.providers import (
     EXTRA_KEY_NAMES,
     PROVIDERS,
     choose_model,
     connection_test_request,
     provider,
 )
-from financial_intelligence.dashboard.report_view import (
+from amrp.dashboard.report_view import (
     build_report_view,
     origin_badge,
     provider_strip,
@@ -172,13 +172,13 @@ def test_prefs_roundtrip_and_env(tmp_path: Path) -> None:
 def test_launch_applies_prefs_only_when_saved_and_never_overrides_env_keys(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    from financial_intelligence.control.secrets_store import SecretStore
-    from financial_intelligence.dashboard import launch
+    from amrp.control.secrets_store import SecretStore
+    from amrp.dashboard import launch
 
     monkeypatch.setenv("XDG_CONFIG_HOME", str(tmp_path))
     env: dict[str, str] = {}
     assert launch.apply_saved_settings(env) == []
-    cfg = tmp_path / "equity-research"
+    cfg = tmp_path / "amrp"
     save_prefs({"news": True}, cfg / "dashboard_settings.json")
     SecretStore(cfg / "secrets.json", ("OPENROUTER_API_KEY",)).set(
         "OPENROUTER_API_KEY", "sk-or-test-abcdefgh1234"

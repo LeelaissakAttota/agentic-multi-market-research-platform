@@ -18,25 +18,25 @@ from concurrent.futures import ThreadPoolExecutor
 from datetime import UTC, date, datetime, timedelta
 from unittest import TestCase
 
-from financial_intelligence.api import create_app
-from financial_intelligence.application.company_resolution import CompanyQuery
-from financial_intelligence.application.financial_contracts import FinancialSnapshotQuery
-from financial_intelligence.application.financial_snapshot import GetFinancialSnapshot
-from financial_intelligence.application.industry_contracts import IndustrySnapshotQuery
-from financial_intelligence.application.industry_snapshot import GetIndustryContextSnapshot
-from financial_intelligence.application.market_contracts import MarketSnapshotQuery
-from financial_intelligence.application.market_freshness import MarketFreshnessPolicy
-from financial_intelligence.application.market_snapshot import GetMarketSnapshot
-from financial_intelligence.application.news_event_contracts import NewsEventSnapshotQuery
-from financial_intelligence.application.news_event_snapshot import GetNewsEventSnapshot
-from financial_intelligence.application.regulatory_contracts import RegulatorySnapshotQuery
-from financial_intelligence.application.regulatory_snapshot import GetRegulatorySnapshot
-from financial_intelligence.application.resolve_company import ResolveCompany
-from financial_intelligence.composition import build_container
-from financial_intelligence.config.settings import Settings
-from financial_intelligence.domain.data_origin import DataOrigin
-from financial_intelligence.domain.identity import CompanyId
-from financial_intelligence.domain.news import (
+from amrp.api import create_app
+from amrp.application.company_resolution import CompanyQuery
+from amrp.application.financial_contracts import FinancialSnapshotQuery
+from amrp.application.financial_snapshot import GetFinancialSnapshot
+from amrp.application.industry_contracts import IndustrySnapshotQuery
+from amrp.application.industry_snapshot import GetIndustryContextSnapshot
+from amrp.application.market_contracts import MarketSnapshotQuery
+from amrp.application.market_freshness import MarketFreshnessPolicy
+from amrp.application.market_snapshot import GetMarketSnapshot
+from amrp.application.news_event_contracts import NewsEventSnapshotQuery
+from amrp.application.news_event_snapshot import GetNewsEventSnapshot
+from amrp.application.regulatory_contracts import RegulatorySnapshotQuery
+from amrp.application.regulatory_snapshot import GetRegulatorySnapshot
+from amrp.application.resolve_company import ResolveCompany
+from amrp.composition import build_container
+from amrp.config.settings import Settings
+from amrp.domain.data_origin import DataOrigin
+from amrp.domain.identity import CompanyId
+from amrp.domain.news import (
     CompanyEventPackage,
     EventConflictState,
     EventEvidenceRef,
@@ -48,34 +48,34 @@ from financial_intelligence.domain.news import (
     deduplicate_events,
     process_events,
 )
-from financial_intelligence.domain.regulatory import (
+from amrp.domain.regulatory import (
     RegulatorCode,
     RegulatoryActionType,
     RegulatoryEvent,
     RegulatoryStatus,
     deduplicate_regulatory_events,
 )
-from financial_intelligence.domain.sources import SourceAuthorityTier, SourceId
-from financial_intelligence.infrastructure.company import (
+from amrp.domain.sources import SourceAuthorityTier, SourceId
+from amrp.infrastructure.company import (
     InMemoryCompanyCatalog,
     build_reference_companies,
 )
-from financial_intelligence.infrastructure.financial import InMemoryFinancialDataAdapter
-from financial_intelligence.infrastructure.industry import (
+from amrp.infrastructure.financial import InMemoryFinancialDataAdapter
+from amrp.infrastructure.industry import (
     CachingIndustryAdapter,
     InMemoryIndustryAdapter,
 )
-from financial_intelligence.infrastructure.market import InMemoryMarketDataAdapter
-from financial_intelligence.infrastructure.news import (
+from amrp.infrastructure.market import InMemoryMarketDataAdapter
+from amrp.infrastructure.news import (
     CachingNewsEventAdapter,
     InMemoryNewsEventAdapter,
 )
-from financial_intelligence.infrastructure.news.reference_dataset import (
+from amrp.infrastructure.news.reference_dataset import (
     APPLE_ID,
     RELIANCE_ID,
     build_reference_event_packages,
 )
-from financial_intelligence.infrastructure.regulatory import (
+from amrp.infrastructure.regulatory import (
     CachingRegulatoryAdapter,
     InMemoryRegulatoryAdapter,
 )

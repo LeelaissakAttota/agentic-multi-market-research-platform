@@ -15,34 +15,34 @@ from typing import Any
 from unittest import TestCase
 from unittest.mock import patch
 
-from financial_intelligence.application.company_resolution import CompanyQuery
-from financial_intelligence.application.create_research_plan import (
+from amrp.application.company_resolution import CompanyQuery
+from amrp.application.create_research_plan import (
     CreateResearchPlanQuery,
     ResearchPlanStatus,
 )
-from financial_intelligence.application.create_research_workflow import (
+from amrp.application.create_research_workflow import (
     CreateResearchWorkflowQuery,
     WorkflowOperationStatus,
 )
-from financial_intelligence.application.ports import PlannerPort
-from financial_intelligence.application.workflow_contracts import PreparedResearchPlan
-from financial_intelligence.composition import build_container
-from financial_intelligence.config.settings import Settings
-from financial_intelligence.domain.identity import ExchangeCode
-from financial_intelligence.domain.llm import (
+from amrp.application.ports import PlannerPort
+from amrp.application.workflow_contracts import PreparedResearchPlan
+from amrp.composition import build_container
+from amrp.config.settings import Settings
+from amrp.domain.identity import ExchangeCode
+from amrp.domain.llm import (
     ModelCallStatus,
     ModelFailureKind,
     ModelRequest,
     ModelResponse,
     ModelUsage,
 )
-from financial_intelligence.domain.orchestration import ExecutionControl, ResearchObjective
-from financial_intelligence.infrastructure.llm import DisabledLlmRouterAdapter, OpenRouterAdapter
-from financial_intelligence.infrastructure.orchestration import (
+from amrp.domain.orchestration import ExecutionControl, ResearchObjective
+from amrp.infrastructure.llm import DisabledLlmRouterAdapter, OpenRouterAdapter
+from amrp.infrastructure.orchestration import (
     DeterministicPlannerAdapter,
     LlmPlannerAdapter,
 )
-from financial_intelligence.infrastructure.orchestration.fallback_planner_adapter import (
+from amrp.infrastructure.orchestration.fallback_planner_adapter import (
     FallbackPlannerAdapter,
 )
 
@@ -159,7 +159,7 @@ class PlannerSelectionCompositionTests(TestCase):
 
     def test_default_auto_mode_uses_llm_with_fallback_when_live(self) -> None:
         """Default PLANNER_MODE=auto + live OpenRouter -> LLM planner wrapped in fallback."""
-        from financial_intelligence.infrastructure.orchestration import FallbackPlannerAdapter
+        from amrp.infrastructure.orchestration import FallbackPlannerAdapter
 
         settings = Settings(
             _env_file=None,

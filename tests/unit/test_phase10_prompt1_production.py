@@ -9,10 +9,10 @@ import pytest
 from pydantic import ValidationError
 from starlette.types import Message, Receive, Scope, Send
 
-from financial_intelligence.api import create_app
-from financial_intelligence.api.middleware import RequestSafetyMiddleware
-from financial_intelligence.config.settings import Settings
-from financial_intelligence.observability.logging import StructuredFormatter
+from amrp.api import create_app
+from amrp.api.middleware import RequestSafetyMiddleware
+from amrp.config.settings import Settings
+from amrp.observability.logging import StructuredFormatter
 from tests.support.asgi_client import TestClient
 
 
@@ -284,7 +284,7 @@ def test_request_observability_uses_route_template_and_safe_status(
     caplog: pytest.LogCaptureFixture,
 ) -> None:
     with (
-        caplog.at_level(logging.INFO, logger="financial_intelligence.api.requests"),
+        caplog.at_level(logging.INFO, logger="amrp.api.requests"),
         TestClient(create_app(settings=_settings(LOG_LEVEL="INFO"))) as client,
     ):
         response = client.get(

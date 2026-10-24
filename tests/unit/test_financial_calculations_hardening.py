@@ -6,8 +6,8 @@ from datetime import UTC, date, datetime
 from decimal import Decimal
 from unittest import TestCase
 
-from financial_intelligence.domain.data_origin import DataOrigin
-from financial_intelligence.domain.financial import (
+from amrp.domain.data_origin import DataOrigin
+from amrp.domain.financial import (
     BalanceSheet,
     CompanyFinancialPackage,
     FinancialConcept,
@@ -23,9 +23,9 @@ from financial_intelligence.domain.financial import (
     compute_financial_metrics_result,
     free_cash_flow,
 )
-from financial_intelligence.domain.identity import CompanyId, CurrencyCode
-from financial_intelligence.domain.sources import SourceAuthorityTier, SourceId
-from financial_intelligence.infrastructure.financial.reference_dataset import (
+from amrp.domain.identity import CompanyId, CurrencyCode
+from amrp.domain.sources import SourceAuthorityTier, SourceId
+from amrp.infrastructure.financial.reference_dataset import (
     APPLE_ID,
     build_reference_financial_packages,
 )

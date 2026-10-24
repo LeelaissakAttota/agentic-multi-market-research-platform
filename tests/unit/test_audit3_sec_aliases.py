@@ -2,8 +2,8 @@ from __future__ import annotations
 
 from typing import Any
 
-from financial_intelligence.domain.financial.calculations import compute_financial_metrics_result
-from financial_intelligence.infrastructure.financial.sec_company_facts import (
+from amrp.domain.financial.calculations import compute_financial_metrics_result
+from amrp.infrastructure.financial.sec_company_facts import (
     SecCompanyFactsFinancialDataAdapter,
 )
 from tests.unit.market_fixtures import APPLE_COMPANY_ID
@@ -80,7 +80,7 @@ def test_newest_alias_wins_over_deprecated_tag_and_all_metrics_compute() -> None
 
 
 def test_complete_package_is_available_and_missing_cash_flow_is_partial() -> None:
-    from financial_intelligence.domain.financial import FinancialDataAvailability
+    from amrp.domain.financial import FinancialDataAvailability
 
     adapter = SecCompanyFactsFinancialDataAdapter(None)  # type: ignore[arg-type]
     full = adapter._parse_package(APPLE_COMPANY_ID, _payload(), fiscal_year=None, cik="0000320193")

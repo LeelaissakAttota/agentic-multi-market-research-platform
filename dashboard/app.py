@@ -1,7 +1,7 @@
 """AMRP dashboard v2: dark navy theme, sidebar navigation, real data only.
 
 Run:  streamlit run dashboard/app.py   (or .\\scripts\\start-dashboard.ps1 on Windows)
-Talks only to the local REST API (AERP_API_URL) and control API (AERP_CONTROL_URL).
+Talks only to the local REST API (AMRP_API_URL) and control API (AMRP_CONTROL_URL).
 Every number on screen comes from those APIs or the local run history; anything the
 backend does not provide is shown as "not available" or with a SAMPLE badge.
 """
@@ -9,7 +9,6 @@ backend does not provide is shown as "not available" or with a SAMPLE badge.
 from __future__ import annotations
 
 import json
-import os
 import time
 from datetime import datetime, timedelta, timezone
 from typing import Any
@@ -31,10 +30,10 @@ from theme import (  # type: ignore[import-not-found]  # dashboard/theme.py
     table,
 )
 
-from financial_intelligence.dashboard import commodity as cm
-from financial_intelligence.dashboard import market_live as ml
-from financial_intelligence.dashboard import markets as mk
-from financial_intelligence.dashboard.client import (
+from amrp.dashboard import commodity as cm
+from amrp.dashboard import market_live as ml
+from amrp.dashboard import markets as mk
+from amrp.dashboard.client import (
     ApiError,
     JsonClient,
     candidate_choices,
@@ -42,8 +41,8 @@ from financial_intelligence.dashboard.client import (
     probe_json,
     resolve_company,
 )
-from financial_intelligence.dashboard.intent import parse_intent
-from financial_intelligence.dashboard.prefs import (
+from amrp.dashboard.intent import parse_intent
+from amrp.dashboard.prefs import (
     LIVE_DESCRIPTIONS,
     LIVE_TOGGLES,
     OPENROUTER_BASE,
@@ -53,7 +52,7 @@ from financial_intelligence.dashboard.prefs import (
     save_prefs,
     uses_custom_router,
 )
-from financial_intelligence.dashboard.providers import (
+from amrp.dashboard.providers import (
     PROVIDERS,
     choose_model,
     connection_test_request,
@@ -61,12 +60,12 @@ from financial_intelligence.dashboard.providers import (
     models_request,
     parse_model_ids,
 )
-from financial_intelligence.dashboard.report_view import (
+from amrp.dashboard.report_view import (
     badge_markdown,
     build_report_view,
     origin_badge,
 )
-from financial_intelligence.dashboard.views import (
+from amrp.dashboard.views import (
     OBJECTIVE_HINTS,
     OBJECTIVE_LABELS,
     REPORT_TABS,
@@ -101,15 +100,16 @@ from financial_intelligence.dashboard.views import (
     workflow_rows,
     workflow_stats,
 )
+from amrp.envcompat import env
 
 NEWS_HEIGHT = 470  # px: news column = price box + AI box beside it (scrolls inside)
-API = JsonClient(os.environ.get("AERP_API_URL", "http://127.0.0.1:8000"))
+API = JsonClient(env("AMRP_API_URL", "http://127.0.0.1:8000"))
 CONTROL = JsonClient(
-    os.environ.get("AERP_CONTROL_URL", "http://127.0.0.1:8712"),
-    token=os.environ.get("EQUITY_RESEARCH_CONTROL_TOKEN", ""),
+    env("AMRP_CONTROL_URL", "http://127.0.0.1:8712"),
+    token=env("AMRP_CONTROL_TOKEN", ""),
     timeout=30,
 )
-RUN_TIMEOUT = float(os.environ.get("AERP_RUN_TIMEOUT", "120"))
+RUN_TIMEOUT = float(env("AMRP_RUN_TIMEOUT", "120"))
 RUNNER = JsonClient(API.base_url, timeout=RUN_TIMEOUT)
 NA = "not available"
 

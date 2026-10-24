@@ -7,26 +7,26 @@ from datetime import UTC, datetime
 from unittest import TestCase
 from uuid import UUID, uuid4
 
-from financial_intelligence.api import create_app
-from financial_intelligence.application.company_resolution import CompanyQuery
-from financial_intelligence.application.create_research_workflow import CreateResearchWorkflow
-from financial_intelligence.application.manage_research_workflow import ManageResearchWorkflow
-from financial_intelligence.application.workflow_contracts import (
+from amrp.api import create_app
+from amrp.application.company_resolution import CompanyQuery
+from amrp.application.create_research_workflow import CreateResearchWorkflow
+from amrp.application.manage_research_workflow import ManageResearchWorkflow
+from amrp.application.workflow_contracts import (
     ApprovalActionQuery,
     CreateResearchWorkflowQuery,
     WorkflowOperationStatus,
 )
-from financial_intelligence.composition import build_container
-from financial_intelligence.config.settings import Settings
-from financial_intelligence.domain.identity import CountryCode, ExchangeCode
-from financial_intelligence.domain.orchestration import (
+from amrp.composition import build_container
+from amrp.config.settings import Settings
+from amrp.domain.identity import CountryCode, ExchangeCode
+from amrp.domain.orchestration import (
     ExecutionControl,
     ResearchObjective,
     ResearchTask,
     TaskExecutionResult,
     TaskStatus,
 )
-from financial_intelligence.domain.workflow import (
+from amrp.domain.workflow import (
     ApprovalStatus,
     WorkflowCheckpoint,
     WorkflowId,
@@ -35,7 +35,7 @@ from financial_intelligence.domain.workflow import (
     assert_transition,
     is_terminal,
 )
-from financial_intelligence.infrastructure.workflow import (
+from amrp.infrastructure.workflow import (
     InMemoryResearchWorkflowStore,
     WorkflowStoreError,
 )

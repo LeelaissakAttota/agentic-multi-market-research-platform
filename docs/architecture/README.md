@@ -1,6 +1,6 @@
 # Architecture Assets
 
-`agentic-financial-intelligence-platform.png` is the user-supplied master conceptual diagram dated 2026-08-08. It describes the intended end state across multiple future phases. It is preserved unchanged; `ARCHITECTURE.md`, `DECISIONS.md`, and `PHASES.md` define authoritative written boundaries and current implementation status.
+`amrp-architecture.png` is the user-supplied master conceptual diagram dated 2026-08-08. It describes the intended end state across multiple future phases. It is preserved unchanged; `ARCHITECTURE.md`, `DECISIONS.md`, and `PHASES.md` define authoritative written boundaries and current implementation status.
 
 Preserved file SHA-256: `C0F7B98D3B2C335828C58428D7C3B4ABEA00CFBF418FED5ED19D2A1427F2C83A`.
 

@@ -5,7 +5,7 @@ from __future__ import annotations
 from unittest import TestCase
 from uuid import UUID
 
-from financial_intelligence.observability.correlation import (
+from amrp.observability.correlation import (
     generate_correlation_id,
     resolve_correlation_id,
 )

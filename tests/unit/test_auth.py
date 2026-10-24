@@ -14,9 +14,9 @@ from __future__ import annotations
 
 from unittest import TestCase
 
-from financial_intelligence.api import create_app
-from financial_intelligence.config.settings import Settings
-from financial_intelligence.infrastructure.auth.in_memory_api_key_store import InMemoryApiKeyStore
+from amrp.api import create_app
+from amrp.config.settings import Settings
+from amrp.infrastructure.auth.in_memory_api_key_store import InMemoryApiKeyStore
 from tests.support.asgi_client import TestClient
 
 # ---------------------------------------------------------------------------
@@ -114,7 +114,7 @@ class TestInMemoryApiKeyStore(TestCase):
         """Confirm secrets.compare_digest is used (code inspection via import)."""
         import inspect
 
-        import financial_intelligence.infrastructure.auth.in_memory_api_key_store as m
+        import amrp.infrastructure.auth.in_memory_api_key_store as m
 
         source = inspect.getsource(m)
         self.assertIn("secrets.compare_digest", source)

@@ -8,8 +8,8 @@ from datetime import UTC, datetime
 from pathlib import Path
 from unittest import TestCase
 
-from financial_intelligence.domain.identity import CompanyId, ListingId, SecurityId
-from financial_intelligence.domain.sources import (
+from amrp.domain.identity import CompanyId, ListingId, SecurityId
+from amrp.domain.sources import (
     SourceAuthorityTier,
     SourceId,
     SourceMetadata,
@@ -90,10 +90,10 @@ class SourceHardeningTests(TestCase):
 class ImportSideEffectTests(TestCase):
     def test_phase2_imports_have_no_network_or_io_side_effects(self) -> None:
         script = """
-import financial_intelligence.domain.identity
-import financial_intelligence.domain.sources
-import financial_intelligence.application.resolve_company
-import financial_intelligence.infrastructure.company
+import amrp.domain.identity
+import amrp.domain.sources
+import amrp.application.resolve_company
+import amrp.infrastructure.company
 print("IMPORT_OK")
 """
         completed = subprocess.run(

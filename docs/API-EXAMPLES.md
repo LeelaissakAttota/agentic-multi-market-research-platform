@@ -32,7 +32,7 @@ In `development` and `test` environments, authentication is bypassed. In `produc
 ```json
 {
   "status": "ok",
-  "service": "agentic-financial-intelligence",
+  "service": "agentic-multi-market-research-platform",
   "version": "1.0.0"
 }
 ```
@@ -50,7 +50,7 @@ Explanation: Confirms the application process is live.
 ```json
 {
   "status": "ready",
-  "service": "agentic-financial-intelligence",
+  "service": "agentic-multi-market-research-platform",
   "version": "1.0.0",
   "checks": [
     { "name": "application", "ready": true, "detail": "application foundation loaded" },
@@ -71,7 +71,7 @@ Explanation: Confirms the app and configuration are ready for the validated loca
 
 ```json
 {
-  "service": "agentic-financial-intelligence",
+  "service": "agentic-multi-market-research-platform",
   "version": "1.0.0",
   "environment": "development"
 }
