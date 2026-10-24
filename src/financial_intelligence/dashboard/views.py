@@ -520,3 +520,41 @@ def step_mode_company(company: object) -> str:
     """Prefill for the step-by-step company field: the last Research company, else blank."""
 
     return company.strip() if isinstance(company, str) else ""
+
+
+def latest_run_logs(runs_payload: Any, get_logs: Any, limit: int = 12) -> list[str]:
+    """Format the newest control run's logs; accepts dict ``{"runs": [...]}`` or a bare list."""
+
+    runs = runs_payload.get("runs", []) if isinstance(runs_payload, dict) else runs_payload
+    if not (isinstance(runs, list) and runs and isinstance(runs[-1], dict)):
+        return []
+    lg = get_logs(runs[-1].get("run_id")) or {}
+    items = lg.get("logs", []) if isinstance(lg, dict) else lg
+    return [
+        f"{x.get('level', 'info'):5} {x.get('message')}"
+        for x in (items if isinstance(items, list) else [])[-limit:]
+        if isinstance(x, dict)
+    ]
+
+
+def _report_path(workflow_id: str, base: Path | None = None) -> Path:
+    safe_id = "".join(c for c in str(workflow_id) if c.isalnum() or c in "-_")[:80] or "unknown"
+    return (base or _store("dashboard_reports")) / f"{safe_id}.json"
+
+
+def save_report(workflow_id: str, report: dict[str, Any], base: Path | None = None) -> None:
+    """Persist a finished report locally so it can be reopened after a restart."""
+
+    path = _report_path(workflow_id, base)
+    keep = {k: report.get(k) for k in ("raw", "markdown", "workflow", "workflow_id", "company")}
+    with _LOCK:
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(json.dumps(keep, default=str), encoding="utf-8")
+
+
+def load_saved_report(workflow_id: str, base: Path | None = None) -> dict[str, Any] | None:
+    try:
+        data = json.loads(_report_path(workflow_id, base).read_text(encoding="utf-8"))
+    except (FileNotFoundError, json.JSONDecodeError):
+        return None
+    return data if isinstance(data, dict) and data.get("raw") is not None else None

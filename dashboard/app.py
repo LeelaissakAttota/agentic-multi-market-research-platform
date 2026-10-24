@@ -81,7 +81,9 @@ from financial_intelligence.dashboard.views import (
     filter_reports,
     history_as_workflows,
     latest_close,
+    latest_run_logs,
     load_history,
+    load_saved_report,
     load_watchlist,
     merge_workflows,
     model_options,
@@ -91,6 +93,7 @@ from financial_intelligence.dashboard.views import (
     record_history,
     remove_from_watchlist,
     revenue_profit_series,
+    save_report,
     split_approvals,
     step_mode_company,
     step_states,
@@ -106,6 +109,8 @@ CONTROL = JsonClient(
     token=os.environ.get("EQUITY_RESEARCH_CONTROL_TOKEN", ""),
     timeout=30,
 )
+RUN_TIMEOUT = float(os.environ.get("AERP_RUN_TIMEOUT", "120"))
+RUNNER = JsonClient(API.base_url, timeout=RUN_TIMEOUT)
 NA = "not available"
 
 st.set_page_config(
@@ -139,7 +144,12 @@ def go(page: str) -> None:
 
 
 # ---------------------------------------------------------------- research flow
-def start_research(question: str, pick: dict[str, str] | None = None, objective: str = "") -> None:
+def start_research(
+    question: str,
+    pick: dict[str, str] | None = None,
+    objective: str = "",
+    auto_approve: bool = False,
+) -> None:
     for key in ("result", "pending", "choices"):
         ss.pop(key, None)
     intent = parse_intent(question)
@@ -168,7 +178,12 @@ def start_research(question: str, pick: dict[str, str] | None = None, objective:
         body["q"] = res["matched_phrase"]
     ss.company = company
     created = API.post("/research/workflows", body)
-    if created.get("approval_status") == "pending":
+    if created.get("approval_status") == "pending" and auto_approve:
+        API.post(
+            f"/research/workflows/{created['workflow_id']}/approval",
+            {"decision": "approved", "note": "approved via step-by-step run in dashboard"},
+        )
+    elif created.get("approval_status") == "pending":
         ss.pending = {"workflow_id": created["workflow_id"], "company": company}
         record_history(
             {
@@ -186,7 +201,23 @@ def start_research(question: str, pick: dict[str, str] | None = None, objective:
 
 def run_workflow(workflow_id: str, company: str) -> None:
     with st.spinner(f"Researching {company}… (live sources can take up to a minute)"):
-        executed = API.post(f"/research/workflows/{workflow_id}/execute")
+        try:
+            executed = RUNNER.post(f"/research/workflows/{workflow_id}/execute")
+        except ApiError as exc:
+            record_history(
+                {
+                    "workflow_id": workflow_id,
+                    "company": company,
+                    "objective": ss.get("objective_used"),
+                    "status": "failed",
+                    "approval_status": "approved",
+                }
+            )
+            raise ApiError(
+                exc.status,
+                f"Research for {company} did not finish ({exc.message}). Live sources may be "
+                "offline — check your connection or turn off live data in Settings, then retry.",
+            ) from None
         rep = API.post(f"/research/workflows/{workflow_id}/report", format="json")
         md = API.post(f"/research/workflows/{workflow_id}/report", format="markdown")
     wf = executed.get("workflow") or {}
@@ -199,6 +230,8 @@ def run_workflow(workflow_id: str, company: str) -> None:
         "workflow_id": workflow_id,
     }
     ss.reports = {**ss.get("reports", {}), workflow_id: ss.result}
+    ss.selected_report = workflow_id
+    save_report(workflow_id, {**ss.result, "company": company})
     record_history(
         {
             "workflow_id": workflow_id,
@@ -212,8 +245,20 @@ def run_workflow(workflow_id: str, company: str) -> None:
 
 
 def open_report(workflow_id: str, company: str) -> None:
-    """Render the stored workflow's report again via the API (no new research run)."""
+    """Render a stored report: the API first, else the local copy saved when it finished."""
 
+    try:
+        result = _open_report_api(workflow_id, company)
+    except ApiError:
+        saved = load_saved_report(workflow_id)
+        if saved is None:
+            raise
+        result = {**saved, "view": build_report_view(saved["raw"], company)}
+    ss.reports = {**ss.get("reports", {}), workflow_id: result}
+    ss.selected_report = workflow_id
+
+
+def _open_report_api(workflow_id: str, company: str) -> dict[str, Any]:
     wf = API.get(f"/research/workflows/{workflow_id}")
     rep = API.post(f"/research/workflows/{workflow_id}/report", format="json")
     md = API.post(f"/research/workflows/{workflow_id}/report", format="markdown")
@@ -225,8 +270,8 @@ def open_report(workflow_id: str, company: str) -> None:
         "workflow": wf.get("workflow") or wf,
         "workflow_id": workflow_id,
     }
-    ss.reports = {**ss.get("reports", {}), workflow_id: result}
-    ss.selected_report = workflow_id
+    save_report(workflow_id, {**result, "company": company})
+    return result
 
 
 def decide(workflow_id: str, company: str, decision: str) -> None:
@@ -1058,7 +1103,13 @@ def reports_page() -> None:
                     st.rerun()
             elif r["Status"] == "Pending approval":
                 if f.button("Review", key=f"rev_{wid}"):
-                    go("Workflow Approvals")
+                    if safe(API.get, f"/research/workflows/{wid}") is None:
+                        ss.error = (
+                            "This approval request is no longer held by the API (it was "
+                            "restarted). Run the research again to create a new request."
+                        )
+                    else:
+                        go("Workflow Approvals")
                     st.rerun()
             else:
                 f.write("-")
@@ -1177,17 +1228,10 @@ def health_page() -> None:
     with right.container(border=True):
         logs: list[str] = []
         if CONTROL.token:
-            payload = safe(CONTROL.get, "/control/runs", default={}) or {}
-            runs = payload.get("runs", []) if isinstance(payload, dict) else payload
-            if isinstance(runs, list) and runs and isinstance(runs[-1], dict):
-                rid = runs[-1].get("run_id")
-                lg = safe(CONTROL.get, f"/control/runs/{rid}/logs", default={}) or {}
-                items = lg.get("logs", []) if isinstance(lg, dict) else lg
-                logs = [
-                    f"{x.get('level', 'info'):5} {x.get('message')}"
-                    for x in (items if isinstance(items, list) else [])[-12:]
-                    if isinstance(x, dict)
-                ]
+            logs = latest_run_logs(
+                safe(CONTROL.get, "/control/runs", default={}) or {},
+                lambda rid: safe(CONTROL.get, f"/control/runs/{rid}/logs", default={}),
+            )
         st.markdown('<div class="panel-t">Recent Logs</div>', unsafe_allow_html=True)
         st.code("\n".join(logs) or "(no step-by-step run logs yet)")
         ver = safe(API.get, "/version", default=None)
@@ -1691,9 +1735,14 @@ def comprehensive_page() -> None:
                 f"{len(res.get('evidence_refs') or [])} evidence references."
             )
             if st.button("📄 Open the finished report", type="primary", key="comp_report"):
-                start_research(
-                    str(ss.get("comp_company", "")), objective="comprehensive_equity_research"
-                )
+                try:
+                    start_research(
+                        str(ss.get("comp_company", "")),
+                        objective="comprehensive_equity_research",
+                        auto_approve=True,
+                    )
+                except ApiError as exc:
+                    ss.error = exc.message
                 if ss.get("result"):
                     ss.nav = "Research Report"
                     st.rerun()

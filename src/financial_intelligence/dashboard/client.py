@@ -48,6 +48,10 @@ class JsonClient:
             raise ApiError(exc.code, _error_message(exc.read().decode(errors="replace"))) from None
         except urllib.error.URLError as exc:
             raise ApiError(0, f"cannot reach {self.base_url}: {exc.reason}") from None
+        except (TimeoutError, OSError) as exc:
+            raise ApiError(
+                0, f"no response from {self.base_url} within {self.timeout:.0f}s ({exc})"
+            ) from None
         return json.loads(raw)
 
     def get(self, path: str, **params: Any) -> Any:
