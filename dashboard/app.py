@@ -1973,11 +1973,6 @@ def instrument_news(kind: str, key: str) -> list[ml.NewsItem]:
     return mk.news_for((mk.FOREX if kind == "fx" else mk.CRYPTO)[key])
 
 
-@st.cache_data(ttl=900, show_spinner=False)
-def usd_inr_rate() -> float | None:
-    return mk.usd_inr()
-
-
 def session_chart(bars: list[mk.IBar], height: int, fmt: str, week: bool) -> Any:
     """Area chart with shaded Asia/London/New York bands and high/low markers per day."""
 
@@ -2266,29 +2261,16 @@ def forex_page() -> None:
 def crypto_page() -> None:
     st.markdown("#### Crypto Market")
     st.caption("Live crypto prices (24/7), session high/low charts, news and AI analysis.")
-    c1, c2 = st.columns([3, 1])
-    coin = c1.radio("Coin", list(mk.CRYPTO), horizontal=True, key="cr_coin")
-    cur = c2.radio("Currency", ("USD", "INR"), horizontal=True, key="cr_cur")
+    coin = st.radio("Coin", list(mk.CRYPTO), horizontal=True, key="cr_coin")
+    # Prices are shown in USD only (the INR conversion helper was removed).
+    cur, sym, k = "USD", "$", 1.0
     inst = mk.CRYPTO[coin]
-    k = 1.0
-    if cur == "INR":
-        rate = usd_inr_rate()
-        if rate is None:
-            st.markdown(
-                f'<div class="na">USD/INR rate: {NA}; showing USD.</div>', unsafe_allow_html=True
-            )
-            cur = "USD"
-        else:
-            k = rate
-    sym = "₹" if cur == "INR" else "$"
     with st.spinner("Loading live prices…"):
         day = mk.scale(mk.last_day(intraday(inst.symbol, "5d", "15m")), k)
     left, right = st.columns([2.2, 1])
     left_box = left.container()
     with left_box.container(border=True, key="cr_price"):
         instrument_header(f"{inst.name} ({coin})", inst.symbol, day, sym, cur, inst.decimals)
-        if k != 1.0:
-            st.caption(f"INR = USD price x latest USD/INR close ({k:,.3f}, USDINR=X).")
     with right.container(border=True, key="cr_news", height=NEWS_HEIGHT):
         news = instrument_news("crypto", coin)
         news_panel(news, f"Latest {inst.name} news")
