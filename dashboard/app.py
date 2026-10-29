@@ -43,6 +43,7 @@ from amrp.application.deliberation import append_to_report
 from amrp.dashboard import commodity as cm
 from amrp.dashboard import market_live as ml
 from amrp.dashboard import markets as mk
+from amrp.dashboard import setup_guide as sg
 from amrp.dashboard import trend as tr
 from amrp.dashboard.client import (
     ApiError,
@@ -52,6 +53,7 @@ from amrp.dashboard.client import (
     probe_json,
     resolve_any,
     resolved_symbol,
+    yahoo_symbol,
 )
 from amrp.dashboard.intent import parse_intent
 from amrp.dashboard.prefs import (
@@ -73,7 +75,6 @@ from amrp.dashboard.providers import (
     parse_model_ids,
 )
 from amrp.dashboard.report_export import (
-    markdown_to_html,
     markdown_to_pdf,
     pdf_available,
     report_filename,
@@ -989,7 +990,7 @@ def _items(rows: list[dict[str, Any]]) -> None:
 
 
 def report_downloads(res: dict[str, Any], company: str, key: str) -> None:
-    """Download buttons for one report: formatted PDF, printable HTML and raw Markdown."""
+    """Single export: one button that downloads the formatted PDF."""
 
     md = str(res.get("markdown") or "")
     if not md.strip():
@@ -1000,10 +1001,10 @@ def report_downloads(res: dict[str, Any], company: str, key: str) -> None:
         try:
             pdf = markdown_to_pdf(md, title)
         except Exception as exc:  # never break the page because of the export
-            st.caption(f"PDF export failed ({type(exc).__name__}); use HTML or Markdown.")
+            st.caption(f"PDF export failed ({type(exc).__name__}). Re-open the report and retry.")
         else:
             st.download_button(
-                "\u2b07 Download PDF",
+                "\u2b07 Export PDF",
                 pdf,
                 file_name=report_filename(company, "pdf"),
                 mime="application/pdf",
@@ -1013,22 +1014,6 @@ def report_downloads(res: dict[str, Any], company: str, key: str) -> None:
             )
     else:
         st.caption("Install fpdf2 for PDF export.")
-    st.download_button(
-        "HTML (print-ready)",
-        markdown_to_html(md, title).encode("utf-8"),
-        file_name=report_filename(company, "html"),
-        mime="text/html",
-        width="stretch",
-        key=f"{key}_html",
-    )
-    st.download_button(
-        "Markdown (.md)",
-        md.encode("utf-8"),
-        file_name=report_filename(company, "md"),
-        mime="text/markdown",
-        width="stretch",
-        key=f"{key}_md",
-    )
 
 
 def _report_choices() -> list[tuple[str, str]]:
@@ -1393,30 +1378,49 @@ def watchlist_page() -> None:
     with h2, st.form("wl", border=False):
         c1, c2 = st.columns([3, 1.3])
         name = c1.text_input(
-            "Add", placeholder="Company name or ticker", label_visibility="collapsed"
+            "Add",
+            placeholder="Company, or GC=F / EURUSD=X / BTC-USD",
+            label_visibility="collapsed",
         )
         if c2.form_submit_button("+ Add to Watchlist", type="primary") and name.strip():
             add_to_watchlist(name)
             st.rerun()
     items = load_watchlist()
     if not items:
-        st.info("Your watchlist is empty. Add Reliance, TCS or Apple to start.")
+        st.info(
+            "Your watchlist is empty. Add a company (Reliance, TCS, Apple) or a market symbol: "
+            "GC=F (gold), EURUSD=X (EUR/USD), BTC-USD (bitcoin)."
+        )
         return
     with st.container(border=True):
-        cols = [2.2, 1.6, 1.6, 1.2, 1.6, 1, 1]
+        cols = [2, 1.5, 1.5, 1.7, 1.3, 1.4, 1, 1]
         h = st.columns(cols)
         for col, t in zip(
-            h, ["Company", "Ticker", "Last Price", "Change", "Source", "", ""], strict=True
+            h,
+            ["Name", "Ticker", "Last Price", "Change (today)", "Source", "Market", "", ""],
+            strict=True,
         ):
             if t:
                 col.markdown(
                     f'<div style="color:#9FB2D6;font-size:.8rem">{t}</div>', unsafe_allow_html=True
                 )
         for it in items:
-            snap = safe(API.get, "/market/snapshot", q=it, default=None)
-            price, cur, origin = latest_close(snap)
-            series = close_series(snap)
+            market = tr.is_market_symbol(it)
+            snap = None if market else safe(API.get, "/market/snapshot", q=it, default=None)
+            price, cur, origin = (None, "", "live") if market else latest_close(snap)
+            series = [] if market else close_series(snap)
             listing = (snap or {}).get("listing") or {}
+            ysym = (
+                it.strip().upper()
+                if market
+                else yahoo_symbol(
+                    str(listing.get("ticker") or ""), str(listing.get("exchange") or "")
+                )
+            )
+            bars = safe(_live_5d, ysym, default=[]) if ysym else []
+            move = tr.day_move(bars or [])
+            if market and move:
+                price, cur = move[0], ""
             c = st.columns(cols)
             c[0].markdown(
                 f'<div class="co" style="border:none;padding:0"><div class="lg" '
@@ -1424,25 +1428,41 @@ def watchlist_page() -> None:
                 f'<div class="n"><b>{esc(it)}</b></div></div>',
                 unsafe_allow_html=True,
             )
-            c[1].write(
-                f"{listing.get('ticker', '')} · {listing.get('exchange', '')}" if listing else NA
-            )
-            c[2].write(f"{cur} {price:,.2f}" if price is not None else NA)
-            if price is not None and len(series) > 1 and series[0][1]:
+            if market:
+                c[1].write(ysym)
+            else:
+                c[1].write(
+                    f"{listing.get('ticker', '')} \u00b7 {listing.get('exchange', '')}"
+                    if listing
+                    else NA
+                )
+            c[2].write(f"{cur} {price:,.4g}".strip() if price is not None else NA)
+            if move:
+                _, d_abs, d_pct = move
+                tone = "s-green" if d_abs >= 0 else "s-red"
+                c[3].markdown(
+                    f'<span class="{tone}">{d_abs:+,.4g} ({d_pct:+.2%})</span>',
+                    unsafe_allow_html=True,
+                )
+            elif price is not None and len(series) > 1 and series[0][1]:
                 chg = (price - series[0][1]) / series[0][1]
                 tone = "s-green" if chg >= 0 else "s-red"
-                c[3].markdown(f'<span class="{tone}">{chg:+.2%}</span>', unsafe_allow_html=True)
+                c[3].markdown(
+                    f'<span class="{tone}">{price - series[0][1]:+,.2f} ({chg:+.2%})</span>',
+                    unsafe_allow_html=True,
+                )
             else:
                 c[3].write(NA)
             c[4].markdown(
                 origin_pill(origin) if price is not None else pill("NOT AVAILABLE", "gray"),
                 unsafe_allow_html=True,
             )
-            if c[5].button("Research", key=f"wr_{it}"):
+            c[5].markdown(tr.inline_html(tr.from_bars(bars or [])), unsafe_allow_html=True)
+            if not market and c[6].button("Research", key=f"wr_{it}"):
                 start_research(it)
                 go("Research Report" if "result" in ss else "Research")
                 st.rerun()
-            if c[6].button("Remove", key=f"wd_{it}"):
+            if c[7].button("Remove", key=f"wd_{it}"):
                 remove_from_watchlist(it)
                 st.rerun()
 
@@ -1593,6 +1613,10 @@ def steps_mode() -> None:
 def settings_page() -> None:
     st.markdown("#### Settings")
     st.caption("Configure providers, models, security and preferences.")
+    with st.expander("\U0001f4d8 Setup guide for new installs (which keys you need)"):
+        st.markdown("\n".join(f"{i}. {t}" for i, t in enumerate(sg.STEPS, 1)))
+        st.markdown(table(sg.GUIDE, list(sg.GUIDE[0])), unsafe_allow_html=True)
+        st.caption("Key values are never shown here; configured keys appear masked.")
     t1, t2, t3, t4, t5, t6 = st.tabs(
         ["Providers", "Model", "AI agents", "Data keys", "Live data", "Security"]
     )
@@ -2022,6 +2046,7 @@ def comprehensive_page() -> None:
             agent_grid([(n, _step_label("waiting"), w) for _, n, w in RESEARCH_AGENTS]),
             unsafe_allow_html=True,
         )
+        st.markdown('<div style="height:1.25rem"></div>', unsafe_allow_html=True)
         st.info("Start a run to see per-agent progress, approvals and live logs.")
         return
     _comp_run_panel()
@@ -2232,6 +2257,7 @@ def commodity_page() -> None:
             )
             with hr:
                 trend_badge(com.symbol)
+            st.markdown(tf_chip("1 month \u00b7 daily closes"), unsafe_allow_html=True)
             st.altair_chart(area_chart(d, height=260, month=True), width="stretch")
             st.caption("Daily closes, last 1 month · source: Yahoo Finance (cached 15 min)")
     with right.container(border=True, key="cm_news"):
@@ -2422,6 +2448,15 @@ def extremes_table(ex: list[mk.Extreme], fmt: str) -> None:
     )
 
 
+def tf_chip(text: str) -> str:
+    """Visible chart timeframe label, e.g. 'Timeframe: 1 month \u00b7 daily closes'."""
+    return (
+        '<span class="tf-chip" style="display:inline-block;padding:2px 10px;border-radius:12px;'
+        "background:rgba(91,141,239,.16);border:1px solid #5B8DEF;color:#C9D6EE;"
+        f'font-size:.75rem;font-weight:600">\u23f1 Timeframe: {esc(text)}</span>'
+    )
+
+
 def session_charts(
     symbol: str, key: str, k: float = 1.0, decimals: int = 2
 ) -> tuple[list[mk.IBar], list[mk.Extreme]]:
@@ -2436,7 +2471,8 @@ def session_charts(
     a, b = st.columns(2)
     with a.container(border=True, key=f"{key}_day"):
         st.markdown(
-            '<div class="panel-t">Day-wise · 15-min bars, last trading day (UTC)</div>',
+            '<div class="panel-t">Day-wise view</div>'
+            + tf_chip("1 day \u00b7 15-minute bars (UTC)"),
             unsafe_allow_html=True,
         )
         if len(day) > 2:
@@ -2445,7 +2481,8 @@ def session_charts(
             st.markdown(f'<div class="na">Intraday data: {NA}</div>', unsafe_allow_html=True)
     with b.container(border=True, key=f"{key}_week"):
         st.markdown(
-            '<div class="panel-t">Week-wise · hourly bars, last 7 days (UTC)</div>',
+            '<div class="panel-t">Week-wise view</div>'
+            + tf_chip("7 days \u00b7 hourly bars (UTC)"),
             unsafe_allow_html=True,
         )
         if len(week_bars) > 2:

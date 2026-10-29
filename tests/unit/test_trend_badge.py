@@ -55,7 +55,7 @@ def test_badge_html_icons_and_updated_ist() -> None:
     bear = tr.badge_html(tr.classify(-0.01), now)
     assert "\U0001f43b" in bear and "Bearish" in bear and "#ef4444" in bear
     hold = tr.badge_html(tr.classify(0.0), now)
-    assert "\u2696" in hold and "Neutral" in hold
+    assert "\u2716" in hold and "Neutral" in hold
     assert "not available" in tr.badge_html(None, now)
 
 

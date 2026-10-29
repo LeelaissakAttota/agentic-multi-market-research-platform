@@ -25,7 +25,7 @@ _STYLE: dict[str, tuple[str, str, str]] = {
     # label -> (icon, text colour, background)
     "Bullish": ("\U0001f402", "#22c55e", "rgba(34,197,94,.14)"),
     "Bearish": ("\U0001f43b", "#ef4444", "rgba(239,68,68,.14)"),
-    "Neutral": ("\u2696\ufe0f", "#f59e0b", "rgba(148,163,184,.16)"),
+    "Neutral": ("\u2716", "#facc15", "rgba(250,204,21,.14)"),
 }
 
 
@@ -90,3 +90,29 @@ def badge_html(sig: TrendSignal | None, updated: datetime) -> str:
         f'<div class="trend-meta" style="line-height:1.25"><small>Today '
         f"{sig.day_change:+.2%}{mom}<br>updated {stamp} IST</small></div></div>"
     )
+
+
+def inline_html(sig: TrendSignal | None) -> str:
+    """Compact table-cell badge: icon plus the trend word in its colour."""
+    if sig is None:
+        return '<span style="color:#8FA3C7">n/a</span>'
+    icon, fg, _ = _STYLE[sig.label]
+    return (
+        f'<span class="trend-inline trend-{sig.label.lower()}" title="{escape(sig.reason)}" '
+        f'style="color:{fg};font-weight:700">{icon} {sig.label}</span>'
+    )
+
+
+def day_move(bars: list[IBar]) -> tuple[float, float, float] | None:
+    """(last price, absolute change, % change) for the latest day vs its first open."""
+    day = last_day(bars) if bars else []
+    if not day or not day[0].open:
+        return None
+    last = day[-1].close
+    return last, last - day[0].open, last / day[0].open - 1
+
+
+def is_market_symbol(text: str) -> bool:
+    """Yahoo commodity / forex / crypto / index symbols, e.g. GC=F, EURUSD=X, BTC-USD, ^NSEI."""
+    t = text.strip().upper()
+    return "=" in t or t.startswith("^") or t.endswith(("-USD", "-USDT", "-INR", "-EUR"))
