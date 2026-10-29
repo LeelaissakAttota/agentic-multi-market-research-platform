@@ -132,6 +132,10 @@ from amrp.infrastructure.regulatory import (
     CachingRegulatoryAdapter,
     InMemoryRegulatoryAdapter,
 )
+from amrp.infrastructure.reporting.live_context import (
+    LIVE_CONTEXT_USER_AGENT,
+    LiveCompanyContext,
+)
 from amrp.infrastructure.regulatory.live_feeds import (
     FallbackRegulatoryAdapter,
     LiveRegulatoryAdapter,
@@ -179,7 +183,7 @@ def _build_planner(
 
     ``auto`` (default): LLM planner with automatic per-request deterministic
     fallback when a live LLM router is configured, else deterministic.
-    ``llm``: LLM only — if prerequisites are missing, Settings validation fails
+    ``llm``: LLM only â€” if prerequisites are missing, Settings validation fails
     at startup. ``deterministic``: never calls an LLM.
     """
     mode = settings.planner_mode
@@ -430,6 +434,46 @@ def _live_http(resolved: Settings, *, max_bytes: int | None = None) -> BoundedHt
         timeout_seconds=float(resolved.market_data_timeout_seconds),
         max_retries=resolved.market_data_max_retries,
         user_agent=BROWSER_USER_AGENT,
+    )
+
+
+def _build_live_context(
+    resolved: Settings, clock: Callable[[], datetime] | None
+) -> LiveCompanyContext | None:
+    """Free live Industry/Regulatory report context (Yahoo + SEC EDGAR + NSE/BSE)."""
+
+    if str(getattr(resolved.app_env, "value", resolved.app_env)) == "test" or not (resolved.market_data_live_enabled or resolved.financial_data_live_enabled or resolved.live_news_enabled):
+        return None
+    sec_agent = _sec_user_agent(resolved, feature="report_live_context")
+    sec_http = (
+        BoundedHttpClient(
+            UrlLibHttpTransport(max_response_bytes=8 * 1024 * 1024),
+            timeout_seconds=float(resolved.market_data_timeout_seconds),
+            max_retries=1,
+            user_agent=sec_agent,
+        )
+        if sec_agent
+        else None
+    )
+    limiter = HostRateLimiter(resolved.india_quotes_min_interval_seconds)
+    india = IndiaCorporateAnnouncementsSource(
+        _live_http(resolved),
+        rate_limiter=limiter,
+        scrip_resolver=BseScripResolver(
+            _live_http(resolved, max_bytes=8 * 1024 * 1024), rate_limiter=limiter, clock=clock
+        ),
+        cache_ttl_seconds=float(resolved.india_filings_cache_ttl_seconds),
+        lookback_days=resolved.india_filings_lookback_days,
+        clock=clock,
+    )
+    yahoo_http = BoundedHttpClient(
+        UrlLibHttpTransport(max_response_bytes=2 * 1024 * 1024),
+        timeout_seconds=float(resolved.market_data_timeout_seconds),
+        max_retries=1,
+        user_agent=LIVE_CONTEXT_USER_AGENT,
+    )
+    return LiveCompanyContext(
+        yahoo_http, sec_http=sec_http, india_announcements=india, clock=clock
     )
 
 
@@ -832,6 +876,7 @@ def build_container(
         get_news_event_snapshot=get_news_event_snapshot,
         get_industry_snapshot=get_industry_snapshot,
         get_regulatory_snapshot=get_regulatory_snapshot,
+        live_context=_build_live_context(resolved, clock),
     )
     execute_research_plan = ExecuteResearchPlan(
         create_research_plan=create_research_plan,
@@ -889,6 +934,9 @@ def build_container(
             financial=get_financial_snapshot,
             news=get_news_event_snapshot,
             regulatory=get_regulatory_snapshot,
+            industry=get_industry_snapshot,
+            resolve=resolve_company,
+            live_context=_build_live_context(resolved, clock),
             llm_router=llm_router,
             llm_enabled=not isinstance(llm_router, DisabledLlmRouterAdapter),
             # Never exceed the router's configured ceiling (else INVALID_REQUEST).

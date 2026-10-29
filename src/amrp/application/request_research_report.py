@@ -12,6 +12,7 @@ from amrp.application.ports import (
     ResearchWorkflowStorePort,
     WorkflowReportStorePort,
 )
+from amrp.application.report_findings import sections_for
 from amrp.application.report_findings import (
     ReportFindings,
     ReportFindingsCollector,
@@ -83,7 +84,11 @@ class RequestResearchReport:
         self._requests: dict[str, ReportRequest] = {}
 
     def execute(
-        self, workflow_id: WorkflowId, *, report_format: str | None = None
+        self,
+        workflow_id: WorkflowId,
+        *,
+        report_format: str | None = None,
+        sections: tuple[str, ...] | None = None,
     ) -> ReportOperationResult:
         """Record a report request; render and store it when ``report_format`` is given.
 
@@ -121,7 +126,7 @@ class RequestResearchReport:
                 evaluated_at=now,
             )
         if report_format is not None:
-            return self._render(workflow_id, report_format, now)
+            return self._render(workflow_id, report_format, now, sections)
         report = ReportRequest(
             request_id=ReportRequestId.new(),
             workflow_id=workflow_id,
@@ -143,14 +148,18 @@ class RequestResearchReport:
         )
 
     def _render(
-        self, workflow_id: WorkflowId, report_format: str, now: datetime
+        self,
+        workflow_id: WorkflowId,
+        report_format: str,
+        now: datetime,
+        sections: tuple[str, ...] | None = None,
     ) -> ReportOperationResult:
         workflow = self._store.get_workflow(workflow_id)
         assert workflow is not None  # checked by execute()
         checkpoint = self._store.get_latest_checkpoint(workflow_id)
         memory = self._memory.list_for_workflow(workflow_id, limit=500) if self._memory else ()
         renderer = render_workflow_json if report_format == "json" else render_workflow_markdown
-        content = renderer(workflow, checkpoint, memory, self._collect(workflow))
+        content = renderer(workflow, checkpoint, memory, self._collect(workflow, sections))
         request_id = ReportRequestId.new()
         stored = StoredWorkflowReport(
             report_id=request_id,
@@ -180,7 +189,9 @@ class RequestResearchReport:
             stored_report=stored,
         )
 
-    def _collect(self, workflow: object) -> ReportFindings | None:
+    def _collect(
+        self, workflow: object, sections: tuple[str, ...] | None = None
+    ) -> ReportFindings | None:
         if self._findings is None:
             return None
         wf = workflow.to_dict()  # type: ignore[attr-defined]
@@ -196,4 +207,5 @@ class RequestResearchReport:
             f"{objective.capitalize()}: what do the latest market data, financials, "
             "news and regulatory items say about this company?"
         )
-        return self._findings.collect(company_query, question)
+        sections = sections or sections_for([str(wf.get("objective") or "")])
+        return self._findings.collect(company_query, question, sections=sections)

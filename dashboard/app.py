@@ -885,8 +885,9 @@ def _rows_table(rows: list[dict[str, Any]]) -> None:
 def _items(rows: list[dict[str, Any]]) -> None:
     for r in rows[:10]:
         link = f" [link]({r['url']})" if r.get("url") else ""
+        detail = f" · _{r['detail']}_" if r.get("detail") else ""
         st.markdown(
-            f"- **[{r.get('tag')}]** {r.get('date') or ''} — {r.get('title')} "
+            f"- **[{r.get('tag')}]** {r.get('date') or ''} — {r.get('title')}{detail} "
             f"{badge_markdown(r.get('data_origin'))}{link}"
         )
 
@@ -1083,15 +1084,27 @@ def report_page() -> None:
         else:
             st.caption(f"News: {NA}.")
     with tabs[3]:
-        st.caption(
-            f"Industry analysis section: {NA} in this report (run the Industry Analysis objective)."
-        )
+        sec = by.get("Industry")
+        if sec and sec.rows:
+            st.markdown(badge_markdown(sec.origin, sec.status) + f" {sec.message or ''}")
+            figs = [r for r in sec.rows if "label" in r]
+            peers = [r for r in sec.rows if "title" in r]
+            if figs:
+                _rows_table(figs)
+            if peers:
+                st.markdown("**Peer comparison (1-year return)**")
+                _items(peers)
+        else:
+            msg = f" ({sec.message})" if sec and sec.message else ""
+            st.caption(f"Industry: {NA}{msg}.")
     with tabs[4]:
         sec = by.get("Regulatory")
         if sec and sec.rows:
+            st.markdown(badge_markdown(sec.origin, sec.status) + f" {sec.message or ''}")
             _items(sec.rows)
         else:
-            st.caption(f"Regulatory: {NA}.")
+            msg = f" ({sec.message})" if sec and sec.message else ""
+            st.caption(f"Regulatory: {NA}{msg}.")
     with tabs[5]:
         st.markdown(res["markdown"])
     with tabs[-1]:

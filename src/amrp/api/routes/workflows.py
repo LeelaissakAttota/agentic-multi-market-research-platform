@@ -394,11 +394,24 @@ def list_workflow_memory(
     }
 
 
+def _parse_sections(raw: str | None) -> tuple[str, ...] | None:
+    """``sections=market,industry`` limits the report to those sections (unknown dropped)."""
+
+    from amrp.application.report_findings import ALL_SECTIONS
+
+    if not raw:
+        return None
+    picked = {part.strip().lower() for part in raw.split(",")}
+    chosen = tuple(name for name in ALL_SECTIONS if name in picked)
+    return chosen or None
+
+
 @router.post("/research/workflows/{workflow_id}/report", response_model=None)
 def request_workflow_report(
     request: Request,
     workflow_id: str,
     report_format: str = Query(default="markdown", alias="format", max_length=16),
+    sections: str | None = Query(default=None, max_length=128),
 ) -> dict[str, Any] | JSONResponse:
     """Render (``format=markdown|json``) and store a terminal workflow's report.
 
@@ -416,7 +429,9 @@ def request_workflow_report(
         )
     fmt = report_format.strip().lower()
     result = container.request_research_report.execute(
-        wid, report_format=None if fmt == "deferred" else fmt
+        wid,
+        report_format=None if fmt == "deferred" else fmt,
+        sections=_parse_sections(sections),
     )
     if result.status.value == "invalid":
         return build_error_response(

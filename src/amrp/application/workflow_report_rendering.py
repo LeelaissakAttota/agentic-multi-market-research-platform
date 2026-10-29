@@ -287,22 +287,39 @@ def _findings_lines(findings: ReportFindings) -> list[str]:
             "Citations refer to the [tags] in the tables below. Not investment advice._"
         )
         lines.append("")
-    lines += ["## Key Figures", "", "### Market", "", _section_note(findings.market), ""]
-    lines += (
-        _figure_table(findings.market_figures)
-        if findings.market_figures
-        else ["_No market figures available._"]
-    )
-    lines += ["", "### Financials", "", _section_note(findings.financial), ""]
-    lines += (
-        _figure_table(findings.financial_figures)
-        if findings.financial_figures
-        else ["_No financial figures available._"]
-    )
-    lines += ["", "## Top News", "", _section_note(findings.news), ""]
-    lines += _event_list(findings.news_items) or ["_No news items found._"]
-    lines += ["", "## Regulatory Items", "", _section_note(findings.regulatory), ""]
-    lines += _event_list(findings.regulatory_items) or ["_No regulatory items found._"]
+    want = set(findings.sections)
+    if want & {"market", "financial"}:
+        lines += ["## Key Figures", ""]
+    if "market" in want:
+        lines += ["### Market", "", _section_note(findings.market), ""]
+        lines += (
+            _figure_table(findings.market_figures)
+            if findings.market_figures
+            else ["_No market figures available._"]
+        )
+        lines.append("")
+    if "financial" in want:
+        lines += ["### Financials", "", _section_note(findings.financial), ""]
+        lines += (
+            _figure_table(findings.financial_figures)
+            if findings.financial_figures
+            else ["_No financial figures available._"]
+        )
+        lines.append("")
+    if "news" in want:
+        lines += ["## Top News", "", _section_note(findings.news), ""]
+        lines += _event_list(findings.news_items) or ["_No news items found._"]
+        lines.append("")
+    if "industry" in want:
+        lines += ["## Industry & Peers", "", _section_note(findings.industry), ""]
+        if findings.industry_figures:
+            lines += _figure_table(findings.industry_figures)
+            lines.append("")
+        lines += _event_list(findings.industry_items) or ["_No peer comparison available._"]
+        lines.append("")
+    if "regulatory" in want:
+        lines += ["## Regulatory Items", "", _section_note(findings.regulatory), ""]
+        lines += _event_list(findings.regulatory_items) or ["_No regulatory items found._"]
     if findings.errors:
         lines += ["", *[f"- _{_md(e)}_" for e in findings.errors]]
     lines.append("")

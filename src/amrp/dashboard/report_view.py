@@ -70,6 +70,11 @@ def build_report_view(report_json: str | dict[str, Any], company: str = "") -> R
         _section("Financials", findings.get("financial"), findings.get("financial_figures")),
         _section("Top news", findings.get("news"), findings.get("news_items")),
         _section("Regulatory", findings.get("regulatory"), findings.get("regulatory_items")),
+        _section(
+            "Industry",
+            findings.get("industry"),
+            [*(findings.get("industry_figures") or []), *(findings.get("industry_items") or [])],
+        ),
     ]
     return ReportView(
         company=company,
