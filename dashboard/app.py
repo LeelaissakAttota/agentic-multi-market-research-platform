@@ -2124,7 +2124,8 @@ def commodity_page() -> None:
             cur = "$"
             tone = "s-green" if (day or 0) >= 0 else "s-red"
             mtone = "s-green" if (d.change or 0) >= 0 else "s-red"
-            st.markdown(
+            hl, hr = st.columns([3, 1], vertical_alignment="center")
+            hl.markdown(
                 f'<div class="cm-h"><div><b>{esc(name)}</b> '
                 f"{pill('LIVE', 'green')} <small>{esc(com.symbol)} · {esc(com.exchange)}"
                 f" · as of {_ist(d.as_of)}</small></div>"
@@ -2135,7 +2136,8 @@ def commodity_page() -> None:
                 else f"<b>{esc(name)}</b> {cur}{last:,.2f} {esc(unit)}",
                 unsafe_allow_html=True,
             )
-            trend_badge(com.symbol)
+            with hr:
+                trend_badge(com.symbol)
             st.altair_chart(area_chart(d, height=260, month=True), width="stretch")
             st.caption("Daily closes, last 1 month · source: Yahoo Finance (cached 15 min)")
     with right.container(border=True, key="cm_news"):
@@ -2451,15 +2453,18 @@ def forex_page() -> None:
     left, right = st.columns([2.2, 1])
     left_box = left.container()
     with left_box.container(border=True, key="fx_price"):
-        instrument_header(
-            pair,
-            inst.symbol,
-            day,
-            "",
-            pair.split("/")[1] + " per " + pair.split("/")[0],
-            inst.decimals,
-        )
-        trend_badge(inst.symbol)
+        hl, hr = st.columns([3, 1], vertical_alignment="center")
+        with hl:
+            instrument_header(
+                pair,
+                inst.symbol,
+                day,
+                "",
+                pair.split("/")[1] + " per " + pair.split("/")[0],
+                inst.decimals,
+            )
+        with hr:
+            trend_badge(inst.symbol)
     with right.container(border=True, key="fx_news", height=NEWS_HEIGHT):
         news = instrument_news("fx", pair)
         news_panel(news, f"Latest {pair} news")
@@ -2486,8 +2491,11 @@ def crypto_page() -> None:
     left, right = st.columns([2.2, 1])
     left_box = left.container()
     with left_box.container(border=True, key="cr_price"):
-        instrument_header(f"{inst.name} ({coin})", inst.symbol, day, sym, cur, inst.decimals)
-        trend_badge(inst.symbol)
+        hl, hr = st.columns([3, 1], vertical_alignment="center")
+        with hl:
+            instrument_header(f"{inst.name} ({coin})", inst.symbol, day, sym, cur, inst.decimals)
+        with hr:
+            trend_badge(inst.symbol)
     with right.container(border=True, key="cr_news", height=NEWS_HEIGHT):
         news = instrument_news("crypto", coin)
         news_panel(news, f"Latest {inst.name} news")

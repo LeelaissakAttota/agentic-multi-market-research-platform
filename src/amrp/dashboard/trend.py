@@ -68,19 +68,25 @@ def from_bars(bars: list[IBar]) -> TrendSignal | None:
 
 
 def badge_html(sig: TrendSignal | None, updated: datetime) -> str:
+    """Large highlighted icon on top, bold coloured label below, small live line under it."""
     stamp = updated.astimezone(IST).strftime("%H:%M")
     if sig is None:
         return (
-            f'<div class="trend-na"><small>Trend: not available · updated {stamp} IST</small></div>'
+            '<div class="trend-na" style="text-align:center"><small>Trend: not available'
+            f"<br>updated {stamp} IST</small></div>"
         )
     icon, fg, bg = _STYLE[sig.label]
     mom = f" · 5-day {sig.momentum:+.2%}" if sig.momentum is not None else ""
     return (
         f'<div class="trend-badge trend-{sig.label.lower()}" title="{escape(sig.reason)}" '
-        f'style="display:inline-flex;align-items:center;gap:.4rem;margin-top:.45rem;'
-        f"padding:.2rem .65rem;border-radius:999px;border:1px solid {fg};background:{bg};"
-        f'color:{fg};font-weight:700"><span style="font-size:1.15rem">{icon}</span>'
-        f"{sig.label}</div>"
-        f'<div class="trend-meta"><small>Today {sig.day_change:+.2%}{mom} · '
-        f"updated {stamp} IST</small></div>"
+        'style="display:flex;flex-direction:column;align-items:center;gap:.35rem;'
+        'text-align:center">'
+        f'<div class="trend-icon" style="width:76px;height:76px;border-radius:20px;'
+        f"display:flex;align-items:center;justify-content:center;font-size:48px;"
+        f"line-height:1;background:{bg};border:2px solid {fg};"
+        f'box-shadow:0 0 18px {fg}88,inset 0 0 12px {fg}33">{icon}</div>'
+        f'<div class="trend-label" style="color:{fg};font-weight:800;font-size:1.15rem;'
+        f'letter-spacing:.02em">{sig.label}</div>'
+        f'<div class="trend-meta" style="line-height:1.25"><small>Today '
+        f"{sig.day_change:+.2%}{mom}<br>updated {stamp} IST</small></div></div>"
     )
