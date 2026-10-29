@@ -116,3 +116,9 @@ def is_market_symbol(text: str) -> bool:
     """Yahoo commodity / forex / crypto / index symbols, e.g. GC=F, EURUSD=X, BTC-USD, ^NSEI."""
     t = text.strip().upper()
     return "=" in t or t.startswith("^") or t.endswith(("-USD", "-USDT", "-INR", "-EUR"))
+
+
+def price_decimals(value: float) -> int:
+    """2 decimals for prices >= 100, 4 for >= 1 (FX), 6 below (small FX / tokens)."""
+    v = abs(value)
+    return 2 if v >= 100 else 4 if v >= 1 else 6

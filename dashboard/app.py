@@ -1436,12 +1436,13 @@ def watchlist_page() -> None:
                     if listing
                     else NA
                 )
-            c[2].write(f"{cur} {price:,.4g}".strip() if price is not None else NA)
+            nd = tr.price_decimals(price) if price is not None else 2
+            c[2].write(f"{cur} {price:,.{nd}f}".strip() if price is not None else NA)
             if move:
                 _, d_abs, d_pct = move
                 tone = "s-green" if d_abs >= 0 else "s-red"
                 c[3].markdown(
-                    f'<span class="{tone}">{d_abs:+,.4g} ({d_pct:+.2%})</span>',
+                    f'<span class="{tone}">{d_abs:+,.{nd}f} ({d_pct:+.2%})</span>',
                     unsafe_allow_html=True,
                 )
             elif price is not None and len(series) > 1 and series[0][1]:

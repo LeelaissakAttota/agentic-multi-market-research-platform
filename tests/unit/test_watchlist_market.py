@@ -51,3 +51,9 @@ def test_setup_guide_covers_providers_without_secrets() -> None:
         assert set(r) == {"Key / provider", "Used for", "Needed?", "Get it", "Connect & test"}
         assert r["Get it"] == "-" or r["Get it"].startswith("https://")
         assert "sk-" not in " ".join(r.values())
+
+
+def test_price_decimals() -> None:
+    assert tr.price_decimals(80730.0) == 2
+    assert tr.price_decimals(1.117) == 4
+    assert tr.price_decimals(0.0123) == 6
