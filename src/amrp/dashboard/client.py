@@ -136,3 +136,86 @@ def candidate_choices(resolution: dict[str, Any]) -> list[dict[str, str]]:
         label = f"{name} ({exchange}:{ticker})" if ticker else name
         out.append({"label": label, "q": name, "ticker": ticker, "exchange": exchange})
     return out
+
+
+_SUFFIX_EXCHANGE = {".NS": "NSE", ".NSE": "NSE", ".BO": "BSE", ".BSE": "BSE"}
+_EXCHANGE_SUFFIX = {"NSE": ".NS", "BSE": ".BO"}
+YAHOO_SEARCH = "https://query2.finance.yahoo.com/v1/finance/search?q={q}&quotesCount=5&newsCount=0"
+
+
+def yahoo_symbol(ticker: str, exchange: str) -> str:
+    """Exchange-qualified Yahoo-style symbol (RELIANCE + NSE -> RELIANCE.NS)."""
+
+    return f"{ticker}{_EXCHANGE_SUFFIX.get(exchange.upper(), '')}" if ticker else ""
+
+
+def resolved_symbol(resolution: dict[str, Any] | None) -> str:
+    """Primary listing symbol of a RESOLVED company, '' if unknown."""
+
+    company = (resolution or {}).get("company") or {}
+    listings = [x for sec in company.get("securities") or [] for x in sec.get("listings") or []]
+    if not listings:
+        return ""
+    primary = next((x for x in listings if x.get("is_primary")), listings[0])
+    return yahoo_symbol(str(primary.get("ticker") or ""), str(primary.get("exchange") or ""))
+
+
+def strip_suffix(text: str) -> str:
+    """'RELIANCE.NS' -> 'RELIANCE'; other text unchanged."""
+
+    t = text.strip()
+    for suf in _SUFFIX_EXCHANGE:
+        if t.upper().endswith(suf) and len(t) > len(suf):
+            return t[: -len(suf)]
+    return t
+
+
+def yahoo_lookup(text: str, timeout: float = 8.0) -> list[tuple[str, str]]:
+    """Free Yahoo search -> [(symbol, name)] equities, Indian listings first. [] on failure."""
+
+    url = YAHOO_SEARCH.format(q=urllib.parse.quote(text.strip()))
+    req = urllib.request.Request(url, headers={"User-Agent": "Mozilla/5.0"})
+    try:
+        with urllib.request.urlopen(req, timeout=timeout) as resp:
+            data = json.loads(resp.read().decode("utf-8", "replace"))
+    except (OSError, ValueError):
+        return []
+    out = []
+    for q in data.get("quotes") or []:
+        if q.get("quoteType") not in (None, "EQUITY"):
+            continue
+        sym = str(q.get("symbol") or "")
+        if sym:
+            out.append((sym, str(q.get("longname") or q.get("shortname") or sym)))
+    out.sort(key=lambda x: 0 if x[0].endswith((".NS", ".BO")) else 1)
+    return out
+
+
+def resolve_any(
+    api: JsonClient,
+    text: str,
+    candidates: tuple[str, ...],
+    lookup: Any = yahoo_lookup,
+) -> dict[str, Any] | None:
+    """Resolve a ticker or name with no exchange suffix needed.
+
+    Order: parsed phrase candidates; the bare symbol (suffix stripped);
+    then a Yahoo search whose symbols (bare, .NS, .BO) and names are retried.
+    Adds ``resolved_symbol`` (e.g. RELIANCE.NS) when a listing is known.
+    """
+
+    tries: list[str] = list(candidates)
+    bare = strip_suffix(text)
+    if bare and bare not in tries:
+        tries.append(bare)
+    res = resolve_company(api, tuple(tries))
+    if res is None:
+        extra: list[str] = []
+        for sym, name in lookup(bare or text) or []:
+            for t in (strip_suffix(sym), name):
+                if t and t not in tries and t not in extra:
+                    extra.append(t)
+        res = resolve_company(api, tuple(extra)) if extra else None
+    if res is not None and res.get("status") == "RESOLVED":
+        res["resolved_symbol"] = resolved_symbol(res)
+    return res

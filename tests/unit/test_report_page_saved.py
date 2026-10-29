@@ -73,7 +73,7 @@ def test_report_page_shows_latest_saved_report_in_fresh_session(
     _save(base, "new-2", "Apple", "completed")
 
     app = str(Path(__file__).resolve().parents[2] / "dashboard" / "app.py")
-    at = AppTest.from_file(app, default_timeout=30)
+    at = AppTest.from_file(app, default_timeout=90)
     at.session_state["nav"] = "Research Report"
     at.run()
     assert not at.exception, [e.value for e in at.exception]

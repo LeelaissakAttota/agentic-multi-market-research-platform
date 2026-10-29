@@ -49,7 +49,7 @@ from amrp.dashboard.client import (
     candidate_choices,
     probe,
     probe_json,
-    resolve_company,
+    resolve_any,
 )
 from amrp.dashboard.intent import parse_intent
 from amrp.dashboard.prefs import (
@@ -187,7 +187,7 @@ def start_research(
         company = pick["label"]
     else:
         with st.spinner("Finding the company…"):
-            res = resolve_company(API, intent.candidates)
+            res = resolve_any(API, question, intent.candidates)
         if res is None:
             ss.error = (
                 "I couldn't find a listed company in that question. Try e.g. 'Apple' or "
@@ -201,6 +201,7 @@ def start_research(
         comp = res.get("company") or {}
         company = str(comp.get("display_name") or res["matched_phrase"])
         body["q"] = res["matched_phrase"]
+        ss.resolved = resolution_note(question, company, res.get("resolved_symbol", ""))
     ss.company = company
     created = API.post("/research/workflows", body)
     if created.get("approval_status") == "pending" and auto_approve:
@@ -345,7 +346,26 @@ def decide(workflow_id: str, company: str, decision: str) -> None:
         ss.info = f"Rejected. Nothing was run for {company}."
 
 
+def resolution_note(text: str, company: str, symbol: str) -> str:
+    sym = f" ({symbol})" if symbol else ""
+    return f"Resolved \u201c{text.strip()}\u201d \u2192 {company}{sym}"
+
+
+def resolve_for_control(text: str) -> tuple[str, str]:
+    """Bare ticker/name -> (query the API resolves, UI note). Falls back to the raw text."""
+
+    q = text.strip()
+    res = safe(resolve_any, API, q, parse_intent(q).candidates)
+    if not res or res.get("status") != "RESOLVED":
+        return q, ""
+    comp = res.get("company") or {}
+    name = str(comp.get("display_name") or res["matched_phrase"])
+    return str(res["matched_phrase"]), resolution_note(q, name, res.get("resolved_symbol", ""))
+
+
 def flash() -> None:
+    if "resolved" in ss:
+        st.success(ss.pop("resolved"), icon=":material/check_circle:")
     for key in ("error", "info"):
         if key in ss:
             getattr(st, key)(ss.pop(key))
@@ -1081,12 +1101,19 @@ def report_page() -> None:
     data = json.loads(raw) if isinstance(raw, str) else (raw or {})
     findings = data.get("findings") or {}
     by = {s.title: s for s in view.sections}
+    if "resolved" in ss:
+        st.success(ss.pop("resolved"), icon=":material/check_circle:")
     origins = {s.origin for s in view.sections if s.origin}
     head, dl = st.columns([4, 1])
     head.markdown(
         '<div style="font-size:.75rem;color:#8FA3C7">Research &rsaquo; Reports &rsaquo; '
         f"{esc(view.company)}"
         f'</div><div style="font-size:1.35rem;font-weight:700;color:#fff">{esc(view.company)} '
+        + (
+            f'<span style="font-size:.9rem;color:#8FA3C7">({esc(res["ticker"])})</span> '
+            if res.get("ticker")
+            else ""
+        )
         + status_pill(str(res.get("research_status") or wf.get("status", "?")).capitalize())
         + " "
         + rating_badge(agents)
@@ -1487,7 +1514,7 @@ def steps_mode() -> None:
         q = st.text_input(
             "Company",
             value=step_mode_company(ss.get("company")),
-            placeholder="Company name or ticker, e.g. RELIANCE.NS or AAPL",
+            placeholder="Company name or ticker, e.g. RELIANCE, TCS or AAPL (no suffix needed)",
             help="Type any company name, or a ticker such as RELIANCE.NS, TCS.NS or AAPL.",
         )
         objective = st.selectbox(
@@ -1499,7 +1526,9 @@ def steps_mode() -> None:
             st.warning("Enter a company name or ticker first.")
             start = False
         if start:
-            q = q.strip()
+            q, note = resolve_for_control(q)
+            if note:
+                ss.resolved = note
             CONTROL.put(
                 "/control/settings", {"approval_mode": True, "auto_approve_low_risk": False}
             )
@@ -1947,7 +1976,7 @@ def comprehensive_page() -> None:
         q = c1.text_input(
             "Company",
             value="",
-            placeholder="Company name or ticker, e.g. RELIANCE.NS or AAPL",
+            placeholder="Company name or ticker, e.g. RELIANCE, TCS or AAPL (no suffix needed)",
             label_visibility="collapsed",
         )
         start = c2.form_submit_button(
@@ -1956,12 +1985,14 @@ def comprehensive_page() -> None:
     if start and not q.strip():
         st.warning("Enter a company name or ticker first.")
     elif start and ready:
+        rq, note = resolve_for_control(q)
+        ss.comp_resolved = note
         try:
             created = CONTROL.post(
                 "/control/runs",
                 {
                     "params": {
-                        "q": q.strip(),
+                        "q": rq,
                         "objective": "comprehensive_equity_research",
                         "approval_mode": mode == MODE_HUMAN,
                     }
@@ -1969,7 +2000,7 @@ def comprehensive_page() -> None:
             )
             ss.comp_run, ss.comp_company, ss.comp_mode_used = (
                 created["run_id"],
-                q.strip(),
+                rq,
                 mode,
             )
             ss.pop("comp_report_done", None)
@@ -2015,7 +2046,8 @@ def _comp_run_panel() -> None:
     done = sum(1 for s in steps if s.get("state") in ("succeeded", "failed", "rejected", "skipped"))
     total = max(len(steps), len(RESEARCH_AGENTS))
     st.markdown(
-        f"**{esc(ss.get('comp_company', ''))}** · run `{run_id[:8]}` · "
+        (f"{esc(ss['comp_resolved'])}  \n" if ss.get("comp_resolved") else "")
+        + f"**{esc(ss.get('comp_company', ''))}** · run `{run_id[:8]}` · "
         f"{MODE_AUTO if auto else MODE_HUMAN} · status **{status}** · "
         f"{done}/{total} steps finished"
     )
