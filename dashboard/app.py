@@ -21,6 +21,7 @@ from agents_debate import (  # type: ignore[import-not-found]
     ensure_deliberation,
     rating_badge,
 )
+from agents_memory import memory_page  # type: ignore[import-not-found]
 from agents_ui import agent_llm_settings  # type: ignore[import-not-found]
 from theme import (  # type: ignore[import-not-found]  # dashboard/theme.py
     CSS,
@@ -946,7 +947,10 @@ def report_page() -> None:
         wid = list(reports)[-1]
     res = reports[wid]
     view, wf = res["view"], res["workflow"]
-    agents = ensure_deliberation(res, view.company)
+    if "ticker" not in res:
+        cq = wf.get("company_query") or {}
+        res["ticker"] = str(cq.get("ticker") or "") or watch_ticker(view.company)
+    agents = ensure_deliberation(res, view.company, res["ticker"])
     res["markdown"] = append_to_report(res["markdown"], agents)
     raw = res.get("raw")
     data = json.loads(raw) if isinstance(raw, str) else (raw or {})
@@ -2294,6 +2298,7 @@ PAGES = {
     "Forex Market": ("forex", forex_page),
     "Crypto Market": ("crypto", crypto_page),
     "Provider Health": ("health", health_page),
+    "Agent Memory": ("memory", memory_page),
     "Settings": ("settings", settings_page),
 }
 ss.setdefault("nav", "Home")

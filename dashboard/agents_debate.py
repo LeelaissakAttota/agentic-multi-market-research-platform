@@ -7,6 +7,7 @@ import json
 from typing import Any
 
 import streamlit as st
+from agents_memory import memory, price_and_date  # type: ignore[import-not-found]
 
 from amrp.application.debate import DISCLAIMER, Debate
 from amrp.application.deliberation import Deliberation, Rating, deliberate
@@ -130,7 +131,7 @@ def deliberation_tab(res: dict[str, Any], company: str, key: str) -> None:
 
     if st.button("Re-run agents", key=f"{key}_rerun"):
         res.pop("deliberation", None)
-        ensure_deliberation(res, company)
+        ensure_deliberation(res, company, res.get("ticker", ""))
     d = res.get("deliberation")
     if d is None:
         st.info("Agents have not run for this report yet.")
@@ -147,12 +148,36 @@ def deliberation_tab(res: dict[str, Any], company: str, key: str) -> None:
             st.markdown(f"- {x}")
 
 
-def ensure_deliberation(res: dict[str, Any], company: str) -> Deliberation:
-    """Compute the deliberation once per report and cache it on the result."""
+def ensure_deliberation(res: dict[str, Any], company: str, ticker: str = "") -> Deliberation:
+    """Compute the deliberation once per report, using and updating outcome memory."""
 
     d = res.get("deliberation")
-    if d is None:
-        with st.spinner("Bull, Bear, Judge and Risk agents are reviewing the evidence..."):
-            d = compute_deliberation(res, company)
-        res["deliberation"] = d
+    if d is not None:
+        return d
+    lessons: tuple[str, ...] = ()
+    acc: float | None = None
+    mem = None
+    try:
+        mem = memory()
+        if ticker:
+            lessons, acc = mem.lessons(ticker)
+    except Exception:
+        mem = None
+    with st.spinner("Bull, Bear, Judge and Risk agents are reviewing the evidence..."):
+        d = compute_deliberation(res, company, lessons=lessons, past_accuracy=acc)
+    res["deliberation"] = d
+    price, cur, as_of = price_and_date(_findings(res))
+    if mem is not None and ticker and price:
+        wid = res.get("workflow_id") or (res.get("workflow") or {}).get("workflow_id")
+        mem.record(
+            ticker=ticker,
+            company=company,
+            rating=d.rating.rating.value,
+            score=d.rating.score,
+            confidence=d.rating.confidence,
+            price_at=price,
+            currency=cur,
+            as_of=as_of or d.generated_at[:10],
+            workflow_id=str(wid) if wid else None,
+        )
     return d
