@@ -441,9 +441,16 @@ def _llm_verdict(
     except (TypeError, ValueError):
         return None
     # guardrail: the judge may not stray more than 0.5 from the evidence-weighted anchor
+    proposed = score
     score = round(max(anchor.score - 0.5, min(anchor.score + 0.5, score)), 3)
     leaning = "bull" if score > 0.15 else "bear" if score < -0.15 else "balanced"
-    return Verdict(leaning, score, str(data.get("rationale") or "")[:800], label)
+    why = str(data.get("rationale") or "")[:800]
+    if abs(score - proposed) > 1e-9:
+        why += (
+            f" [Guardrail: judge proposed {proposed:+.2f}; limited to within 0.5 of the "
+            f"evidence-weighted anchor {anchor.score:+.2f}.]"
+        )
+    return Verdict(leaning, score, why, label)
 
 
 def run_debate(

@@ -97,3 +97,11 @@ def test_consensus_side_uses_the_headline_only() -> None:
     assert sig("Analyst consensus: Buy - 11 strong buy, 3 sell, 1 strong sell") == ["bull"]
     assert sig("Analyst consensus: Strong Sell - 9 sell") == ["bear"]
     assert sig("Analyst consensus: Hold - 2 buy, 2 sell") == []
+
+
+def test_clamped_judge_explains_the_guardrail() -> None:
+    deep = FakeRouter('{"leaning": "bear", "score": -1, "rationale": "Liquidity [F6]"}')
+    d = run_debate(_items(), "Apple", deep=deep, deep_label="d")
+    anchor = run_debate(_items(), "Apple").verdict.score
+    assert d.verdict.score == round(anchor - 0.5, 3)
+    assert "Guardrail: judge proposed -1.00" in d.verdict.rationale
