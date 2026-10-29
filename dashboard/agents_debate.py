@@ -129,9 +129,18 @@ def rating_section(d: Deliberation) -> None:
 def deliberation_tab(res: dict[str, Any], company: str, key: str) -> None:
     """Render the multi-agent analysis computed by :func:`ensure_deliberation`."""
 
-    if st.button("Re-run agents", key=f"{key}_rerun"):
+    c1, c2, c3 = st.columns([1, 1, 2])
+    pit = c1.toggle(
+        "Point-in-time",
+        key=f"{key}_pit",
+        help="Only use evidence dated on or before the chosen day (no look-ahead).",
+    )
+    day = c2.date_input("As of", key=f"{key}_asof", disabled=not pit)
+    if c3.button("Re-run agents", key=f"{key}_rerun"):
         res.pop("deliberation", None)
-        ensure_deliberation(res, company, res.get("ticker", ""))
+        ensure_deliberation(
+            res, company, res.get("ticker", ""), as_of=day.isoformat() if pit and day else None
+        )
     d = res.get("deliberation")
     if d is None:
         st.info("Agents have not run for this report yet.")
@@ -148,7 +157,9 @@ def deliberation_tab(res: dict[str, Any], company: str, key: str) -> None:
             st.markdown(f"- {x}")
 
 
-def ensure_deliberation(res: dict[str, Any], company: str, ticker: str = "") -> Deliberation:
+def ensure_deliberation(
+    res: dict[str, Any], company: str, ticker: str = "", as_of: str | None = None
+) -> Deliberation:
     """Compute the deliberation once per report, using and updating outcome memory."""
 
     d = res.get("deliberation")
@@ -164,10 +175,10 @@ def ensure_deliberation(res: dict[str, Any], company: str, ticker: str = "") -> 
     except Exception:
         mem = None
     with st.spinner("Bull, Bear, Judge and Risk agents are reviewing the evidence..."):
-        d = compute_deliberation(res, company, lessons=lessons, past_accuracy=acc)
+        d = compute_deliberation(res, company, lessons=lessons, past_accuracy=acc, as_of=as_of)
     res["deliberation"] = d
     price, cur, as_of = price_and_date(_findings(res))
-    if mem is not None and ticker and price:
+    if mem is not None and ticker and price and not as_of:
         wid = res.get("workflow_id") or (res.get("workflow") or {}).get("workflow_id")
         mem.record(
             ticker=ticker,

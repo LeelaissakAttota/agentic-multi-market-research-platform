@@ -16,6 +16,7 @@ from typing import Any
 import altair as alt
 import pandas as pd
 import streamlit as st
+from agents_backtest import backtest_page  # type: ignore[import-not-found]
 from agents_debate import (  # type: ignore[import-not-found]
     deliberation_tab,
     ensure_deliberation,
@@ -2299,6 +2300,7 @@ PAGES = {
     "Crypto Market": ("crypto", crypto_page),
     "Provider Health": ("health", health_page),
     "Agent Memory": ("memory", memory_page),
+    "Agent Backtest": ("backtest", backtest_page),
     "Settings": ("settings", settings_page),
 }
 ss.setdefault("nav", "Home")
