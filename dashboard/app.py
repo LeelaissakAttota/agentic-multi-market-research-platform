@@ -100,6 +100,7 @@ from amrp.dashboard.views import (
     history_as_workflows,
     latest_close,
     latest_run_logs,
+    list_saved_reports,
     load_history,
     load_saved_report,
     load_watchlist,
@@ -1005,18 +1006,70 @@ def report_downloads(res: dict[str, Any], company: str, key: str) -> None:
     )
 
 
-def report_page() -> None:
+def _report_choices() -> list[tuple[str, str]]:
+    """(workflow_id, label) for this session's reports plus saved ones, newest first."""
+
+    seen: dict[str, str] = {}
+    for wid, r in reversed(list(ss.get("reports", {}).items())):
+        v = r.get("view")
+        seen[wid] = f"{getattr(v, 'company', '?')} · this session"
+    for r in list_saved_reports():
+        if r["workflow_id"] not in seen:
+            when = r["saved_at"].astimezone(tr.IST).strftime("%d %b %H:%M IST")
+            status = str(r.get("research_status") or "").capitalize()
+            seen[r["workflow_id"]] = (
+                f"{r['company']} · {objective_label(r.get('objective'))} · {when}"
+                + (f" · {status}" if status else "")
+            )
+    return list(seen.items())
+
+
+def _load_report(wid: str) -> dict[str, Any] | None:
     reports: dict[str, Any] = ss.get("reports", {})
-    if not reports:
+    if wid in reports:
+        return dict(reports[wid])
+    saved = load_saved_report(wid)
+    if saved is None:
+        return None
+    company = str(saved.get("company") or "")
+    res = {**saved, "workflow": saved.get("workflow") or {}, "workflow_id": wid}
+    res["view"] = build_report_view(saved["raw"], company)
+    res["markdown"] = saved.get("markdown") or ""
+    ss.reports = {**reports, wid: res}
+    return res
+
+
+def report_page() -> None:
+    choices = _report_choices()
+    if not choices:
         st.markdown("#### Research Report")
         st.info(
-            "No report in this session yet. Run research from Home or Research, or open "
-            "one from the Reports page."
+            "No report yet. Run research from Home or Research, or open one from the Reports page."
         )
         return
-    wid = ss.get("selected_report") or ss.get("result", {}).get("workflow_id")
-    if wid not in reports:
-        wid = list(reports)[-1]
+    ids = [w for w, _ in choices]
+    want = ss.get("selected_report") or ss.get("result", {}).get("workflow_id")
+    wid = want if want in ids else ids[0]
+    if len(ids) > 1:
+        labels = dict(choices)
+        ss.rp_pick = wid  # follows reports opened elsewhere (Home, Research, Reports page)
+
+        def _picked() -> None:
+            ss.selected_report = ss.rp_pick
+
+        wid = st.selectbox(
+            "Report",
+            ids,
+            format_func=lambda w: labels[w],
+            key="rp_pick",
+            on_change=_picked,
+            help="Latest completed report is shown first; pick an earlier one here.",
+        )
+    loaded = _load_report(wid)
+    if loaded is None:
+        st.warning("That report could not be loaded. Re-run the research to rebuild it.")
+        return
+    reports: dict[str, Any] = ss.get("reports", {})
     res = reports[wid]
     view, wf = res["view"], res["workflow"]
     if "ticker" not in res:

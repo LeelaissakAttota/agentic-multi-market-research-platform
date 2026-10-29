@@ -559,7 +559,10 @@ def save_report(workflow_id: str, report: dict[str, Any], base: Path | None = No
     """Persist a finished report locally so it can be reopened after a restart."""
 
     path = _report_path(workflow_id, base)
-    keep = {k: report.get(k) for k in ("raw", "markdown", "workflow", "workflow_id", "company")}
+    keys = ("raw", "markdown", "workflow", "workflow_id", "company")
+    keep: dict[str, Any] = {k: report.get(k) for k in keys}
+    keep["research_status"] = report.get("research_status")
+    keep["missing_sections"] = list(report.get("missing_sections") or [])
     with _LOCK:
         path.parent.mkdir(parents=True, exist_ok=True)
         path.write_text(json.dumps(keep, default=str), encoding="utf-8")
@@ -571,6 +574,35 @@ def load_saved_report(workflow_id: str, base: Path | None = None) -> dict[str, A
     except (FileNotFoundError, json.JSONDecodeError):
         return None
     return data if isinstance(data, dict) and data.get("raw") is not None else None
+
+
+def list_saved_reports(base: Path | None = None, limit: int = 50) -> list[dict[str, Any]]:
+    """Saved finished reports, newest first: id, company, objective, saved time, status."""
+
+    folder = base or _store("dashboard_reports")
+    try:
+        files = sorted(folder.glob("*.json"), key=lambda f: f.stat().st_mtime, reverse=True)
+    except OSError:
+        return []
+    out: list[dict[str, Any]] = []
+    for f in files[:limit]:
+        try:
+            data = json.loads(f.read_text(encoding="utf-8"))
+        except (OSError, json.JSONDecodeError):
+            continue
+        if not isinstance(data, dict) or data.get("raw") is None:
+            continue
+        wf = data.get("workflow") or {}
+        out.append(
+            {
+                "workflow_id": str(data.get("workflow_id") or f.stem),
+                "company": str(data.get("company") or "?"),
+                "objective": wf.get("objective"),
+                "saved_at": datetime.fromtimestamp(f.stat().st_mtime, tz=UTC),
+                "research_status": data.get("research_status") or wf.get("status"),
+            }
+        )
+    return out
 
 
 # ------------------------------------------------------------ section status
