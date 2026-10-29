@@ -202,6 +202,8 @@ def start_research(
         comp = res.get("company") or {}
         company = str(comp.get("display_name") or res["matched_phrase"])
         body["q"] = res["matched_phrase"]
+        if res.get("auto_picked"):
+            body.update(ticker=res["pick_ticker"], exchange=res["pick_exchange"])
         ss.resolved = resolution_note(question, company, res.get("resolved_symbol", ""))
     ss.company = company
     created = API.post("/research/workflows", body)
@@ -361,7 +363,8 @@ def resolve_for_control(text: str) -> tuple[str, str]:
         return q, ""
     comp = res.get("company") or {}
     name = str(comp.get("display_name") or res["matched_phrase"])
-    return str(res["matched_phrase"]), resolution_note(q, name, res.get("resolved_symbol", ""))
+    q_out = res.get("pick_ticker") or res["matched_phrase"]
+    return str(q_out), resolution_note(q, name, res.get("resolved_symbol", ""))
 
 
 def flash() -> None:

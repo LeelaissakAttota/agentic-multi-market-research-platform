@@ -4,7 +4,14 @@ from __future__ import annotations
 
 from typing import Any
 
-from amrp.dashboard.client import ApiError, resolve_any, resolved_symbol, strip_suffix, yahoo_symbol
+from amrp.dashboard.client import (
+    ApiError,
+    prefer_indian_primary,
+    resolve_any,
+    resolved_symbol,
+    strip_suffix,
+    yahoo_symbol,
+)
 
 RELIANCE = {
     "display_name": "Reliance Industries",
@@ -83,3 +90,58 @@ def test_yahoo_search_fallback_for_unknown_text() -> None:
 
 def test_unresolvable_returns_none() -> None:
     assert resolve_any(FakeApi(), "boom", ("boom",), lookup=no_lookup) is None
+
+
+def _cand(name: str, *listings: tuple[str, str, bool]) -> dict[str, Any]:
+    return {
+        "company": {"display_name": name},
+        "matched_listings": [
+            {"exchange": e, "ticker": t, "is_primary": pr} for e, t, pr in listings
+        ],
+    }
+
+
+def test_same_company_ambiguity_prefers_nse_listing() -> None:
+    res = prefer_indian_primary(
+        {
+            "status": "AMBIGUOUS",
+            "candidates": [
+                _cand("Wipro Ltd", ("NYSE", "WIT", True)),
+                _cand("Wipro Ltd.", ("NSE", "WIPRO", True), ("BSE", "WIPRO", False)),
+            ],
+        }
+    )
+    assert res["status"] == "RESOLVED" and res["resolved_symbol"] == "WIPRO.NS"
+    assert res["pick_ticker"] == "WIPRO" and res["pick_exchange"] == "NSE"
+
+
+def test_different_companies_stay_ambiguous() -> None:
+    amb = {
+        "status": "AMBIGUOUS",
+        "candidates": [
+            _cand("Tata Motors", ("NSE", "TATAMOTORS", True)),
+            _cand("Tata Steel", ("NSE", "TATASTEEL", True)),
+        ],
+    }
+    assert prefer_indian_primary(amb)["status"] == "AMBIGUOUS"
+
+
+def test_adani_ports_found_via_yahoo_search() -> None:
+    adani = {
+        "display_name": "Adani Ports and Special Economic Zone Ltd",
+        "securities": [
+            {"listings": [{"exchange": "NSE", "ticker": "ADANIPORTS", "is_primary": True}]}
+        ],
+    }
+
+    class Api(FakeApi):
+        def get(self, path: str, **params: Any) -> dict[str, Any]:
+            if params["q"] == "ADANIPORTS":
+                return {"status": "RESOLVED", "company": adani}
+            return {"status": "NOT_FOUND"}
+
+    def lookup(text: str) -> list[tuple[str, str]]:
+        return [("ADANIPORTS.NS", "Adani Ports and Special Economic Zone Limited")]
+
+    res = resolve_any(Api(), "Adani Ports", ("Adani Ports", "Adani", "Ports"), lookup=lookup)
+    assert res is not None and res["resolved_symbol"] == "ADANIPORTS.NS"

@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import re
 import urllib.error
 import urllib.parse
 import urllib.request
@@ -216,6 +217,46 @@ def resolve_any(
                 if t and t not in tries and t not in extra:
                     extra.append(t)
         res = resolve_company(api, tuple(extra)) if extra else None
-    if res is not None and res.get("status") == "RESOLVED":
+    if res is not None and res.get("status") == "AMBIGUOUS":
+        res = prefer_indian_primary(res)
+    if res is not None and res.get("status") == "RESOLVED" and not res.get("resolved_symbol"):
         res["resolved_symbol"] = resolved_symbol(res)
     return res
+
+
+def _base_name(name: str) -> str:
+    n = re.sub(r"[^a-z0-9 ]", " ", name.lower())
+    words = [w for w in n.split() if w not in {"ltd", "limited", "inc", "corp", "plc", "the"}]
+    return " ".join(words)
+
+
+def prefer_indian_primary(res: dict[str, Any]) -> dict[str, Any]:
+    """AMBIGUOUS between listings of ONE company (e.g. Wipro NSE vs its NYSE ADR) -> NSE pick.
+
+    Only when every candidate has the same base name and exactly one has an NSE
+    listing; otherwise the ambiguity (and the choice buttons) is kept.
+    """
+
+    cands = res.get("candidates") or []
+    names = {_base_name(str((c.get("company") or {}).get("display_name") or "")) for c in cands}
+    if len(cands) < 2 or len(names) != 1 or "" in names:
+        return res
+    nse = [
+        (c, x)
+        for c in cands
+        for x in c.get("matched_listings") or []
+        if str(x.get("exchange") or "").upper() == "NSE"
+    ]
+    if len({id(c) for c, _ in nse}) != 1:
+        return res
+    cand, listing = nse[0]
+    out = dict(res)
+    out.update(
+        status="RESOLVED",
+        company=cand.get("company") or {},
+        auto_picked=True,
+        resolved_symbol=yahoo_symbol(str(listing.get("ticker") or ""), "NSE"),
+        pick_exchange="NSE",
+        pick_ticker=str(listing.get("ticker") or ""),
+    )
+    return out
