@@ -15,7 +15,6 @@ import httpx
 
 from amrp.dashboard import market_live as ml
 
-FX_SYMBOL = "USDINR=X"  # used by the forex/crypto pages
 GOOGLE_RSS = "https://news.google.com/rss/search"
 
 

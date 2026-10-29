@@ -18,18 +18,13 @@ CSS = ROOT / "dashboard" / "assets" / "amrp.css"
 @pytest.mark.parametrize(
     ("pair", "title", "ok"),
     [
-        ("USD/INR", "Rupee weakens against the dollar as oil rises", True),
-        ("USD/INR", "Sri Lanka rupee closes firmer against the dollar", False),
-        ("USD/INR", "Pakistan rupee hits record low vs dollar", False),
-        ("USD/INR", "Rupee steady; RBI seen intervening", True),
-        ("USD/INR", "Sensex closes higher on IT gains", False),
-        ("USD/INR", "Wipro stock: Jefferies raises target from INR 150.00", False),
-        ("USD/INR", "ETH to INR: Ethereum Price in Indian Rupee", False),
         ("EUR/USD", "EUR/USD climbs after ECB minutes", True),
         ("EUR/USD", "Euro firms as dollar slips on Fed bets", True),
         ("EUR/USD", "Canadian dollar gains as oil jumps", False),
         ("USD/JPY", "Yen slides past 150 per dollar", True),
-        ("GBP/INR", "Pound to rupee rate today", True),
+        ("USD/JPY", "BOJ seen intervening to steady the yen", True),
+        ("USD/JPY", "Nikkei closes higher on chip gains", False),
+        ("EUR/USD", "New Zealand dollar firms as euro steadies", False),
     ],
 )
 def test_forex_relevance(pair: str, title: str, ok: bool) -> None:

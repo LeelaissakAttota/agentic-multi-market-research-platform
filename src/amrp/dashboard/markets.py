@@ -59,12 +59,9 @@ class Instrument:
 
 
 FOREX: dict[str, Instrument] = {
-    "USD/INR": Instrument("USD/INR", "USDINR=X", "rupee", ("rupee dollar", "USD INR"), 3),
     "EUR/USD": Instrument("EUR/USD", "EURUSD=X", "euro", ("EUR/USD", "euro dollar")),
     "GBP/USD": Instrument("GBP/USD", "GBPUSD=X", "sterling", ("GBP/USD", "sterling pound")),
     "USD/JPY": Instrument("USD/JPY", "JPY=X", "yen", ("USD/JPY", "yen dollar"), 3),
-    "EUR/INR": Instrument("EUR/INR", "EURINR=X", "rupee", ("euro rupee", "EUR INR"), 3),
-    "GBP/INR": Instrument("GBP/INR", "GBPINR=X", "rupee", ("pound rupee", "GBP INR"), 3),
     "AUD/USD": Instrument("AUD/USD", "AUDUSD=X", "aussie", ("AUD/USD", "Australian dollar")),
     "USD/CHF": Instrument("USD/CHF", "CHF=X", "franc", ("USD/CHF", "Swiss franc")),
 }
@@ -161,22 +158,16 @@ def scale(bars: list[IBar], k: float) -> list[IBar]:
     return [IBar(b.ts, b.open * k, b.high * k, b.low * k, b.close * k) for b in bars]
 
 
-def usd_inr(client: httpx.Client | None = None) -> float | None:
-    d = ml.fetch_daily(cm.FX_SYMBOL, client=client)
-    return d.bars[-1].close if d and d.bars else None
-
-
 #: Headline terms per currency code, for the forex news relevance filter.
 CURRENCY_TERMS: dict[str, tuple[str, ...]] = {
     "USD": ("dollar", "usd", "greenback", "fed"),
-    "INR": ("rupee", "rbi"),  # bare "INR" also tags stock/crypto prices
     "EUR": ("euro", "eur", "ecb"),
     "GBP": ("sterling", "pound", "gbp", "boe"),
     "JPY": ("yen", "jpy", "boj"),
     "AUD": ("aussie", "australian dollar", "aud", "rba"),
     "CHF": ("swiss franc", "franc", "chf", "snb"),
 }
-#: Other countries' currencies that share a name (e.g. Sri Lankan rupee).
+#: Other countries' currencies that share a name (e.g. Canadian dollar).
 FOREIGN_NAMESAKES = (
     "sri lanka",
     "lankan",
@@ -200,12 +191,12 @@ def _has(title: str, term: str) -> bool:
 
 
 def forex_relevant(pair: str, title: str) -> bool:
-    """True when a headline is about ``pair`` (e.g. 'USD/INR').
+    """True when a headline is about ``pair`` (e.g. 'EUR/USD').
 
     Both legs must be mentioned (a currency name, ISO code, or central bank;
     for a USD pair the non-USD leg is enough), or the pair itself; headlines
     about a namesake currency of another
-    country (Sri Lankan rupee, Canadian dollar, ...) are dropped.
+    country (Canadian dollar, ...) are dropped.
     """
 
     t = title.lower()

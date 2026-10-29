@@ -28,7 +28,7 @@ AMRP turns a company and a question into a traceable, bounded research run. It r
 | Commodity market | Workflow Approvals |
 |---|---|
 | ![Commodity market](docs/images/commodity.png) | ![Workflow approvals](docs/images/approvals.png) |
-| Live prices, INR conversion, session charts and news. | Human-in-the-loop queue, workflow steps and recent activity. |
+| Live USD prices, session charts and news. | Human-in-the-loop queue, workflow steps and recent activity. |
 
 ## Why this project exists
 
@@ -46,7 +46,7 @@ It is an AI engineering portfolio project demonstrating bounded agent orchestrat
 | **Workflow Approvals** | Pending / approved / rejected counts, the approval queue, workflow steps and recent activity. |
 | **All Research Reports** | Search, filter and export (CSV) every report; reopen any report, including after a restart. |
 | **Finnhub analyst ratings** | With an optional free Finnhub key: US company news, analyst consensus and the next earnings date, labelled as third-party opinion. |
-| **Commodity, Forex, Crypto markets** | Live prices (Yahoo Finance, no key), INR conversion, related news, session charts marking whether the high/low formed in the Asia, London or New York session (IST), and **Analyze with AI** for a cited summary. |
+| **Commodity, Forex, Crypto markets** | Live USD prices (Yahoo Finance, no key), related news, session charts marking whether the high/low formed in the Asia, London or New York session (IST), and **Analyze with AI** for a cited summary. |
 | **Provider Health** | `/health/providers` and a dashboard page showing each live source as unused / ok / degraded / failing. |
 | **Settings** | Guided provider setup (OpenRouter, OpenAI, Anthropic, Gemini, Groq, custom OpenAI-compatible) with key auto-detection, Test connection and write-only Save. |
 
@@ -56,7 +56,7 @@ Not every capability is an agent. Calculations, ticker/date/number validation, p
 
 - **India equities:** NSE and BSE companies, with NSE/BSE/SEBI and company Investor Relations as authoritative-source priorities.
 - **United States equities:** NASDAQ and NYSE companies, with SEC EDGAR and company Investor Relations as authoritative-source priorities.
-- **Commodities, forex and crypto:** live prices from Yahoo Finance with INR conversion and related news.
+- **Commodities, forex and crypto:** live USD prices from Yahoo Finance and related news.
 
 Company identity is provider-neutral and accounts for exchange, country, currency, share class, aliases and listing history; ticker alone is not treated as globally unique.
 
