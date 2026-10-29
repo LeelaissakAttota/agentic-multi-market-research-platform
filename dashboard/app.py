@@ -10,7 +10,7 @@ from __future__ import annotations
 
 import json
 import time
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta, timezone
 from typing import Any
 
 import altair as alt
@@ -42,6 +42,7 @@ from amrp.application.deliberation import append_to_report
 from amrp.dashboard import commodity as cm
 from amrp.dashboard import market_live as ml
 from amrp.dashboard import markets as mk
+from amrp.dashboard import trend as tr
 from amrp.dashboard.client import (
     ApiError,
     JsonClient,
@@ -2065,7 +2066,7 @@ class _NoData(Exception):
     """Raised inside cached fetchers so failed/empty results are never cached."""
 
 
-@st.cache_data(ttl=900, show_spinner=False)
+@st.cache_data(ttl=60, show_spinner=False)
 def _commodity_series_cached(name: str) -> ml.Daily:
     d = cm.price_series(cm.COMMODITIES[name])
     if d is None or not d.bars:
@@ -2134,6 +2135,7 @@ def commodity_page() -> None:
                 else f"<b>{esc(name)}</b> {cur}{last:,.2f} {esc(unit)}",
                 unsafe_allow_html=True,
             )
+            trend_badge(com.symbol)
             st.altair_chart(area_chart(d, height=260, month=True), width="stretch")
             st.caption("Daily closes, last 1 month · source: Yahoo Finance (cached 15 min)")
     with right.container(border=True, key="cm_news"):
@@ -2164,9 +2166,21 @@ def commodity_page() -> None:
 SESSION_COLORS = {"Asia/Tokyo": "#A78BFA", "London": "#38BDF8", "New York": "#F59E0B"}
 
 
-@st.cache_data(ttl=600, show_spinner=False)
+@st.cache_data(ttl=60, show_spinner=False)
 def intraday(symbol: str, range_: str, interval: str) -> list[mk.IBar]:
     return mk.fetch_intraday(symbol, range_, interval)
+
+
+@st.cache_data(ttl=55, show_spinner=False)
+def _live_5d(symbol: str) -> list[mk.IBar]:
+    return mk.fetch_intraday(symbol, "5d", "15m")
+
+
+@st.fragment(run_every=60)
+def trend_badge(symbol: str) -> None:
+    """Live daily trend badge; refetches (<=60 s cache) and recomputes every 60 s."""
+    sig = tr.from_bars(_live_5d(symbol))
+    st.markdown(tr.badge_html(sig, datetime.now(UTC)), unsafe_allow_html=True)
 
 
 @st.cache_data(ttl=900, show_spinner=False)
@@ -2445,6 +2459,7 @@ def forex_page() -> None:
             pair.split("/")[1] + " per " + pair.split("/")[0],
             inst.decimals,
         )
+        trend_badge(inst.symbol)
     with right.container(border=True, key="fx_news", height=NEWS_HEIGHT):
         news = instrument_news("fx", pair)
         news_panel(news, f"Latest {pair} news")
@@ -2472,6 +2487,7 @@ def crypto_page() -> None:
     left_box = left.container()
     with left_box.container(border=True, key="cr_price"):
         instrument_header(f"{inst.name} ({coin})", inst.symbol, day, sym, cur, inst.decimals)
+        trend_badge(inst.symbol)
     with right.container(border=True, key="cr_news", height=NEWS_HEIGHT):
         news = instrument_news("crypto", coin)
         news_panel(news, f"Latest {inst.name} news")
