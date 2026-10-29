@@ -112,6 +112,7 @@ from amrp.dashboard.views import (
     research_args,
     research_status,
     revenue_profit_series,
+    run_summary,
     save_report,
     split_approvals,
     step_mode_company,
@@ -1807,32 +1808,38 @@ def _step_label(state: str) -> str:
 
 
 def _control_ready() -> bool:
+    """Control API reachable AND our token accepted (health alone needs no token)."""
+
     if not CONTROL.token:
         st.error("Control API token missing - start with scripts/start-dashboard.ps1.")
         return False
     try:
         CONTROL.get("/control/health")
+        CONTROL.get("/control/settings")  # authorised call: catches a stale 8712 process
     except ApiError as exc:
-        st.error(f"Control API not reachable ({exc.message}).")
+        if exc.status == 401:
+            st.error(
+                "The control service on port 8712 rejected this dashboard's token (an older "
+                "AMRP process is probably still running). Stop it and restart with "
+                "scripts/start-dashboard.ps1."
+            )
+        else:
+            st.error(f"Control API not reachable ({exc.message}).")
         return False
     return True
+
+
+MODE_HUMAN, MODE_AUTO = "Human approval", "Auto mode"
+_TERMINAL_RUN = ("succeeded", "completed", "failed", "partial", "stopped")
 
 
 def comprehensive_page() -> None:
     st.markdown("#### Comprehensive Research")
     st.caption(
-        "Five research agents analyse one company. Every agent step waits for your "
-        "approval; you see live progress and logs, and can retry a failed step."
+        "Five research agents analyse one company. Human approval: each agent step waits "
+        "for Approve or Skip. Auto mode: every step runs without prompts to the final report."
     )
-    run: dict[str, Any] | None = None
-    if _control_ready() and ss.get("comp_run"):
-        run = safe(CONTROL.get, f"/control/runs/{ss.comp_run}", default=None)
-    steps: list[dict[str, Any]] = (run or {}).get("steps", [])
-    states = agent_states(steps)
-    st.markdown(
-        agent_grid([(n, _step_label(states[k]), w) for k, n, w in RESEARCH_AGENTS]),
-        unsafe_allow_html=True,
-    )
+    ready = _control_ready()
     if not CONTROL.token:
         return
     st.markdown('<div class="comp-gap"></div>', unsafe_allow_html=True)
@@ -1845,99 +1852,177 @@ def comprehensive_page() -> None:
             placeholder="Company name or ticker, e.g. RELIANCE.NS or AAPL",
             label_visibility="collapsed",
         )
+        mode = c1.radio(
+            "Run mode",
+            (MODE_HUMAN, MODE_AUTO),
+            index=0,
+            horizontal=True,
+            key="comp_mode",
+            help="Human approval (default): approve or skip each agent step. "
+            "Auto mode: all steps run automatically through to the finished report.",
+        )
         start = c2.form_submit_button(
             "Start Comprehensive Research", type="primary", width="stretch"
         )
-    try:
-        if start and not q.strip():
-            st.warning("Enter a company name or ticker first.")
-        elif start:
-            CONTROL.put(
-                "/control/settings", {"approval_mode": True, "auto_approve_low_risk": False}
-            )
+    if start and not q.strip():
+        st.warning("Enter a company name or ticker first.")
+    elif start and ready:
+        try:
             created = CONTROL.post(
                 "/control/runs",
-                {"params": {"q": q.strip(), "objective": "comprehensive_equity_research"}},
+                {
+                    "params": {
+                        "q": q.strip(),
+                        "objective": "comprehensive_equity_research",
+                        "approval_mode": mode == MODE_HUMAN,
+                    }
+                },
             )
-            ss.comp_run, ss.comp_company = created["run_id"], q.strip()
-            st.rerun()
-        if run is None:
-            st.info("Start a run to see the approval gate, per-step progress and live logs.")
-            return
-        status = str(run.get("status"))
-        done = sum(1 for s in steps if s.get("state") in ("succeeded", "failed", "rejected"))
-        total = max(len(steps), len(RESEARCH_AGENTS))
+            ss.comp_run, ss.comp_company, ss.comp_mode_used = (
+                created["run_id"],
+                q.strip(),
+                mode,
+            )
+            ss.pop("comp_report_done", None)
+        except ApiError as exc:
+            st.error(exc.message)
+    if not ready:
+        return
+    if not ss.get("comp_run"):
         st.markdown(
-            f"**{esc(ss.get('comp_company', ''))}** · run `{ss.comp_run[:8]}` · "
-            f"status **{status}** · {done}/{total} steps finished"
+            agent_grid([(n, _step_label("waiting"), w) for _, n, w in RESEARCH_AGENTS]),
+            unsafe_allow_html=True,
         )
-        st.progress(min(1.0, done / total) if total else 0.0)
-        waiting = pending_steps(steps)
-        if waiting:
-            with st.container(key="comp_pending"):
-                st.markdown(
-                    f'<div class="banner-amber">⏸ <b>Approval needed</b> - {len(waiting)} '
-                    "step(s) are waiting for you. Nothing runs until you approve.</div>",
-                    unsafe_allow_html=True,
-                )
-        for step in steps:
-            sid, state = step["step_id"], str(step["state"])
-            with st.container(border=True):
-                head, b1, b2, b3 = st.columns([6, 1, 1, 1])
-                head.markdown(
-                    f"{_step_label(state)} **{esc(str(step.get('kind') or ''))}** - "
-                    f"{esc(str(step.get('name') or ''))[:140]}",
-                    unsafe_allow_html=True,
-                )
-                out = step.get("output") or {}
-                if out.get("summary"):
-                    head.caption(str(out["summary"])[:400])
-                if step.get("error"):
-                    head.caption(f"error: {step['error']}")
-                if state == "pending_approval":
-                    if b1.button("Approve", key=f"ca{sid}", type="primary"):
-                        CONTROL.post(f"/control/runs/{ss.comp_run}/steps/{sid}/approve", {})
-                        st.rerun()
-                    if b2.button("Reject", key=f"cr{sid}"):
-                        CONTROL.post(f"/control/runs/{ss.comp_run}/steps/{sid}/reject", {})
-                        st.rerun()
-                if state in ("failed", "rejected") and b3.button("Retry", key=f"ct{sid}"):
-                    CONTROL.post(f"/control/runs/{ss.comp_run}/steps/{sid}/retry", {})
-                    st.rerun()
-        logs = CONTROL.get(f"/control/runs/{ss.comp_run}/logs").get("logs", [])
-        st.markdown("**Live log**")
+        st.info("Start a run to see per-agent progress, approvals and live logs.")
+        return
+    _comp_run_panel()
+
+
+@st.fragment(run_every=2)
+def _comp_run_panel() -> None:
+    """Live run panel; refreshes itself every 2 s so Approve/Skip appear as soon as a step
+    is waiting (no full-page sleep/rerun loop)."""
+
+    run_id = str(ss.get("comp_run") or "")
+    try:
+        run = CONTROL.get(f"/control/runs/{run_id}")
+    except ApiError as exc:
+        st.error(
+            f"Could not load run {run_id[:8]} from the control service ({exc.message}). "
+            "If the control service was restarted the run is gone - start a new one."
+        )
+        if st.button("Clear run", key="comp_clear"):
+            ss.pop("comp_run", None)
+            st.rerun()
+        return
+    steps: list[dict[str, Any]] = run.get("steps", [])
+    states = agent_states(steps)
+    st.markdown(
+        agent_grid([(n, _step_label(states[k]), w) for k, n, w in RESEARCH_AGENTS]),
+        unsafe_allow_html=True,
+    )
+    status = str(run.get("status"))
+    auto = not run.get("approval_mode", True)
+    done = sum(1 for s in steps if s.get("state") in ("succeeded", "failed", "rejected", "skipped"))
+    total = max(len(steps), len(RESEARCH_AGENTS))
+    st.markdown(
+        f"**{esc(ss.get('comp_company', ''))}** · run `{run_id[:8]}` · "
+        f"{MODE_AUTO if auto else MODE_HUMAN} · status **{status}** · "
+        f"{done}/{total} steps finished"
+    )
+    st.progress(min(1.0, done / total) if total else 0.0)
+    waiting = pending_steps(steps)
+    if waiting:
+        st.markdown(
+            f'<div class="banner-amber">⏸ <b>Approval needed</b> - {len(waiting)} '
+            "step(s) are waiting. Approve runs the step; Skip moves on and marks the "
+            "section skipped.</div>",
+            unsafe_allow_html=True,
+        )
+    terminal = status in _TERMINAL_RUN
+    for step in steps:
+        sid, state = step["step_id"], str(step["state"])
+        with st.container(border=True):
+            head, b1, b2 = st.columns([6, 1, 1])
+            head.markdown(
+                f"{_step_label(state)} **{esc(str(step.get('kind') or ''))}** - "
+                f"{esc(str(step.get('name') or ''))[:140]}",
+                unsafe_allow_html=True,
+            )
+            out = step.get("output") or {}
+            if out.get("summary"):
+                head.caption(str(out["summary"])[:400])
+            if step.get("error"):
+                head.caption(f"error: {step['error']}")
+            if state == "pending_approval":
+                if b1.button("Approve", key=f"ca{sid}", type="primary"):
+                    CONTROL.post(f"/control/runs/{run_id}/steps/{sid}/approve", {})
+                    st.rerun(scope="fragment")
+                if b2.button("Skip", key=f"cs{sid}"):
+                    CONTROL.post(f"/control/runs/{run_id}/steps/{sid}/skip", {})
+                    st.rerun(scope="fragment")
+    logs = safe(CONTROL.get, f"/control/runs/{run_id}/logs", default={}) or {}
+    with st.expander("Live log", expanded=not terminal):
         st.code(
-            "\n".join(f"{x.get('level', 'info'):5} {x.get('message')}" for x in logs[-40:])
+            "\n".join(
+                f"{x.get('level', 'info'):5} {x.get('message')}"
+                for x in (logs.get("logs") or [])[-40:]
+            )
             or "(no logs yet)"
         )
-        if status in ("succeeded", "completed", "failed", "partial", "stopped"):
-            res = run.get("result") or {}
-            st.success(
-                f"Run finished: {res.get('status', status)} · "
-                f"{res.get('completed_count', '?')} agents completed, "
-                f"{len(res.get('evidence_refs') or [])} evidence references."
+    if terminal:
+        _comp_final(run, steps, run_id)
+
+
+def _comp_final(run: dict[str, Any], steps: list[dict[str, Any]], run_id: str) -> None:
+    res = run.get("result") or {}
+    if run.get("error"):
+        st.error(f"Run failed: {run['error']}")
+    summary = run_summary(steps, res if isinstance(res, dict) else {})
+    lines = [
+        f"- **{esc(f['agent'])}** failed: {esc(f['reason'] or 'no reason reported')}"
+        for f in summary["failed"]
+    ] + [f"- **{esc(s['agent'])}** skipped: {esc(s['reason'])}" for s in summary["skipped"]]
+    if summary["status"] == "Completed":
+        st.success(
+            f"✅ **Completed** - all {len(RESEARCH_AGENTS)} agents produced results "
+            f"({len(res.get('evidence_refs') or [])} evidence references)."
+        )
+    else:
+        st.warning("⚠️ **Partial** - some agents did not produce results:\n" + "\n".join(lines))
+    for f in summary["failed"]:
+        if st.button(f"Retry {f['agent']}", key=f"ct{f['step_id']}"):
+            try:
+                CONTROL.post(f"/control/runs/{run_id}/steps/{f['step_id']}/retry", {})
+            except ApiError as exc:
+                st.error(exc.message)
+            st.rerun(scope="fragment")
+    if st.button("📄 Open the finished report", type="primary", key="comp_report"):
+        skipped = {s["kind"] for s in summary["skipped"]}
+        kind_section = {
+            "market_intelligence": "market",
+            "financial_intelligence": "financial",
+            "news_event_intelligence": "news",
+            "industry_intelligence": "industry",
+            "regulatory_intelligence": "regulatory",
+        }
+        sections = tuple(s for k, s in kind_section.items() if k not in skipped) or ALL_SECTIONS
+        try:
+            start_research(
+                str(ss.get("comp_company", "")),
+                objective="comprehensive_equity_research",
+                auto_approve=True,
+                sections=sections,
             )
-            if st.button("📄 Open the finished report", type="primary", key="comp_report"):
-                try:
-                    start_research(
-                        str(ss.get("comp_company", "")),
-                        objective="comprehensive_equity_research",
-                        auto_approve=True,
-                    )
-                except ApiError as exc:
-                    ss.error = exc.message
-                if ss.get("result"):
-                    ss.nav = "Research Report"
-                    st.rerun()
-            st.caption(
-                "The formatted report (tabs, charts, evidence tags) is built by the REST API "
-                "from a comprehensive workflow for the same company."
-            )
-        elif status in ("running", "queued") and not waiting:
-            time.sleep(1.5)
+        except ApiError as exc:
+            ss.error = exc.message
+        if ss.get("result"):
+            ss.nav = "Research Report"
             st.rerun()
-    except ApiError as exc:
-        st.error(exc.message)
+    st.caption(
+        "The formatted report (tabs, charts, evidence tags) is built by the REST API "
+        "from a comprehensive workflow for the same company; skipped agents are left out."
+    )
 
 
 # ---------------------------------------------------------------- commodity market

@@ -639,3 +639,35 @@ def research_status(
     ]
     missing = [SECTION_LABELS[s] for s in wanted if not _section_rows(findings, s)]
     return ("Partial" if missing else "Completed"), missing
+
+
+# ------------------------------------------------------- comprehensive run summary
+def run_summary(steps: list[dict[str, Any]], result: dict[str, Any] | None) -> dict[str, Any]:
+    """Final banner data: Completed/Partial plus failed (retryable) and skipped agents.
+
+    A failed step counts as resolved once a later re-run of the same task succeeded.
+    """
+
+    names = {k: n for k, n, _ in RESEARCH_AGENTS}
+    latest: dict[str, dict[str, Any]] = {}
+    for step in steps:
+        task = str((step.get("inputs") or {}).get("task_id") or step.get("kind") or "")
+        latest[task] = step
+    failed, skipped = [], []
+    for step in latest.values():
+        state = str(step.get("state") or "")
+        kind = str(step.get("kind") or "")
+        entry = {
+            "step_id": step.get("step_id"),
+            "kind": kind,
+            "agent": names.get(kind, kind.replace("_", " ").title()),
+            "reason": str(step.get("error") or step.get("note") or "")[:300],
+        }
+        if state == "failed":
+            failed.append(entry)
+        elif state in ("skipped", "rejected"):
+            entry["reason"] = entry["reason"] or "skipped by operator"
+            skipped.append(entry)
+    res_status = str((result or {}).get("status") or "")
+    ok = not failed and not skipped and res_status != "failed"
+    return {"status": "Completed" if ok else "Partial", "failed": failed, "skipped": skipped}

@@ -382,12 +382,15 @@ class ExecuteResearchPlan:
                     )
                 continue
             if gate_outcome is not None and not gate_outcome.approved:
+                was_skipped = bool(getattr(gate_outcome, "skipped", False))
                 result = TaskExecutionResult(
                     task_id=running.task_id,
                     status=TaskResultStatus.FAILED,
-                    message="step rejected by operator",
+                    message="step skipped by operator"
+                    if was_skipped
+                    else "step rejected by operator",
                     retryable=False,
-                    error_code="operator_rejected",
+                    error_code="operator_skipped" if was_skipped else "operator_rejected",
                 )
                 state = self._replace_task(
                     state, running.with_status(TaskStatus.FAILED, at=now), now=now

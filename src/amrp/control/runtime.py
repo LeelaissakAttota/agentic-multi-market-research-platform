@@ -55,6 +55,7 @@ class DecisionKind(StrEnum):
     MANUAL = "manual"  # explicit human approval
     REJECTED = "rejected"
     NOT_REQUIRED = "not_required"  # approval mode off
+    SKIPPED = "skipped"  # operator skipped the step; the run continues
     STOPPED = "stopped"
 
 
@@ -64,6 +65,7 @@ class GateResult:
     inputs: dict[str, Any]
     stopped: bool = False
     note: str | None = None
+    skipped: bool = False
 
 
 @dataclass
@@ -305,7 +307,7 @@ class ControlRun:
         step.decided_by = who
         step.decided_at = _now()
         step.note = note
-        if kind in (DecisionKind.REJECTED, DecisionKind.STOPPED):
+        if kind in (DecisionKind.REJECTED, DecisionKind.STOPPED, DecisionKind.SKIPPED):
             step.state = StepState.REJECTED if kind is DecisionKind.REJECTED else StepState.SKIPPED
         else:
             step.state = StepState.APPROVED
@@ -363,6 +365,17 @@ class ControlRun:
             self._decisions[step_id] = GateResult(False, dict(step.inputs), note=note)
             self._cond.notify_all()
         self.log(f"step {step.index} rejected by {by}", level="warning")
+        return step
+
+    def skip(self, step_id: str, *, by: str, note: str | None = None) -> Step:
+        """Skip a pending step: it is not executed and the run moves to the next step."""
+
+        with self._cond:
+            step = self._pending(step_id)
+            self._decide(step, DecisionKind.SKIPPED, by, note or "skipped by operator")
+            self._decisions[step_id] = GateResult(False, dict(step.inputs), note=note, skipped=True)
+            self._cond.notify_all()
+        self.log(f"step {step.index} '{step.name}' skipped by {by}", level="warning")
         return step
 
     def step_started(self, step: Step) -> None:
@@ -444,9 +457,14 @@ class RunManager:
         self._lock = threading.Lock()
 
     def create(self, params: dict[str, Any]) -> ControlRun:
-        run = ControlRun(
-            uuid.uuid4().hex[:16], params, settings=self.settings.load(), audit=self.audit
-        )
+        settings = self.settings.load()
+        mode = params.get("approval_mode")
+        if isinstance(mode, bool):
+            # Per-run choice from the dashboard ("Human approval" vs "Auto mode").
+            settings = {**settings, "approval_mode": mode}
+            if not mode:
+                settings["auto_approve_low_risk"] = False
+        run = ControlRun(uuid.uuid4().hex[:16], params, settings=settings, audit=self.audit)
         with self._lock:
             self._runs[run.run_id] = run
             while len(self._runs) > self._max_runs:

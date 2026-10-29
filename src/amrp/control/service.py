@@ -74,7 +74,9 @@ class ControlStepGate:
         if decision.stopped:
             return StepGateOutcome(ApprovalStatus.REJECTED, task, stopped=True, handle=step)
         if not decision.approved:
-            return StepGateOutcome(ApprovalStatus.REJECTED, task, handle=step)
+            return StepGateOutcome(
+                ApprovalStatus.REJECTED, task, handle=step, skipped=decision.skipped
+            )
         description = decision.inputs.get("description")
         if isinstance(description, str) and description.strip() and description != task.description:
             task = replace(task, description=description)

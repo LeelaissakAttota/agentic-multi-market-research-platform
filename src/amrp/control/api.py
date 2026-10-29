@@ -156,6 +156,8 @@ def build_control_app(
         try:
             if action == "approve":
                 step = run.approve(step_id, by=who, note=body.note, inputs=body.inputs)
+            elif action == "skip":
+                step = run.skip(step_id, by=who, note=body.note)
             else:
                 step = run.reject(step_id, by=who, note=body.note)
         except KeyError:
@@ -175,6 +177,12 @@ def build_control_app(
         run_id: str, step_id: str, body: DecisionBody, x_operator: str | None = Header(default=None)
     ) -> dict[str, Any]:
         return _decide(run_id, step_id, "reject", body, _operator(x_operator))
+
+    @app.post("/control/runs/{run_id}/steps/{step_id}/skip", dependencies=auth)
+    def skip(
+        run_id: str, step_id: str, body: DecisionBody, x_operator: str | None = Header(default=None)
+    ) -> dict[str, Any]:
+        return _decide(run_id, step_id, "skip", body, _operator(x_operator))
 
     @app.post("/control/runs/{run_id}/steps/{step_id}/retry", dependencies=auth)
     def retry(
