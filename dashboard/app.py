@@ -1830,34 +1830,64 @@ def _control_ready() -> bool:
 
 
 MODE_HUMAN, MODE_AUTO = "Manual mode", "Auto mode"
+# Run-mode switch above Start: larger, white track, red = Manual, green = Auto, silver knob.
+COMP_TOGGLE_CSS = """<style>
+.comp-mode-lbl{text-align:center;font-weight:700;font-size:1.02rem;margin:0 0 .15rem}
+.comp-mode-lbl.manual{color:#ff6b6f}.comp-mode-lbl.auto{color:#3ddc84}
+.st-key-comp_auto{
+  display:flex !important;
+  justify-content:center;
+  width:100% !important;
+  margin:.35rem 0 .5rem}
+.st-key-comp_auto > div{display:flex;justify-content:center;width:100%}
+.st-key-comp_auto [data-testid="stCheckbox"]{
+  display:flex !important;
+  justify-content:center !important;
+  width:100% !important}
+.st-key-comp_auto label{
+  transform:scale(1.6);
+  transform-origin:center top;
+  margin:0 auto !important;
+  width:fit-content !important}
+.st-key-comp_auto [data-testid="stWidgetLabel"]{display:none}
+.st-key-comp_auto label > div:first-of-type{background:#ffffff !important;margin:0 !important;
+  border:2px solid #e5484d !important;box-shadow:0 0 0 2px rgba(229,72,77,.25)}
+.st-key-comp_auto label > div:first-of-type > div{
+  background:linear-gradient(145deg,#f4f5f7 0%,#c3c7cc 45%,#8e949b 100%) !important;
+  border:1px solid #7d838a !important;box-shadow:0 1px 3px rgba(0,0,0,.45)}
+.st-key-comp_auto label:has(input:checked) > div:first-of-type{
+  border-color:#2fbf71 !important;box-shadow:0 0 0 2px rgba(47,191,113,.3)}
+</style>"""
 _TERMINAL_RUN = ("succeeded", "completed", "failed", "partial", "stopped")
 
 
 def comprehensive_page() -> None:
-    head, sw = st.columns([5, 2], vertical_alignment="center")
-    head.markdown("#### Comprehensive Research")
-    with sw:
-        auto_on = st.toggle(
-            MODE_AUTO if ss.get("comp_auto") else MODE_HUMAN,
-            value=False,
-            key="comp_auto",
-            help="Off (left) = Manual mode (default): approve or skip each agent step. "
-            "On (right) = Auto mode: all steps run automatically through to the finished report.",
-        )
-    st.markdown(
-        "<style>.st-key-comp_auto{display:flex;justify-content:flex-end}</style>",
-        unsafe_allow_html=True,
-    )
-    mode = MODE_AUTO if auto_on else MODE_HUMAN
+    st.markdown("#### Comprehensive Research")
     st.caption(
         "Five research agents analyse one company. Manual mode: each agent step waits "
         "for Approve or Skip. Auto mode: every step runs without prompts to the final report."
     )
     ready = _control_ready()
-    if not CONTROL.token:
-        return
+    st.markdown(COMP_TOGGLE_CSS, unsafe_allow_html=True)
     st.markdown('<div class="comp-gap"></div>', unsafe_allow_html=True)
-    st.markdown('<div class="panel-t">Start a run</div>', unsafe_allow_html=True)
+    # Run-mode block: label on top, switch centred below, just above the company input row.
+    mcol, _ = st.columns([1, 6])
+    with mcol:
+        auto_now = bool(ss.get("comp_auto"))
+        st.markdown(
+            f'<div class="comp-mode-lbl {"auto" if auto_now else "manual"}">'
+            f"{MODE_AUTO if auto_now else MODE_HUMAN}</div>",
+            unsafe_allow_html=True,
+        )
+        auto_on = st.toggle(
+            "Run mode",
+            value=False,
+            key="comp_auto",
+            label_visibility="collapsed",
+            help="Off (left) = Manual mode (default): approve or skip each agent step. "
+            "On (right) = Auto mode: all steps run automatically through to the finished report.",
+        )
+    mode = MODE_AUTO if auto_on else MODE_HUMAN
     with st.form("comp_start"):
         c1, c2 = st.columns([4, 1])
         q = c1.text_input(
@@ -1891,7 +1921,7 @@ def comprehensive_page() -> None:
             ss.pop("comp_report_done", None)
         except ApiError as exc:
             st.error(exc.message)
-    if not ready:
+    if not ready or not CONTROL.token:
         return
     if not ss.get("comp_run"):
         st.markdown(

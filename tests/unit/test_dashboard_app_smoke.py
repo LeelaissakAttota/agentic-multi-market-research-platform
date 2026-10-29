@@ -67,6 +67,8 @@ def test_comprehensive_mode_toggle(monkeypatch: pytest.MonkeyPatch, tmp_path: Pa
     assert not at.exception
     assert not [r for r in at.radio if r.label == "Run mode"]
     toggle = at.toggle(key="comp_auto")
-    assert toggle.value is False and toggle.label == "Manual mode"
+    assert toggle.value is False
+    assert any("Manual mode" in m.value for m in at.markdown)
     toggle.set_value(True).run()
-    assert at.toggle(key="comp_auto").label == "Auto mode"
+    assert at.toggle(key="comp_auto").value is True
+    assert any("comp-mode-lbl auto" in m.value and "Auto mode" in m.value for m in at.markdown)
