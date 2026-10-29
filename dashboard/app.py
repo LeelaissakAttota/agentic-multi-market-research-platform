@@ -50,6 +50,7 @@ from amrp.dashboard.client import (
     probe,
     probe_json,
     resolve_any,
+    resolved_symbol,
 )
 from amrp.dashboard.intent import parse_intent
 from amrp.dashboard.prefs import (
@@ -1095,6 +1096,10 @@ def report_page() -> None:
     if "ticker" not in res:
         cq = wf.get("company_query") or {}
         res["ticker"] = str(cq.get("ticker") or "") or watch_ticker(view.company)
+    if "symbol" not in res:
+        res["symbol"] = resolved_symbol(
+            safe(API.get, "/companies/resolve", q=view.company, default={}) or {}
+        )
     agents = ensure_deliberation(res, view.company, res["ticker"])
     res["markdown"] = append_to_report(res["markdown"], agents)
     raw = res.get("raw")
@@ -1110,8 +1115,8 @@ def report_page() -> None:
         f"{esc(view.company)}"
         f'</div><div style="font-size:1.35rem;font-weight:700;color:#fff">{esc(view.company)} '
         + (
-            f'<span style="font-size:.9rem;color:#8FA3C7">({esc(res["ticker"])})</span> '
-            if res.get("ticker")
+            f'<span style="font-size:.9rem;color:#8FA3C7">({esc(res["symbol"])})</span> '
+            if res.get("symbol")
             else ""
         )
         + status_pill(str(res.get("research_status") or wf.get("status", "?")).capitalize())
