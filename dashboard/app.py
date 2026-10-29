@@ -36,6 +36,7 @@ from theme import (  # type: ignore[import-not-found]  # dashboard/theme.py
     table,
 )
 
+from amrp.application.deliberation import append_to_report
 from amrp.dashboard import commodity as cm
 from amrp.dashboard import market_live as ml
 from amrp.dashboard import markets as mk
@@ -946,6 +947,7 @@ def report_page() -> None:
     res = reports[wid]
     view, wf = res["view"], res["workflow"]
     agents = ensure_deliberation(res, view.company)
+    res["markdown"] = append_to_report(res["markdown"], agents)
     raw = res.get("raw")
     data = json.loads(raw) if isinstance(raw, str) else (raw or {})
     findings = data.get("findings") or {}

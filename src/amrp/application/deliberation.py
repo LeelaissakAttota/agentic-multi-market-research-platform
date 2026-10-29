@@ -14,6 +14,7 @@ from enum import StrEnum
 from typing import Any
 
 from amrp.application.debate import (
+    DISCLAIMER,
     Debate,
     EvidenceItem,
     ask_llm,
@@ -246,3 +247,68 @@ def deliberate(
         },
         tuple(lessons),
     )
+
+
+# ----------------------------------------------------------------- report markdown
+def _cell(text: str) -> str:
+    return text.replace("|", "/").replace("\n", " ")
+
+
+def deliberation_markdown(d: Deliberation) -> str:
+    """Debate, Risk and Rating sections appended to the report Markdown (PDF/HTML render it)."""
+
+    r = d.rating
+    lines = [
+        "## Rating",
+        "",
+        f"**{r.rating.value}** - confidence {r.confidence:.0%} (score {r.score:+.2f})",
+        "",
+        r.rationale,
+        "",
+        f"> {DISCLAIMER}",
+        "",
+        "## Debate",
+        "",
+        "Models: " + "; ".join(f"{k}: {v}" for k, v in d.models.items()),
+        "",
+    ]
+    for a in d.debate.arguments:
+        lines += [f"### {a.side.capitalize()} - round {a.round} ({a.by})", ""]
+        for p in a.points:
+            tags = "".join(f"[{t}]" for t in p.tags)
+            mark = "" if p.verified else f" _(unverified: {'; '.join(p.issues)})_"
+            lines.append(f"- {p.text} {tags}{mark}".rstrip())
+        lines.append("")
+    c = d.debate.citations
+    lines += [
+        f"**Citation check:** {c.verified_points}/{c.total_points} points verified"
+        + (f"; unknown tags: {', '.join(c.unknown_tags)}" if c.unknown_tags else "")
+        + (f"; {c.numeric_mismatches} number mismatch(es)" if c.numeric_mismatches else ""),
+        "",
+        f"**Judge ({d.debate.verdict.by}):** leans {d.debate.verdict.leaning} "
+        f"({d.debate.verdict.score:+.2f}). {d.debate.verdict.rationale}",
+        "",
+        "## Risk",
+        "",
+        "| View | Score | Comment |",
+        "| --- | --- | --- |",
+    ]
+    lines += [
+        f"| {v.stance.capitalize()} | {v.score:+.2f} | {_cell(v.comment)} |" for v in d.risk.views
+    ]
+    lines += ["", "**Risk flags:**", ""]
+    lines += [f"- {f}" for f in d.risk.flags] or ["- none"]
+    lines += ["", f"**Execution risk:** {d.risk.execution_risk}", ""]
+    if d.lessons:
+        lines += ["### Lessons from past calls", ""] + [f"- {x}" for x in d.lessons] + [""]
+    if d.as_of:
+        lines += [f"_Point-in-time analysis as of {d.as_of}: later evidence was excluded._", ""]
+    return "\n".join(lines)
+
+
+def append_to_report(markdown: str, d: Deliberation) -> str:
+    """Insert (or replace) the deliberation sections in a report's Markdown."""
+
+    marker = "\n\n<!-- amrp:deliberation -->\n"
+    base = markdown.split(marker)[0].rstrip()
+    return base + marker + deliberation_markdown(d)

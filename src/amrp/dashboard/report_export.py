@@ -88,6 +88,8 @@ def parse_markdown(markdown: str) -> list[Block]:
     for raw in (markdown or "").splitlines():
         line = raw.rstrip()
         stripped = line.strip()
+        if stripped.startswith("<!--") and stripped.endswith("-->"):
+            continue  # invisible markers (e.g. the agents section boundary)
         if stripped.startswith("|"):
             if para:
                 blocks.append(Block("p", _unescape(" ".join(para))))
