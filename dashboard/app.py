@@ -16,6 +16,7 @@ from typing import Any
 import altair as alt
 import pandas as pd
 import streamlit as st
+from agents_debate import deliberation_tab  # type: ignore[import-not-found]
 from agents_ui import agent_llm_settings  # type: ignore[import-not-found]
 from theme import (  # type: ignore[import-not-found]  # dashboard/theme.py
     CSS,
@@ -960,7 +961,7 @@ def report_page() -> None:
     )
     with dl:
         report_downloads(res, view.company, key=f"rp_{wid}")
-    tabs = st.tabs(list(REPORT_TABS))
+    tabs = st.tabs([*REPORT_TABS, "Debate & Rating"])
     with tabs[0]:
         c1, c2, c3 = st.columns([1, 1.5, 1])
         mrows = findings.get("market_figures") or []
@@ -1079,6 +1080,8 @@ def report_page() -> None:
             st.caption(f"Regulatory: {NA}.")
     with tabs[5]:
         st.markdown(res["markdown"])
+    with tabs[-1]:
+        deliberation_tab(res, view.company, key=f"dl_{wid}")
     with tabs[6]:
         refs = evidence_refs(data)
         if refs:
