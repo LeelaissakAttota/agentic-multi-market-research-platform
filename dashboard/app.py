@@ -14,6 +14,7 @@ from datetime import UTC, datetime, timedelta, timezone
 from typing import Any
 
 import altair as alt
+import loading as ld  # type: ignore[import-not-found]
 import pandas as pd
 import streamlit as st
 from agents_backtest import backtest_page  # type: ignore[import-not-found]
@@ -2635,4 +2636,10 @@ with st.sidebar:
             ss.nav = name
             st.rerun()
 
-PAGES[ss.nav][1]()
+    _load_slot = st.empty()  # end of sidebar: the fixed pill never shifts the main page
+ld.attach(_load_slot)
+ld.show("Loading…")
+try:
+    PAGES[ss.nav][1]()
+finally:
+    ld.clear()

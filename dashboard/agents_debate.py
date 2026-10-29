@@ -6,6 +6,7 @@ import html
 import json
 from typing import Any
 
+import loading as ld  # type: ignore[import-not-found]
 import streamlit as st
 from agents_memory import memory, price_and_date  # type: ignore[import-not-found]
 
@@ -174,7 +175,10 @@ def ensure_deliberation(
             lessons, acc = mem.lessons(ticker)
     except Exception:
         mem = None
-    with st.spinner("Bull, Bear, Judge and Risk agents are reviewing the evidence..."):
+    # Fixed pill (no layout shift); only reached on the report page for an un-debated report.
+    with ld.loading(
+        "Bull, Bear, Judge and Risk agents are reviewing the evidence…", restore="Loading…"
+    ):
         d = compute_deliberation(res, company, lessons=lessons, past_accuracy=acc, as_of=as_of)
     res["deliberation"] = d
     price, cur, as_of = price_and_date(_findings(res))
