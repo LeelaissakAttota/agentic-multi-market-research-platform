@@ -2,7 +2,7 @@
 
 Production-oriented, evidence-first research infrastructure for equities (India NSE/BSE and US NASDAQ/NYSE), commodities, forex and crypto.
 
-> **Current status:** `v1.0.0` released, now extended with a Streamlit research dashboard, five specialist agents with human-in-the-loop approvals, live market adapters (opt-in) and free-model-first LLM routing. **1,570 tests** pass (unit, contract, integration and evaluation) and CI runs on Python 3.12 and 3.13. Everything runs offline on clearly labelled sample data by default; live adapters and LLM calls are opt-in. Production authentication and rate limits remain deployment-dependent.
+> **Current status:** `v1.0.0` released, now extended with a Streamlit research dashboard, five specialist agents with human-in-the-loop approvals, a Bull/Bear debate + risk panel with a citation-verified rating, outcome memory, point-in-time backtests, a CLI, live market adapters (opt-in) and free-model-first LLM routing. **1,627 tests** pass (unit, contract, integration and evaluation) and CI runs on Python 3.12 and 3.13. Everything runs offline on clearly labelled sample data by default; live adapters and LLM calls are opt-in. Production authentication and rate limits remain deployment-dependent.
 
 ## Vision
 
@@ -79,6 +79,72 @@ The platform is designed around these constraints:
 - REST is the primary integration surface, with a control API for the dashboard;
 - services bind to `127.0.0.1`.
 
+## Multi-agent deliberation (debate, risk panel, rating)
+
+After a report is generated, a second layer of agents reviews the **same tagged evidence**
+(`M#` market, `F#` financial, `N#` news, `R#` regulatory). Every number they quote has to
+match its cited source.
+
+| Feature | Where it appears |
+| --- | --- |
+| **Multi-LLM providers, quick and deep tiers.** OpenRouter (free models), OpenAI, Anthropic, Gemini and local Ollama are supported. Keys are read only from the environment, the key store or `.env`. With the LLM switched off, the analysis is fully deterministic. | Settings → *AI agents* |
+| **Bull vs Bear debate and Judge.** The analysts run on the quick tier and debate for 1–3 configurable rounds. A citation verifier rejects unknown tags and numbers that are not in the cited evidence. The Judge runs on the deep tier and is clamped to the deterministic anchor. | Report → *Debate & Rating* |
+| **Risk panel.** Aggressive, neutral and conservative views are anchored on deterministic risk flags plus `control/risk.py`. | Report → *Debate & Rating* |
+| **Final rating.** Strong Buy … Strong Sell, with a confidence score and a disclaimer. | Report header badge, plus the PDF/HTML/MD downloads |
+| **Outcome memory.** Past ratings are stored in SQLite and settled 21 days later against the real close. The resulting lessons and hit rate feed into the next research on the same ticker. | *Agent Memory* page |
+| **Point-in-time (as-of) analysis.** Look-ahead-leak tests cover it, and a small backtest scores the ratings. | Report *as-of* toggle, *Agent Backtest* page |
+| **CLI with checkpoint resume.** | `amrp research --ticker AAPL --market us --format pdf --approve` |
+
+```mermaid
+flowchart LR
+    Q[Company / ticker] --> P[Planner + human approval]
+    P --> M[Market agent] & F[Financial agent] & N[News agent] & R[Regulatory agent]
+    M & F & N & R --> E[(Tagged evidence M# F# N# R#)]
+    E --> REP[Report writer]
+    E --> BU[Bull analyst - quick LLM]
+    E --> BE[Bear analyst - quick LLM]
+    BU <--> BE
+    BU & BE --> V{Citation verifier}
+    V --> J[Judge - deep LLM, clamped]
+    J --> RK[Risk panel: aggressive / neutral / conservative]
+    RK --> RT[Final rating + confidence]
+    MEM[(Outcome memory - SQLite)] -- lessons, past accuracy --> BU & BE & RT
+    RT -- record call --> MEM
+    RT --> REP
+    REP --> OUT[Dashboard / PDF / HTML / MD / CLI]
+```
+
+The whole layer is research only. It never places orders or sends messages, and every
+output carries a "not investment advice" disclaimer.
+
+### CLI
+
+```bash
+amrp research --ticker AAPL --market us --format pdf --approve          # full run
+amrp research --ticker TCS.NS --market in --as-of 2026-06-30 --resume  # continue a stopped run
+```
+
+The CLI checkpoints every stage (create → approve → execute → report → agents → export)
+in `.amrp/cli/` so that `--resume` can continue a stopped run. Without `--approve`, it stops at
+a pending approval so that a human stays in control.
+
+## Inspired by TradingAgents (arXiv 2412.20138)
+
+The deliberation layer was inspired by
+[TradingAgents](https://github.com/TauricResearch/TradingAgents) (Apache-2.0, Xiao et
+al., [arXiv 2412.20138](https://arxiv.org/abs/2412.20138)). It was written independently for
+AMRP and no code was copied.
+
+| | TradingAgents | AMRP |
+| --- | --- | --- |
+| Goal | Trading decisions (buy/sell/hold) | Evidence-first research reports; the rating is research context only |
+| Debate | Bull vs Bear researchers, then a manager | Bull vs Bear, then a Judge. Every point is **citation-verified** against tagged evidence (tags and numbers), and unverified points do not count |
+| Risk | Risky / safe / neutral debaters | Aggressive / neutral / conservative views anchored on deterministic risk flags and the `control/risk.py` policy |
+| LLMs | Quick and deep thinking models | Quick and deep tiers across 5 providers, plus a **fully deterministic mode** with no key needed |
+| Memory | Reflection memory | SQLite outcome memory settled against real later prices, with hit rate and lessons |
+| Look-ahead | Historical runs | Explicit as-of filtering, leak tests and a backtest |
+| Execution | Simulated trading | No orders ever. Human approval gates run before research executes |
+
 ## Free-model and token-efficiency strategy
 
 OpenRouter is the model gateway, with `ALLOW_PAID_MODELS=false` by default. AMRP discovers and ranks OpenRouter `:free` models (`PRIMARY_FREE_MODEL=auto` picks the fastest working one) and falls back automatically; paid models are used only when you opt in. See [MODEL_POLICY.md](MODEL_POLICY.md).
@@ -140,7 +206,7 @@ python -m uvicorn amrp.main:app --reload   # REST API: http://127.0.0.1:8000/doc
 
 `start-dashboard.ps1` starts the REST API (`:8000`), the control API (`:8712`, random per-session token) and the Streamlit dashboard (`:8501`), all bound to `127.0.0.1`. Optional keys: `FINNHUB_API_KEY`, `ALPHA_VANTAGE_API_KEY`, `SEC_USER_AGENT` (see `.env.example`). A walkthrough is in [docs/DEMO.md](docs/DEMO.md).
 
-Quality checks (**1,570 tests**):
+Quality checks (**1,627 tests**):
 
 ```powershell
 python -m pytest
