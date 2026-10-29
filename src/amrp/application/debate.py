@@ -212,10 +212,8 @@ def derive_signals(items: Sequence[EvidenceItem]) -> list[Signal]:
     for it in items:
         title = it.label
         if title.startswith("Analyst consensus:"):
-            word = title.split(":", 1)[1].strip().split(" ")[0].lower()
-            side = {"buy": "bull", "strong": "bull", "sell": "bear"}.get(word)
-            if "strong sell" in title.lower():
-                side = "bear"
+            verdict = title.split(":", 1)[1].split(" - ")[0].strip().lower()
+            side = "bear" if "sell" in verdict else "bull" if "buy" in verdict else None
             if side:
                 s.append(Signal(side, 0.7, f"Third-party {title.split(' (')[0]}", (it.tag,)))
     return s
@@ -433,7 +431,7 @@ def _llm_verdict(
         f"Company: {company}\nVerified points:\n{body}\n\nReturn JSON: "
         '{"leaning": "bull|bear|balanced", "score": <number -1..1>, "rationale": "<2-3 '
         'sentences citing tags>"}',
-        500,
+        900,
     )
     data = parse_json_object(text or "")
     if not data:

@@ -85,3 +85,15 @@ def test_filter_evidence_drops_future_items() -> None:
     assert "M1" in kept and "N1" not in kept  # news dated 10-29 is after as-of
     assert "F1" in kept
     assert "F1" not in {i.tag for i in filter_evidence(_items(), "2025-06-30")}
+
+
+def test_consensus_side_uses_the_headline_only() -> None:
+    from amrp.application.debate import EvidenceItem
+
+    def sig(title: str) -> list[str]:
+        it = EvidenceItem("N9", "news", title, "", "", "2026-10-29", "live")
+        return [s.side for s in derive_signals([it])]
+
+    assert sig("Analyst consensus: Buy - 11 strong buy, 3 sell, 1 strong sell") == ["bull"]
+    assert sig("Analyst consensus: Strong Sell - 9 sell") == ["bear"]
+    assert sig("Analyst consensus: Hold - 2 buy, 2 sell") == []

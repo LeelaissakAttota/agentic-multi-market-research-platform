@@ -2,7 +2,7 @@
 
 Production-oriented, evidence-first research infrastructure for equities (India NSE/BSE and US NASDAQ/NYSE), commodities, forex and crypto.
 
-> **Current status:** `v1.0.0` released, now extended with a Streamlit research dashboard, five specialist agents with human-in-the-loop approvals, a Bull/Bear debate + risk panel with a citation-verified rating, outcome memory, point-in-time backtests, a CLI, live market adapters (opt-in) and free-model-first LLM routing. **1,627 tests** pass (unit, contract, integration and evaluation) and CI runs on Python 3.12 and 3.13. Everything runs offline on clearly labelled sample data by default; live adapters and LLM calls are opt-in. Production authentication and rate limits remain deployment-dependent.
+> **Current status:** `v1.0.0` released, now extended with a Streamlit research dashboard, five specialist agents with human-in-the-loop approvals, a Bull/Bear debate + risk panel with a citation-verified rating, outcome memory, point-in-time backtests, a CLI, live market adapters (opt-in) and free-model-first LLM routing. **1,628 tests** pass (unit, contract, integration and evaluation) and CI runs on Python 3.12 and 3.13. Everything runs offline on clearly labelled sample data by default; live adapters and LLM calls are opt-in. Production authentication and rate limits remain deployment-dependent.
 
 ## Vision
 
@@ -206,7 +206,7 @@ python -m uvicorn amrp.main:app --reload   # REST API: http://127.0.0.1:8000/doc
 
 `start-dashboard.ps1` starts the REST API (`:8000`), the control API (`:8712`, random per-session token) and the Streamlit dashboard (`:8501`), all bound to `127.0.0.1`. Optional keys: `FINNHUB_API_KEY`, `ALPHA_VANTAGE_API_KEY`, `SEC_USER_AGENT` (see `.env.example`). A walkthrough is in [docs/DEMO.md](docs/DEMO.md).
 
-Quality checks (**1,627 tests**):
+Quality checks (**1,628 tests**):
 
 ```powershell
 python -m pytest
