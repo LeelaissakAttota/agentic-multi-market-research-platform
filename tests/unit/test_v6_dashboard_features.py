@@ -289,16 +289,10 @@ def _daily(sym: str, closes: list[tuple[str, float]]) -> ml.Daily:
     return ml.Daily(sym, sym, "USD", bars, "2026-10-23T10:00+00:00")
 
 
-def test_to_inr_uses_same_day_fx_and_mcx_unit() -> None:
-    gold = _daily("GC=F", [("2026-10-01", 3110.34768), ("2026-10-02", 3110.34768)])
-    fx = _daily("USDINR=X", [("2026-10-01", 80.0), ("2026-10-02", 90.0)])
-    inr = cm.to_inr(gold, fx, cm.COMMODITIES["Gold"].to_mcx_unit)
-    assert inr is not None and inr.currency == "INR"
-    assert round(inr.bars[0].close, 2) == 80000.0  # 100 USD per 10 g x 80
-    assert round(inr.bars[1].close, 2) == 90000.0
-    late_fx = _daily("USDINR=X", [("2026-10-05", 80.0)])
-    assert cm.to_inr(gold, late_fx, 1.0) is None
-    assert round(cm.COMMODITIES["Copper"].to_mcx_unit, 3) == 2.205
+def test_commodities_are_us_only() -> None:
+    assert list(cm.COMMODITIES) == ["Gold", "Silver", "Crude Oil", "Natural Gas", "Copper"]
+    assert cm.COMMODITIES["Gold"].symbol == "GC=F" and cm.COMMODITIES["Gold"].exchange == "COMEX"
+    assert not hasattr(cm, "MARKETS") and not hasattr(cm, "to_inr")
 
 
 def test_parse_google_rss_strips_publisher() -> None:
@@ -312,7 +306,7 @@ def test_parse_google_rss_strips_publisher() -> None:
     assert len(items) == 1 and items[0].title == "Gold hits high" and items[0].source == "Mint"
     assert items[0].published.startswith("2026-10-23T10:00")
     assert cm.parse_google_rss("not xml") == []
-    assert cm.news_queries(cm.COMMODITIES["Gold"], True)[0] == "MCX gold"
+    assert cm.news_queries(cm.COMMODITIES["Gold"]) == ["gold futures"]
 
 
 def test_model_options_free_first_and_fail_closed() -> None:

@@ -1847,49 +1847,72 @@ def comprehensive_page() -> None:
 
 
 # ---------------------------------------------------------------- commodity market
-@st.cache_data(ttl=900, show_spinner=False)
-def commodity_series(name: str, india: bool) -> ml.Daily | None:
-    return cm.price_series(cm.COMMODITIES[name], india)
+class _NoData(Exception):
+    """Raised inside cached fetchers so failed/empty results are never cached."""
 
 
 @st.cache_data(ttl=900, show_spinner=False)
-def commodity_news(name: str, india: bool) -> list[ml.NewsItem]:
-    return cm.related_news(cm.COMMODITIES[name], india)
+def _commodity_series_cached(name: str) -> ml.Daily:
+    d = cm.price_series(cm.COMMODITIES[name])
+    if d is None or not d.bars:
+        raise _NoData(name)
+    return d
+
+
+@st.cache_data(ttl=900, show_spinner=False)
+def _commodity_news_cached(name: str) -> list[ml.NewsItem]:
+    items = cm.related_news(cm.COMMODITIES[name])
+    if not items:
+        raise _NoData(name)
+    return items
+
+
+def commodity_series(name: str, retries: int = 2) -> ml.Daily | None:
+    """US futures series; failures are not cached and are retried."""
+    for _ in range(retries):
+        try:
+            return _commodity_series_cached(name)
+        except _NoData:
+            continue
+    return None
+
+
+def commodity_news(name: str, retries: int = 2) -> list[ml.NewsItem]:
+    for _ in range(retries):
+        try:
+            return _commodity_news_cached(name)
+        except _NoData:
+            continue
+    return []
 
 
 def commodity_page() -> None:
     st.markdown("#### Commodity Market")
-    st.caption("Live futures prices, a 1-month graph and the latest related news.")
-    # Keyed container -> CSS class ``st-key-cm_selectors`` so the compact pill
-    # sizing below applies only here and keeps all five commodities (incl.
-    # Copper) on one line at laptop widths down to ~1100px.
+    st.caption("Live US futures prices (COMEX/NYMEX, USD), a 1-month graph and related news.")
+    # Keyed container -> CSS class ``st-key-cm_selectors``; pills wrap on narrow windows.
     with st.container(key="cm_selectors"):
-        c1, c2 = st.columns([1, 1.75], gap="small")
-        market = c1.radio("Market", cm.MARKETS, horizontal=True, key="cm_market")
-        name = c2.radio("Commodity", list(cm.COMMODITIES), horizontal=True, key="cm_name")
-    india = market.startswith("India")
+        name = st.radio("Commodity", list(cm.COMMODITIES), horizontal=True, key="cm_name")
     com = cm.COMMODITIES[name]
     with st.spinner("Loading live prices…"):
-        d = commodity_series(name, india)
+        d = commodity_series(name)
     left, right = st.columns([2.2, 1])
     with left.container(border=True, key="cm_price"):
         if d is None:
             st.markdown(
-                f'<div class="na">{esc(name)} price: {NA} (Yahoo Finance / USD-INR '
-                "unreachable)</div>",
+                f'<div class="na">{esc(name)} price: {NA} (Yahoo Finance unreachable)</div>',
                 unsafe_allow_html=True,
             )
         else:
             last = d.bars[-1].close
             day = (last / d.bars[-2].close - 1) if len(d.bars) > 1 and d.bars[-2].close else None
-            unit = f"₹ per {com.mcx_unit}" if india else f"US$ per {com.us_unit}"
-            cur = "₹" if india else "$"
+            unit = f"US$ per {com.us_unit}"
+            cur = "$"
             tone = "s-green" if (day or 0) >= 0 else "s-red"
             mtone = "s-green" if (d.change or 0) >= 0 else "s-red"
             st.markdown(
                 f'<div class="cm-h"><div><b>{esc(name)}</b> '
                 f"{pill('LIVE', 'green')} <small>{esc(com.symbol)} · {esc(com.exchange)}"
-                f"{' → INR' if india else ''} · as of {_ist(d.as_of)}</small></div>"
+                f" · as of {_ist(d.as_of)}</small></div>"
                 f'<div class="cm-v">{cur}{last:,.2f} <small>{esc(unit)}</small></div>'
                 f'<div><span class="{tone}">{day:+.2%} 1d</span> · '
                 f'<span class="{mtone}">{(d.change or 0):+.2%} 1m</span></div></div>'
@@ -1898,17 +1921,9 @@ def commodity_page() -> None:
                 unsafe_allow_html=True,
             )
             st.altair_chart(area_chart(d, height=260, month=True), width="stretch")
-            if india:
-                st.markdown(
-                    f'<div class="banner-amber">Approx. from international futures, not the '
-                    f"MCX quote: {esc(com.symbol)} ({esc(com.exchange)}) x live USD/INR "
-                    f"(USDINR=X), converted to {esc(com.mcx_unit)}. MCX prices include import "
-                    "duty and differ.</div>",
-                    unsafe_allow_html=True,
-                )
             st.caption("Daily closes, last 1 month · source: Yahoo Finance (cached 15 min)")
     with right.container(border=True, key="cm_news"):
-        items = commodity_news(name, india)
+        items = commodity_news(name)
         body = (
             "".join(
                 f'<div class="rr"><div class="n"><b><a href="{esc(n.link)}" target="_blank">'
@@ -1921,25 +1936,14 @@ def commodity_page() -> None:
         st.markdown(
             f'<div class="panel-t">Latest {esc(name)} news</div>{body}', unsafe_allow_html=True
         )
-        st.caption("Yahoo Finance + Google News RSS" + (" (India edition)" if india else ""))
-    k = 1.0
-    if india:
-        rate = usd_inr_rate()
-        k = com.to_mcx_unit * rate if rate else 0.0
-    if k:
-        dbars, ex = session_charts(com.symbol, "cmx", k, 2)
-        unit = f"INR per {com.mcx_unit} (approx.)" if india else f"USD per {com.us_unit}"
-        ai_panel(
-            "commodity",
-            f"{name} ({'India' if india else 'US'})",
-            mk.build_evidence(name, unit, dbars, ex, items, 2),
-            "cmx",
-        )
-    else:
-        st.markdown(
-            f'<div class="na">Session charts: {NA} (USD/INR unavailable)</div>',
-            unsafe_allow_html=True,
-        )
+        st.caption("Yahoo Finance + Google News RSS")
+    dbars, ex = session_charts(com.symbol, "cmx", 1.0, 2)
+    ai_panel(
+        "commodity",
+        f"{name} (US)",
+        mk.build_evidence(name, f"USD per {com.us_unit}", dbars, ex, items, 2),
+        "cmx",
+    )
 
 
 # ---------------------------------------------------------------- sessions + AI (v7)
