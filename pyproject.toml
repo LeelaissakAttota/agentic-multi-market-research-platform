@@ -25,6 +25,9 @@ dependencies = [
   "tzdata>=2025.1; platform_system == 'Windows'",
 ]
 
+[project.scripts]
+amrp = "amrp.cli:main"
+
 [project.optional-dependencies]
 dashboard = ["fpdf2>=2.7,<3"]
 dev = [
