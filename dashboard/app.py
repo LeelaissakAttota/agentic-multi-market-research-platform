@@ -60,6 +60,12 @@ from amrp.dashboard.providers import (
     models_request,
     parse_model_ids,
 )
+from amrp.dashboard.report_export import (
+    markdown_to_html,
+    markdown_to_pdf,
+    pdf_available,
+    report_filename,
+)
 from amrp.dashboard.report_view import (
     badge_markdown,
     build_report_view,
@@ -876,6 +882,49 @@ def _items(rows: list[dict[str, Any]]) -> None:
         )
 
 
+def report_downloads(res: dict[str, Any], company: str, key: str) -> None:
+    """Download buttons for one report: formatted PDF, printable HTML and raw Markdown."""
+
+    md = str(res.get("markdown") or "")
+    if not md.strip():
+        st.warning("This report has no document content yet. Re-open it from Reports.")
+        return
+    title = f"{company} research report"
+    if pdf_available():
+        try:
+            pdf = markdown_to_pdf(md, title)
+        except Exception as exc:  # never break the page because of the export
+            st.caption(f"PDF export failed ({type(exc).__name__}); use HTML or Markdown.")
+        else:
+            st.download_button(
+                "\u2b07 Download PDF",
+                pdf,
+                file_name=report_filename(company, "pdf"),
+                mime="application/pdf",
+                type="primary",
+                width="stretch",
+                key=f"{key}_pdf",
+            )
+    else:
+        st.caption("Install fpdf2 for PDF export.")
+    st.download_button(
+        "HTML (print-ready)",
+        markdown_to_html(md, title).encode("utf-8"),
+        file_name=report_filename(company, "html"),
+        mime="text/html",
+        width="stretch",
+        key=f"{key}_html",
+    )
+    st.download_button(
+        "Markdown (.md)",
+        md.encode("utf-8"),
+        file_name=report_filename(company, "md"),
+        mime="text/markdown",
+        width="stretch",
+        key=f"{key}_md",
+    )
+
+
 def report_page() -> None:
     reports: dict[str, Any] = ss.get("reports", {})
     if not reports:
@@ -908,14 +957,8 @@ def report_page() -> None:
         f"{esc(wf.get('evidence_count', '-'))} evidence items</div>",
         unsafe_allow_html=True,
     )
-    dl.download_button(
-        "⬇ Download Report",
-        res["markdown"],
-        file_name=f"AMRP-{view.company.replace(' ', '_')}.md",
-        mime="text/markdown",
-        type="primary",
-        width="stretch",
-    )
+    with dl:
+        report_downloads(res, view.company, key=f"rp_{wid}")
     tabs = st.tabs(list(REPORT_TABS))
     with tabs[0]:
         c1, c2, c3 = st.columns([1, 1.5, 1])
@@ -1067,6 +1110,29 @@ def reports_page() -> None:
         width="stretch",
     )
     reports = ss.get("reports", {})
+    done = [r for r in shown if r["Status"] in ("Completed", "Partial")]
+    if done:
+        with st.expander(
+            "\u2b07 Download a report document (PDF / HTML / Markdown)", expanded=True
+        ):
+            labels = {f"{r['Company']} \u00b7 {r['Created'][:16]}": r for r in done}
+            pick = st.selectbox("Report", list(labels), key="dl_pick")
+            r = labels[pick]
+            wid = r["workflow_id"]
+            if wid not in reports and st.button("Prepare document", key="dl_prepare"):
+                try:
+                    open_report(wid, r["Company"])
+                    reports = ss.get("reports", {})
+                except ApiError as exc:
+                    st.error(f"Report not available ({exc.message})")
+            if wid in reports:
+                cols3 = st.columns(3)
+                res = reports[wid]
+                company = getattr(res.get("view"), "company", None) or r["Company"]
+                with cols3[0]:
+                    report_downloads(res, company, key=f"rl_{wid}")
+            else:
+                st.caption("Click Prepare document to build the files for this report.")
     with st.container(border=True):
         cols = [1.6, 1.6, 2, 1.3, 1, 1]
         h = st.columns(cols)
@@ -1086,7 +1152,7 @@ def reports_page() -> None:
                 f'<span style="color:#7FB0FF">{esc(r["Objective"])}</span>', unsafe_allow_html=True
             )
             d.markdown(status_pill(r["Status"]), unsafe_allow_html=True)
-            e.write("MD / JSON")
+            e.write("PDF / HTML / MD")
             wid = r["workflow_id"]
             if wid in reports:
                 if f.button("View", key=f"view_{wid}"):
