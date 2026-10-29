@@ -16,7 +16,11 @@ from typing import Any
 import altair as alt
 import pandas as pd
 import streamlit as st
-from agents_debate import deliberation_tab  # type: ignore[import-not-found]
+from agents_debate import (  # type: ignore[import-not-found]
+    deliberation_tab,
+    ensure_deliberation,
+    rating_badge,
+)
 from agents_ui import agent_llm_settings  # type: ignore[import-not-found]
 from theme import (  # type: ignore[import-not-found]  # dashboard/theme.py
     CSS,
@@ -941,6 +945,7 @@ def report_page() -> None:
         wid = list(reports)[-1]
     res = reports[wid]
     view, wf = res["view"], res["workflow"]
+    agents = ensure_deliberation(res, view.company)
     raw = res.get("raw")
     data = json.loads(raw) if isinstance(raw, str) else (raw or {})
     findings = data.get("findings") or {}
@@ -952,6 +957,8 @@ def report_page() -> None:
         f"{esc(view.company)}"
         f'</div><div style="font-size:1.35rem;font-weight:700;color:#fff">{esc(view.company)} '
         + status_pill(str(wf.get("status", "?")).capitalize())
+        + " "
+        + rating_badge(agents)
         + " "
         + " ".join(origin_pill(o) for o in sorted(origins))
         + f'</div><div style="font-size:.75rem;color:#8FA3C7">'
