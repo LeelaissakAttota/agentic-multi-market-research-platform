@@ -81,10 +81,13 @@ from amrp.dashboard.report_view import (
     origin_badge,
 )
 from amrp.dashboard.views import (
+    ALL_SECTIONS,
     OBJECTIVE_HINTS,
     OBJECTIVE_LABELS,
     REPORT_TABS,
     RESEARCH_AGENTS,
+    SECTION_LABELS,
+    STATUS_HELP,
     STEP_MODE_HELP,
     add_to_watchlist,
     agent_states,
@@ -106,6 +109,8 @@ from amrp.dashboard.views import (
     provider_cards,
     record_history,
     remove_from_watchlist,
+    research_args,
+    research_status,
     revenue_profit_series,
     save_report,
     split_approvals,
@@ -164,6 +169,7 @@ def start_research(
     pick: dict[str, str] | None = None,
     objective: str = "",
     auto_approve: bool = False,
+    sections: tuple[str, ...] | None = None,
 ) -> None:
     for key in ("result", "pending", "choices"):
         ss.pop(key, None)
@@ -171,6 +177,7 @@ def start_research(
     ss.question, ss.intent = question, intent
     chosen = objective or intent.objective
     ss.objective_used = chosen
+    ss.sections_used = tuple(sections) if sections else None
     body: dict[str, Any] = {"objective": chosen, "objective_text": question[:512]}
     if pick:
         body.update(q=pick["q"], ticker=pick["ticker"] or None, exchange=pick["exchange"] or None)
@@ -208,13 +215,27 @@ def start_research(
                 "status": "created",
                 "approval_status": "pending",
                 "created_at": created.get("evaluated_at"),
+                "sections": list(sections) if sections else None,
             }
         )
         return
-    run_workflow(created["workflow_id"], company)
+    run_workflow(created["workflow_id"], company, sections=sections)
 
 
-def run_workflow(workflow_id: str, company: str) -> None:
+def _history_sections(workflow_id: str) -> tuple[str, ...] | None:
+    for h in load_history():
+        if h.get("workflow_id") == workflow_id and h.get("sections"):
+            return tuple(h["sections"])
+    return None
+
+
+def _report_params(sections: tuple[str, ...] | None) -> dict[str, str]:
+    return {"sections": ",".join(sections)} if sections else {}
+
+
+def run_workflow(workflow_id: str, company: str, sections: tuple[str, ...] | None = None) -> None:
+    sections = sections or _history_sections(workflow_id)
+    qp = _report_params(sections)
     with st.spinner(f"Researching {company}… (live sources can take up to a minute)"):
         try:
             executed = RUNNER.post(f"/research/workflows/{workflow_id}/execute")
@@ -233,11 +254,15 @@ def run_workflow(workflow_id: str, company: str) -> None:
                 f"Research for {company} did not finish ({exc.message}). Live sources may be "
                 "offline — check your connection or turn off live data in Settings, then retry.",
             ) from None
-        rep = API.post(f"/research/workflows/{workflow_id}/report", format="json")
-        md = API.post(f"/research/workflows/{workflow_id}/report", format="markdown")
+        rep = API.post(f"/research/workflows/{workflow_id}/report", format="json", **qp)
+        md = API.post(f"/research/workflows/{workflow_id}/report", format="markdown", **qp)
     wf = executed.get("workflow") or {}
     content = rep["stored_report"]["content"]
+    data = json.loads(content) if isinstance(content, str) else (content or {})
+    rstatus, missing = research_status(data.get("findings") or {}, sections)
     ss.result = {
+        "research_status": rstatus,
+        "missing_sections": missing,
         "view": build_report_view(content, company),
         "raw": content,
         "markdown": md["stored_report"]["content"],
@@ -255,6 +280,9 @@ def run_workflow(workflow_id: str, company: str) -> None:
             "status": wf.get("status"),
             "approval_status": wf.get("approval_status"),
             "created_at": wf.get("created_at"),
+            "sections": list(sections) if sections else None,
+            "research_status": rstatus,
+            "missing_sections": missing,
         }
     )
 
@@ -275,10 +303,16 @@ def open_report(workflow_id: str, company: str) -> None:
 
 def _open_report_api(workflow_id: str, company: str) -> dict[str, Any]:
     wf = API.get(f"/research/workflows/{workflow_id}")
-    rep = API.post(f"/research/workflows/{workflow_id}/report", format="json")
-    md = API.post(f"/research/workflows/{workflow_id}/report", format="markdown")
+    sections = _history_sections(workflow_id)
+    qp = _report_params(sections)
+    rep = API.post(f"/research/workflows/{workflow_id}/report", format="json", **qp)
+    md = API.post(f"/research/workflows/{workflow_id}/report", format="markdown", **qp)
     content = rep["stored_report"]["content"]
+    data = json.loads(content) if isinstance(content, str) else (content or {})
+    rstatus, missing = research_status(data.get("findings") or {}, sections)
     result = {
+        "research_status": rstatus,
+        "missing_sections": missing,
         "view": build_report_view(content, company),
         "raw": content,
         "markdown": md["stored_report"]["content"],
@@ -367,7 +401,12 @@ def price_chart(series: list[tuple[str, float]]) -> Any:
     )
 
 
-def search_box(key: str, button: str = "Start Research", objective: str = "") -> None:
+def search_box(
+    key: str,
+    button: str = "Start Research",
+    args: dict[str, Any] | None = None,
+    require_pick: bool = False,
+) -> None:
     with st.form(f"ask_{key}", clear_on_submit=False, border=False):
         c1, c2 = st.columns([5, 1])
         q = c1.text_input(
@@ -378,21 +417,24 @@ def search_box(key: str, button: str = "Start Research", objective: str = "") ->
             key=f"askin_{key}",
         )
         sent = c2.form_submit_button(button, type="primary", width="stretch")
+    if sent and require_pick and not args:
+        st.warning("Select at least one research objective below before searching.")
+        return
     if sent and q.strip():
         try:
-            start_research(q.strip(), objective=objective)
+            start_research(q.strip(), **(args or {}))
             go("Research Report" if "result" in ss else "Research")
             st.rerun()
         except ApiError as exc:
             st.error(f"Something went wrong: {exc.message}")
 
 
-def chips(names: list[tuple[str, str]], key: str, objective: str = "") -> None:
+def chips(names: list[tuple[str, str]], key: str, args: dict[str, Any] | None = None) -> None:
     cols = st.columns(len(names))
     for col, (label, prompt) in zip(cols, names, strict=True):
         if col.button(label, key=f"{key}_{label}", width="stretch"):
             try:
-                start_research(prompt, objective=objective)
+                start_research(prompt, **(args or {}))
                 go("Research Report" if "result" in ss else "Research")
             except ApiError as exc:
                 ss.error = exc.message
@@ -583,7 +625,7 @@ SUGGESTED_REGIONS = (
 )
 
 
-def _suggested_list(region: str, items: list[ml.Daily], obj: str) -> None:
+def _suggested_list(region: str, items: list[ml.Daily], args: dict[str, Any]) -> None:
     if not items:
         st.markdown(f'<div class="na">{NA}</div>', unsafe_allow_html=True)
     for d in items:
@@ -599,14 +641,14 @@ def _suggested_list(region: str, items: list[ml.Daily], obj: str) -> None:
         )
         if c2.button("View", key=f"sug_{region}_{d.symbol}"):
             try:
-                start_research(d.symbol, objective=obj)
+                start_research(d.symbol, **args)
                 go("Research Report" if "result" in ss else "Research")
             except ApiError as exc:
                 ss.error = exc.message
             st.rerun()
 
 
-def suggested_companies(obj: str) -> None:
+def suggested_companies(args: dict[str, Any]) -> None:
     """Full-width 'Suggested Companies': US and India top-5 in two side-by-side boxes."""
 
     trend = live_trending()
@@ -620,7 +662,7 @@ def suggested_companies(obj: str) -> None:
                 f"{note}</div>",
                 unsafe_allow_html=True,
             )
-            _suggested_list(region, trend.get(region) or [], obj)
+            _suggested_list(region, trend.get(region) or [], args)
 
 
 # ---------------------------------------------------------------- pages
@@ -635,7 +677,8 @@ def home_page() -> None:
         unsafe_allow_html=True,
     )
     with st.container(key="herorow"):
-        search_box("home")
+        # Home always runs FULL research (every objective) and opens the complete report.
+        search_box("home", args=FULL_RESEARCH)
     flash()
     wfs = all_workflows()
     stats = workflow_stats(wfs)
@@ -669,6 +712,13 @@ def home_page() -> None:
         top_news()
 
 
+FULL_RESEARCH: dict[str, Any] = {
+    "objective": "comprehensive_equity_research",
+    "sections": ALL_SECTIONS,
+    "auto_approve": True,
+}
+
+
 def objective_rows(keys: list[str]) -> list[list[str]]:
     """Objective cards: four on the first row, the rest on a centred second row."""
 
@@ -676,11 +726,12 @@ def objective_rows(keys: list[str]) -> list[list[str]]:
 
 
 def research_page() -> None:
-    obj = ss.get("objective_pick", "")
+    picks: list[str] = list(ss.get("objective_picks", []))
+    args = research_args(picks)
     st.markdown("#### Start New Research")
-    search_box("research", "Search", objective=obj)
+    search_box("research", "Search", args=args, require_pick=True)
     st.write("")
-    suggested_companies(obj)
+    suggested_companies(args or FULL_RESEARCH)
     st.write("")
     with st.container():
         st.markdown("#### Research Objective")
@@ -690,7 +741,7 @@ def research_page() -> None:
             # row 2 (3 cards) is centred under row 1 with the same card width
             cols = st.columns(4) if len(row) == 4 else st.columns([1, 2, 2, 2, 1])[1:4]
             for col, k in zip(cols, row, strict=False):
-                picked = ss.get("objective_pick") == k
+                picked = k in picks
                 ckey = f"objc_{k}__sel" if picked else f"objc_{k}"
                 with col.container(border=True, key=ckey):
                     st.markdown(
@@ -703,9 +754,16 @@ def research_page() -> None:
                         key=f"obj_{k}",
                         type="primary" if picked else "secondary",
                     ):
-                        ss.objective_pick = "" if picked else k
+                        ss.objective_picks = [x for x in picks if x != k] if picked else [*picks, k]
                         st.rerun()
-        st.caption("No objective selected = auto-detect from your question.")
+        if picks:
+            st.caption(
+                "Selected: "
+                + ", ".join(OBJECTIVE_LABELS[k] for k in picks)
+                + ". The report will contain only these sections."
+            )
+        else:
+            st.caption("Select one or more objectives, then Search.")
         flash()
         if "intent" in ss and ("pending" in ss or "choices" in ss):
             used = ss.get("objective_used") or ss.intent.objective
@@ -714,7 +772,7 @@ def research_page() -> None:
             st.warning("More than one company matches. Which one did you mean?")
             for i, ch in enumerate(ss.choices):
                 if st.button(ch["label"], key=f"pick{i}"):
-                    start_research(ss.question, pick=ch, objective=obj)
+                    start_research(ss.question, pick=ch, **args)
                     go("Research Report" if "result" in ss else "Research")
                     st.rerun()
         if "pending" in ss:
@@ -733,10 +791,20 @@ def research_page() -> None:
                     decide(p["workflow_id"], p["company"], "rejected")
                     st.rerun()
         with st.container(border=True):
-            st.markdown('<div class="panel-t">Recent Searches</div>', unsafe_allow_html=True)
+            st.markdown(
+                f'<div class="panel-t">Recent Searches <span title="{esc(STATUS_HELP)}" '
+                'style="cursor:help;color:#8FA3C7">&#9432;</span></div>',
+                unsafe_allow_html=True,
+            )
+            st.caption(STATUS_HELP)
             rows = workflow_rows(all_workflows())[:8]
             for r in rows:
-                r["StatusH"] = status_pill(r["Status"])
+                tip = f"Missing: {r['Missing']}" if r.get("Missing") else STATUS_HELP
+                r["StatusH"] = f'<span title="{esc(tip)}">{status_pill(r["Status"])}</span>' + (
+                    f'<br><small class="s-mut">missing: {esc(r["Missing"])}</small>'
+                    if r.get("Missing")
+                    else ""
+                )
             st.markdown(
                 table(rows, ["Company", "Objective", "Created", "StatusH"], ["StatusH"]).replace(
                     "<th>StatusH</th>", "<th>Status</th>"
@@ -964,7 +1032,7 @@ def report_page() -> None:
         '<div style="font-size:.75rem;color:#8FA3C7">Research &rsaquo; Reports &rsaquo; '
         f"{esc(view.company)}"
         f'</div><div style="font-size:1.35rem;font-weight:700;color:#fff">{esc(view.company)} '
-        + status_pill(str(wf.get("status", "?")).capitalize())
+        + status_pill(str(res.get("research_status") or wf.get("status", "?")).capitalize())
         + " "
         + rating_badge(agents)
         + " "
@@ -974,8 +1042,23 @@ def report_page() -> None:
         f"{esc(wf.get('evidence_count', '-'))} evidence items</div>",
         unsafe_allow_html=True,
     )
+    if res.get("missing_sections"):
+        st.warning(
+            "Partial: no content for " + ", ".join(res["missing_sections"]) + ". " + STATUS_HELP
+        )
     with dl:
         report_downloads(res, view.company, key=f"rp_{wid}")
+    selected = set(findings.get("sections") or ALL_SECTIONS)
+
+    def _na(name: str, sec: Any) -> None:
+        if name not in selected:
+            st.caption(
+                f"{SECTION_LABELS[name]}: not part of this research (objective not selected)."
+            )
+            return
+        msg = f" ({sec.message})" if sec is not None and sec.message else ""
+        st.caption(f"{SECTION_LABELS[name]}: {NA}{msg}.")
+
     tabs = st.tabs([*REPORT_TABS, "Debate & Rating"])
     with tabs[0]:
         c1, c2, c3 = st.columns([1, 1.5, 1])
@@ -1053,7 +1136,7 @@ def report_page() -> None:
             st.markdown(badge_markdown(sec.origin, sec.status))
             _rows_table(sec.rows)
         else:
-            st.caption(f"Financials: {NA} for this objective.")
+            _na("financial", sec)
         msec = by.get("Market")
         if msec and msec.rows:
             st.markdown("**Market** " + badge_markdown(msec.origin, msec.status))
@@ -1082,7 +1165,7 @@ def report_page() -> None:
         if sec and sec.rows:
             _items([r for r in sec.rows if r not in recs])
         else:
-            st.caption(f"News: {NA}.")
+            _na("news", sec)
     with tabs[3]:
         sec = by.get("Industry")
         if sec and sec.rows:
@@ -1095,16 +1178,14 @@ def report_page() -> None:
                 st.markdown("**Peer comparison (1-year return)**")
                 _items(peers)
         else:
-            msg = f" ({sec.message})" if sec and sec.message else ""
-            st.caption(f"Industry: {NA}{msg}.")
+            _na("industry", sec)
     with tabs[4]:
         sec = by.get("Regulatory")
         if sec and sec.rows:
             st.markdown(badge_markdown(sec.origin, sec.status) + f" {sec.message or ''}")
             _items(sec.rows)
         else:
-            msg = f" ({sec.message})" if sec and sec.message else ""
-            st.caption(f"Regulatory: {NA}{msg}.")
+            _na("regulatory", sec)
     with tabs[5]:
         st.markdown(res["markdown"])
     with tabs[-1]:

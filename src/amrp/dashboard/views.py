@@ -79,6 +79,8 @@ def workflow_stats(workflows: Iterable[dict[str, Any]]) -> WorkflowStats:
 
 
 def status_label(workflow: dict[str, Any]) -> str:
+    if workflow.get("research_status"):
+        return str(workflow["research_status"])
     if workflow.get("approval_status") == "pending":
         return "Pending approval"
     if workflow.get("approval_status") == "rejected":
@@ -109,6 +111,7 @@ def workflow_rows(workflows: Iterable[dict[str, Any]]) -> list[dict[str, str]]:
                 "Objective": objective_label(w.get("objective")),
                 "Status": status_label(w),
                 "Created": short_time(w.get("created_at")),
+                "Missing": ", ".join(w.get("missing_sections") or []),
                 "workflow_id": str(w.get("workflow_id") or ""),
             }
         )
@@ -320,6 +323,9 @@ def history_as_workflows(history: Iterable[dict[str, Any]]) -> list[dict[str, An
                 "approval_status": h.get("approval_status"),
                 "created_at": h.get("created_at") or h.get("recorded_at"),
                 "company_query": {"raw_query": h.get("company")},
+                "research_status": h.get("research_status"),
+                "missing_sections": h.get("missing_sections") or [],
+                "sections": h.get("sections"),
             }
         )
     return out
@@ -336,7 +342,14 @@ def merge_workflows(
             merged[str(w["workflow_id"])] = w
     for w in api:
         if isinstance(w, dict) and w.get("workflow_id"):
-            merged[str(w["workflow_id"])] = w
+            key = str(w["workflow_id"])
+            prev = merged.get(key) or {}
+            extra = {
+                k: prev[k]
+                for k in ("research_status", "missing_sections", "sections")
+                if prev.get(k)
+            }
+            merged[key] = {**w, **extra}
     return list(merged.values())
 
 
@@ -558,3 +571,71 @@ def load_saved_report(workflow_id: str, base: Path | None = None) -> dict[str, A
     except (FileNotFoundError, json.JSONDecodeError):
         return None
     return data if isinstance(data, dict) and data.get("raw") is not None else None
+
+
+# ------------------------------------------------------------ section status
+ALL_SECTIONS: tuple[str, ...] = ("market", "financial", "news", "industry", "regulatory")
+SECTION_LABELS: dict[str, str] = {
+    "market": "Market",
+    "financial": "Financials",
+    "news": "News",
+    "industry": "Industry",
+    "regulatory": "Regulatory",
+}
+OBJECTIVE_SECTIONS: dict[str, tuple[str, ...]] = {
+    "company_overview": ("market", "financial", "news"),
+    "market_analysis": ("market",),
+    "financial_analysis": ("financial",),
+    "news_and_events": ("news",),
+    "industry_analysis": ("industry",),
+    "regulatory_analysis": ("regulatory",),
+    "comprehensive_equity_research": ALL_SECTIONS,
+}
+STATUS_HELP = (
+    "Completed = every selected objective produced report content. "
+    "Partial = at least one selected section is missing or its data source failed "
+    "(the missing sections are listed). Status only counts the objectives you selected."
+)
+
+
+def sections_for(objectives: Iterable[str]) -> tuple[str, ...]:
+    wanted: set[str] = set()
+    for o in objectives:
+        wanted |= set(OBJECTIVE_SECTIONS.get(str(o), ()))
+    return tuple(s for s in ALL_SECTIONS if s in wanted) or ALL_SECTIONS
+
+
+def research_args(picks: Iterable[str]) -> dict[str, Any]:
+    """start_research kwargs for the selected objective cards (one or many)."""
+
+    keys = [k for k in picks if k in OBJECTIVE_SECTIONS]
+    if not keys:
+        return {}
+    if len(keys) == 1:
+        return {"objective": keys[0], "sections": sections_for(keys)}
+    return {
+        "objective": "comprehensive_equity_research",
+        "sections": sections_for(keys),
+        "auto_approve": True,
+    }
+
+
+def _section_rows(findings: dict[str, Any], name: str) -> list[Any]:
+    rows: list[Any] = []
+    for suffix in ("_figures", "_items"):
+        value = findings.get(name + suffix)
+        if isinstance(value, list):
+            rows.extend(value)
+    return rows
+
+
+def research_status(
+    findings: dict[str, Any], sections: Iterable[str] | None = None
+) -> tuple[str, list[str]]:
+    """('Completed'|'Partial', missing section labels) relative to the selected sections."""
+
+    wanted = [
+        s for s in (sections or findings.get("sections") or ALL_SECTIONS) if s in SECTION_LABELS
+    ]
+    missing = [SECTION_LABELS[s] for s in wanted if not _section_rows(findings, s)]
+    return ("Partial" if missing else "Completed"), missing

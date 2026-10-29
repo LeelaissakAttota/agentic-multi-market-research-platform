@@ -81,7 +81,7 @@ def test_filter_and_csv_export() -> None:
     assert len(v.filter_reports(rows, objective="Financial Analysis")) == 1
     assert v.filter_reports(rows, text="nothing-matches") == []
     csv_text = v.to_csv(rows)
-    assert csv_text.splitlines()[0] == "Company,Objective,Status,Created"
+    assert csv_text.splitlines()[0] == "Company,Objective,Status,Created,Missing"
     assert "workflow_id" not in csv_text
     assert v.to_csv([]) == ""
 

@@ -76,6 +76,17 @@ def build_report_view(report_json: str | dict[str, Any], company: str = "") -> R
             [*(findings.get("industry_figures") or []), *(findings.get("industry_items") or [])],
         ),
     ]
+    wanted = findings.get("sections")
+    if isinstance(wanted, list) and wanted:
+        keep = {
+            "market": "Market",
+            "financial": "Financials",
+            "news": "Top news",
+            "regulatory": "Regulatory",
+            "industry": "Industry",
+        }
+        titles = {keep[w] for w in wanted if w in keep}
+        sections = [s for s in sections if s.title in titles]
     return ReportView(
         company=company,
         question=findings.get("question"),
