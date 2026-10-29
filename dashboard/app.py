@@ -1829,14 +1829,28 @@ def _control_ready() -> bool:
     return True
 
 
-MODE_HUMAN, MODE_AUTO = "Human approval", "Auto mode"
+MODE_HUMAN, MODE_AUTO = "Manual mode", "Auto mode"
 _TERMINAL_RUN = ("succeeded", "completed", "failed", "partial", "stopped")
 
 
 def comprehensive_page() -> None:
-    st.markdown("#### Comprehensive Research")
+    head, sw = st.columns([5, 2], vertical_alignment="center")
+    head.markdown("#### Comprehensive Research")
+    with sw:
+        auto_on = st.toggle(
+            MODE_AUTO if ss.get("comp_auto") else MODE_HUMAN,
+            value=False,
+            key="comp_auto",
+            help="Off (left) = Manual mode (default): approve or skip each agent step. "
+            "On (right) = Auto mode: all steps run automatically through to the finished report.",
+        )
+    st.markdown(
+        "<style>.st-key-comp_auto{display:flex;justify-content:flex-end}</style>",
+        unsafe_allow_html=True,
+    )
+    mode = MODE_AUTO if auto_on else MODE_HUMAN
     st.caption(
-        "Five research agents analyse one company. Human approval: each agent step waits "
+        "Five research agents analyse one company. Manual mode: each agent step waits "
         "for Approve or Skip. Auto mode: every step runs without prompts to the final report."
     )
     ready = _control_ready()
@@ -1851,15 +1865,6 @@ def comprehensive_page() -> None:
             value="",
             placeholder="Company name or ticker, e.g. RELIANCE.NS or AAPL",
             label_visibility="collapsed",
-        )
-        mode = c1.radio(
-            "Run mode",
-            (MODE_HUMAN, MODE_AUTO),
-            index=0,
-            horizontal=True,
-            key="comp_mode",
-            help="Human approval (default): approve or skip each agent step. "
-            "Auto mode: all steps run automatically through to the finished report.",
         )
         start = c2.form_submit_button(
             "Start Comprehensive Research", type="primary", width="stretch"

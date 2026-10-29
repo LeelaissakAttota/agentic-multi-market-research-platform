@@ -55,3 +55,18 @@ def test_crypto_page_has_no_inr_option(monkeypatch: pytest.MonkeyPatch, tmp_path
     assert not at.exception
     labels = [r.label for r in at.radio]
     assert "Currency" not in labels
+
+
+def test_comprehensive_mode_toggle(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    monkeypatch.setenv("AMRP_API_URL", "http://127.0.0.1:9")
+    monkeypatch.setenv("AMRP_CONTROL_URL", "http://127.0.0.1:9")
+    monkeypatch.setenv("APPDATA", str(tmp_path))
+    at = AppTest.from_file(APP, default_timeout=30)
+    at.session_state["nav"] = "Comprehensive Research"
+    at.run()
+    assert not at.exception
+    assert not [r for r in at.radio if r.label == "Run mode"]
+    toggle = at.toggle(key="comp_auto")
+    assert toggle.value is False and toggle.label == "Manual mode"
+    toggle.set_value(True).run()
+    assert at.toggle(key="comp_auto").label == "Auto mode"

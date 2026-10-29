@@ -1,4 +1,4 @@
-"""Comprehensive run modes: per-run Auto/Human approval, Skip, and the final summary."""
+"""Comprehensive run modes: per-run Auto/Manual mode, Skip, and the final summary."""
 
 from __future__ import annotations
 
