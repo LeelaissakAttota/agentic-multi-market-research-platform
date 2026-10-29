@@ -64,7 +64,6 @@ def sections_for(objectives: Iterable[str]) -> tuple[str, ...]:
     return tuple(name for name in ALL_SECTIONS if name in wanted) or ALL_SECTIONS
 
 
-
 class _Executes(Protocol):
     def execute(self, query: Any) -> Any: ...
 
@@ -324,29 +323,45 @@ class ReportFindingsCollector:
                 errors.append(f"{name}: unavailable ({type(exc).__name__})")
                 return None
 
-        market = None if "market" not in wanted else run(
-            "market",
-            lambda: self._market.execute(
-                MarketSnapshotQuery(company_query=company_query)
-            ).to_dict(),
+        market = (
+            None
+            if "market" not in wanted
+            else run(
+                "market",
+                lambda: self._market.execute(
+                    MarketSnapshotQuery(company_query=company_query)
+                ).to_dict(),
+            )
         )
-        financial = None if "financial" not in wanted else run(
-            "financial",
-            lambda: self._financial.execute(
-                FinancialSnapshotQuery(company_query=company_query)
-            ).to_dict(),
+        financial = (
+            None
+            if "financial" not in wanted
+            else run(
+                "financial",
+                lambda: self._financial.execute(
+                    FinancialSnapshotQuery(company_query=company_query)
+                ).to_dict(),
+            )
         )
-        news = None if "news" not in wanted else run(
-            "news",
-            lambda: self._news.execute(
-                NewsEventSnapshotQuery(company_query=company_query, limit=20)
-            ).to_dict(),
+        news = (
+            None
+            if "news" not in wanted
+            else run(
+                "news",
+                lambda: self._news.execute(
+                    NewsEventSnapshotQuery(company_query=company_query, limit=20)
+                ).to_dict(),
+            )
         )
-        regulatory = None if "regulatory" not in wanted else run(
-            "regulatory",
-            lambda: self._regulatory.execute(
-                RegulatorySnapshotQuery(company_query=company_query)
-            ).to_dict(),
+        regulatory = (
+            None
+            if "regulatory" not in wanted
+            else run(
+                "regulatory",
+                lambda: self._regulatory.execute(
+                    RegulatorySnapshotQuery(company_query=company_query)
+                ).to_dict(),
+            )
         )
         regulatory = self._live_regulatory(regulatory, company_query, wanted, errors)
         industry, industry_figs, industry_items = self._collect_industry(
@@ -428,7 +443,8 @@ class ReportFindingsCollector:
                         "nse_bse_announcements": "NSE/BSE",
                     }.get(str(live.get("provider_name")), ""),
                     "action_type": str(i.get("detail") or "filing"),
-                    "status": "secondary" if live.get("provider_name") == "google_news_regulatory"
+                    "status": "secondary"
+                    if live.get("provider_name") == "google_news_regulatory"
                     else "filed",
                     "evidence": {"source_url": i.get("url")},
                 }
@@ -437,7 +453,7 @@ class ReportFindingsCollector:
             return {**live, "events": events}
         if regulatory and regulatory.get("events"):
             return regulatory  # keep labelled sample items rather than nothing
-        return live
+        return dict(live) if isinstance(live, Mapping) else None
 
     def _collect_industry(
         self,
@@ -460,8 +476,12 @@ class ReportFindingsCollector:
                 errors.append(f"industry live: unavailable ({type(exc).__name__})")
         if live and live.get("status") == "ok":
             figs = tuple(
-                Figure(tag=f"I{n + 1}", label=str(f["label"]), value=str(f["value"]),
-                       detail=str(f.get("detail") or ""))
+                Figure(
+                    tag=f"I{n + 1}",
+                    label=str(f["label"]),
+                    value=str(f["value"]),
+                    detail=str(f.get("detail") or ""),
+                )
                 for n, f in enumerate(live.get("figures") or [])
             )
             items = tuple(
@@ -488,11 +508,16 @@ class ReportFindingsCollector:
             )
         if snap and snap.get("status") == "ok":
             ind = snap.get("industry") or {}
-            figs_l = []
-            for label, key in (("Industry", "canonical_label"), ("Provider label", "provider_label")):
+            figs_l: list[Figure] = []
+            for label, key in (
+                ("Industry", "canonical_label"),
+                ("Provider label", "provider_label"),
+            ):
                 if ind.get(key):
-                    figs_l.append(Figure(tag=f"I{len(figs_l) + 1}", label=label, value=str(ind[key])))
-            items_l = []
+                    figs_l.append(
+                        Figure(tag=f"I{len(figs_l) + 1}", label=label, value=str(ind[key]))
+                    )
+            items_l: list[EventItem] = []
             for comp in (snap.get("competitors") or [])[:MAX_PEERS]:
                 if not isinstance(comp, Mapping):
                     continue
@@ -508,10 +533,17 @@ class ReportFindingsCollector:
                     )
                 )
             return _status(snap), tuple(figs_l), tuple(items_l)
-        return _status(live or snap) or SectionStatus(
-            status="unavailable", data_origin=None, provider=None,
-            message="industry/peer data unavailable",
-        ), (), ()
+        return (
+            _status(live or snap)
+            or SectionStatus(
+                status="unavailable",
+                data_origin=None,
+                provider=None,
+                message="industry/peer data unavailable",
+            ),
+            (),
+            (),
+        )
 
     # ------------------------------------------------------------ summary
 
@@ -634,9 +666,11 @@ def deterministic_summary(findings: ReportFindings, company: str) -> AnalystSumm
         if fig:
             parts.append(f"{fig.label}: {fig.value} [{fig.tag}]")
             tags.append(fig.tag)
-    sentences = [
-        f"{company}: " + ("; ".join(parts) + "." if parts else "no key figures available.")
-    ] if ({"market", "financial"} & set(findings.sections)) else [f"{company}:"]
+    sentences = (
+        [f"{company}: " + ("; ".join(parts) + "." if parts else "no key figures available.")]
+        if ({"market", "financial"} & set(findings.sections))
+        else [f"{company}:"]
+    )
     if findings.news_items:
         top = findings.news_items[0]
         sentences.append(f"Latest news: {top.title} [{top.tag}].")

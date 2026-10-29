@@ -47,9 +47,7 @@ MATERIAL_FORMS = {
     "8-K/A": "Current report amendment",
 }
 MAX_PEERS = 5
-GOOGLE_NEWS_RSS = (
-    "https://news.google.com/rss/search?q={q}&hl=en-IN&gl=IN&ceid=IN:en"
-)
+GOOGLE_NEWS_RSS = "https://news.google.com/rss/search?q={q}&hl=en-IN&gl=IN&ceid=IN:en"
 _REG_WORDS = re.compile(
     r"sebi|regulat|penalt|court|\btax|probe|lawsuit|litigat|\border|complian|settle|"
     r"investigat|notice|\bban\b|\bsec\b|antitrust|\bgst\b|\bcci\b|\bfined?\b",
@@ -159,7 +157,10 @@ class LiveCompanyContext:
         quote_row: Mapping[str, Any] = {}
         if isinstance(search, Mapping):
             for row in search.get("quotes") or []:
-                if isinstance(row, Mapping) and str(row.get("symbol", "")).upper() == symbol.upper():
+                if (
+                    isinstance(row, Mapping)
+                    and str(row.get("symbol", "")).upper() == symbol.upper()
+                ):
                     quote_row = row
                     break
         figures: list[dict[str, str]] = []
@@ -238,7 +239,7 @@ class LiveCompanyContext:
     def _regulatory_news(self, company: Any, ticker: str) -> list[dict[str, Any]]:
         """Regulatory-keyword headlines from Google News RSS (Tier 3, labelled)."""
 
-        import xml.etree.ElementTree as ET  # noqa: S405 - RSS from a fixed host, no DTDs
+        import xml.etree.ElementTree as ET
 
         name = str(getattr(company, "display_name", "") or ticker)
         url = GOOGLE_NEWS_RSS.format(q=quote(f'"{name}" {REG_TERMS}'))
@@ -249,7 +250,7 @@ class LiveCompanyContext:
             body = get_response(url, accept="application/rss+xml, application/xml").body
             if b"<!DOCTYPE" in body[:500] or b"<!ENTITY" in body:
                 return []
-            root = ET.fromstring(body)  # noqa: S314
+            root = ET.fromstring(body)
         except Exception as exc:
             logger.info("regulatory_news_failed", extra={"error_type": type(exc).__name__})
             return []
@@ -288,7 +289,9 @@ class LiveCompanyContext:
                 try:
                     events = self._india.fetch(company)
                 except Exception as exc:
-                    logger.info("india_disclosures_failed", extra={"error_type": type(exc).__name__})
+                    logger.info(
+                        "india_disclosures_failed", extra={"error_type": type(exc).__name__}
+                    )
                     events = ()
                 for ev in list(events)[:MAX_FILINGS]:
                     d = ev.to_dict() if hasattr(ev, "to_dict") else {}

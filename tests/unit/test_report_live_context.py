@@ -1,4 +1,4 @@
-﻿"""LiveCompanyContext: free industry/peer and regulatory sections (fake HTTP)."""
+"""LiveCompanyContext: free industry/peer and regulatory sections (fake HTTP)."""
 
 from __future__ import annotations
 

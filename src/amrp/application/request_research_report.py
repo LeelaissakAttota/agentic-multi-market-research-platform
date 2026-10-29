@@ -12,11 +12,11 @@ from amrp.application.ports import (
     ResearchWorkflowStorePort,
     WorkflowReportStorePort,
 )
-from amrp.application.report_findings import sections_for
 from amrp.application.report_findings import (
     ReportFindings,
     ReportFindingsCollector,
     company_query_from_workflow,
+    sections_for,
 )
 from amrp.application.workflow_report_rendering import (
     render_workflow_json,

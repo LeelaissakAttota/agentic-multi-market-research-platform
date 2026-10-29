@@ -132,10 +132,6 @@ from amrp.infrastructure.regulatory import (
     CachingRegulatoryAdapter,
     InMemoryRegulatoryAdapter,
 )
-from amrp.infrastructure.reporting.live_context import (
-    LIVE_CONTEXT_USER_AGENT,
-    LiveCompanyContext,
-)
 from amrp.infrastructure.regulatory.live_feeds import (
     FallbackRegulatoryAdapter,
     LiveRegulatoryAdapter,
@@ -144,6 +140,10 @@ from amrp.infrastructure.regulatory.live_feeds import (
     SecLitigationFeedSource,
 )
 from amrp.infrastructure.reporting import DeterministicResearchReportGenerator
+from amrp.infrastructure.reporting.live_context import (
+    LIVE_CONTEXT_USER_AGENT,
+    LiveCompanyContext,
+)
 from amrp.infrastructure.reporting.report_store import InMemoryWorkflowReportStore
 from amrp.infrastructure.sqlite import (
     SqliteApiKeyStore,
@@ -442,7 +442,11 @@ def _build_live_context(
 ) -> LiveCompanyContext | None:
     """Free live Industry/Regulatory report context (Yahoo + SEC EDGAR + NSE/BSE)."""
 
-    if str(getattr(resolved.app_env, "value", resolved.app_env)) == "test" or not (resolved.market_data_live_enabled or resolved.financial_data_live_enabled or resolved.live_news_enabled):
+    if str(getattr(resolved.app_env, "value", resolved.app_env)) == "test" or not (
+        resolved.market_data_live_enabled
+        or resolved.financial_data_live_enabled
+        or resolved.live_news_enabled
+    ):
         return None
     sec_agent = _sec_user_agent(resolved, feature="report_live_context")
     sec_http = (
@@ -472,9 +476,7 @@ def _build_live_context(
         max_retries=1,
         user_agent=LIVE_CONTEXT_USER_AGENT,
     )
-    return LiveCompanyContext(
-        yahoo_http, sec_http=sec_http, india_announcements=india, clock=clock
-    )
+    return LiveCompanyContext(yahoo_http, sec_http=sec_http, india_announcements=india, clock=clock)
 
 
 def _live_news_sources(

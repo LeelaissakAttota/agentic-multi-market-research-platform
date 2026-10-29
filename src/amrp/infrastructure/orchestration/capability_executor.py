@@ -209,5 +209,7 @@ class Phase6CapabilityExecutor:
                     retrieved_at=datetime.now(UTC),
                 ),
             ),
-            output_summary=f"{kind} status=ok_live provider={data.get('provider_name')} items={count}",
+            output_summary=(
+                f"{kind} status=ok_live provider={data.get('provider_name')} items={count}"
+            ),
         )

@@ -1,4 +1,4 @@
-﻿"""Live fallback for industry/regulatory agents when fixtures have nothing."""
+"""Live fallback for industry/regulatory agents when fixtures have nothing."""
 
 from __future__ import annotations
 
@@ -13,8 +13,12 @@ from amrp.infrastructure.orchestration.capability_executor import Phase6Capabili
 def _executor(live):
     m = MagicMock()
     return Phase6CapabilityExecutor(
-        resolve_company=m, get_market_snapshot=m, get_financial_snapshot=m,
-        get_news_event_snapshot=m, get_industry_snapshot=m, get_regulatory_snapshot=m,
+        resolve_company=m,
+        get_market_snapshot=m,
+        get_financial_snapshot=m,
+        get_news_event_snapshot=m,
+        get_industry_snapshot=m,
+        get_regulatory_snapshot=m,
         live_context=live,
     )
 
@@ -25,7 +29,9 @@ def _ctx():
         ticker=SimpleNamespace(as_text=lambda: "TCS"),
     )
     company = SimpleNamespace(
-        company_id=MagicMock(), legal_name="Tata Consultancy Services", display_name="TCS",
+        company_id=MagicMock(),
+        legal_name="Tata Consultancy Services",
+        display_name="TCS",
         securities=[SimpleNamespace(listings=[listing])],
     )
     query = SimpleNamespace(exchange=None, ticker=None)
@@ -34,21 +40,28 @@ def _ctx():
 
 
 def _unavailable(task):
-    return TaskExecutionResult(task_id=task.task_id, status=TaskResultStatus.UNAVAILABLE,
-                               message="no fixture")
+    return TaskExecutionResult(
+        task_id=task.task_id, status=TaskResultStatus.UNAVAILABLE, message="no fixture"
+    )
 
 
 def test_unavailable_industry_upgraded_from_live(monkeypatch):
     live = MagicMock()
-    live.industry.return_value = {"status": "ok", "message": "3 peer(s)", "items": [1, 2, 3],
-                                  "figures": [], "provider_name": "yahoo_finance"}
+    live.industry.return_value = {
+        "status": "ok",
+        "message": "3 peer(s)",
+        "items": [1, 2, 3],
+        "figures": [],
+        "provider_name": "yahoo_finance",
+    }
     ex = _executor(live)
     task, company, query = _ctx()
     out = ex._live_fallback(task, _unavailable(task), company, query, kind="industry")
     assert out.status is TaskResultStatus.SUCCESS
     assert out.evidence_refs[0].data_origin is DataOrigin.LIVE
-    live.industry.assert_called_once_with(exchange="NSE", ticker="TCS",
-                                          name="Tata Consultancy Services")
+    live.industry.assert_called_once_with(
+        exchange="NSE", ticker="TCS", name="Tata Consultancy Services"
+    )
 
 
 def test_live_unavailable_keeps_original():
