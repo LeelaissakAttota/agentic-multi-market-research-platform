@@ -16,6 +16,7 @@ from typing import Any
 import altair as alt
 import pandas as pd
 import streamlit as st
+from agents_ui import agent_llm_settings  # type: ignore[import-not-found]
 from theme import (  # type: ignore[import-not-found]  # dashboard/theme.py
     CSS,
     NAV_ICON_CSS,
@@ -1388,7 +1389,10 @@ def steps_mode() -> None:
 def settings_page() -> None:
     st.markdown("#### Settings")
     st.caption("Configure providers, models, security and preferences.")
-    t1, t2, t3, t4, t5 = st.tabs(["Providers", "Model", "Data keys", "Live data", "Security"])
+    t1, t2, t3, t4, t5, t6 = st.tabs(
+        ["Providers", "Model", "AI agents", "Data keys", "Live data", "Security"]
+    )
+    t3, t4, t5, t6 = t4, t5, t6, t3
     masked: dict[str, Any] = {}
     try:
         masked = CONTROL.get("/control/keys").get("keys", {}) if CONTROL.token else {}
@@ -1493,6 +1497,8 @@ def settings_page() -> None:
         cfg = safe(CONTROL.get, "/control/settings", default=None) if CONTROL.token else None
         if cfg:
             st.json(cfg, expanded=False)
+    with t6:
+        agent_llm_settings()
 
 
 RESTART_NOTE = (
