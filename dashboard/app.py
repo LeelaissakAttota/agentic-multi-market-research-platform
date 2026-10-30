@@ -189,7 +189,7 @@ def start_research(
         body.update(q=pick["q"], ticker=pick["ticker"] or None, exchange=pick["exchange"] or None)
         company = pick["label"]
     else:
-        with st.spinner("Finding the company…"):
+        with ld.loading():
             res = resolve_any(API, question, intent.candidates)
         if res is None:
             ss.error = (
@@ -245,7 +245,7 @@ def _report_params(sections: tuple[str, ...] | None) -> dict[str, str]:
 def run_workflow(workflow_id: str, company: str, sections: tuple[str, ...] | None = None) -> None:
     sections = sections or _history_sections(workflow_id)
     qp = _report_params(sections)
-    with st.spinner(f"Researching {company}… (live sources can take up to a minute)"):
+    with ld.loading():
         try:
             executed = RUNNER.post(f"/research/workflows/{workflow_id}/execute")
         except ApiError as exc:
@@ -2228,7 +2228,7 @@ def commodity_page() -> None:
     with st.container(key="cm_selectors"):
         name = st.radio("Commodity", list(cm.COMMODITIES), horizontal=True, key="cm_name")
     com = cm.COMMODITIES[name]
-    with st.spinner("Loading live prices…"):
+    with ld.loading():
         d = commodity_series(name)
     left, right = st.columns([2.2, 1])
     with left.container(border=True, key="cm_price"):
@@ -2524,7 +2524,7 @@ def ai_panel(market: str, name: str, evidence: list[dict[str, str]], key: str) -
             "model (Settings > Model; free model by default, paid only if you opted in)."
         )
         if st.button("✨ Analyze with AI", key=f"{key}_ai_btn", disabled=not evidence):
-            with st.spinner("Asking the model…"):
+            with ld.loading():
                 try:
                     ss[f"{key}_ai_res"] = CONTROL.post(
                         "/control/analyze",
@@ -2580,7 +2580,7 @@ def forex_page() -> None:
     st.caption("Live FX rates, session high/low charts, related news and AI analysis.")
     pair = st.radio("Pair", list(mk.FOREX), horizontal=True, key="fx_pair")
     inst = mk.FOREX[pair]
-    with st.spinner("Loading live rates…"):
+    with ld.loading():
         day = mk.last_day(intraday(inst.symbol, "5d", "15m"))
     left, right = st.columns([2.2, 1])
     left_box = left.container()
@@ -2618,7 +2618,7 @@ def crypto_page() -> None:
     # Prices are shown in USD only (the INR conversion helper was removed).
     cur, sym, k = "USD", "$", 1.0
     inst = mk.CRYPTO[coin]
-    with st.spinner("Loading live prices…"):
+    with ld.loading():
         day = mk.scale(mk.last_day(intraday(inst.symbol, "5d", "15m")), k)
     left, right = st.columns([2.2, 1])
     left_box = left.container()

@@ -1,4 +1,4 @@
-"""Compact fixed-position loading pill that never shifts the page layout.
+"""Centered fixed-position loading spinner overlay that never shifts the page layout.
 
 The slot lives at the end of the sidebar and its pill is ``position: fixed``, so
 showing or clearing it does not move any content in the main area (unlike
@@ -13,24 +13,25 @@ from contextlib import contextmanager
 from typing import Any
 
 _STYLE = (
-    "position:fixed;top:64px;right:24px;z-index:1000;height:30px;line-height:30px;"
-    "padding:0 12px;border-radius:15px;background:rgba(17,28,51,.92);color:#C9D6EE;"
-    "font-size:.78rem;border:1px solid #2A3B5F;box-shadow:0 2px 8px rgba(0,0,0,.35);"
-    "white-space:nowrap;pointer-events:none"
+    "position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);z-index:100000;"
+    "display:flex;flex-direction:column;align-items:center;gap:12px;padding:22px 30px;"
+    "border-radius:16px;background:rgba(17,28,51,.88);color:#C9D6EE;font-size:1rem;"
+    "box-shadow:0 4px 18px rgba(0,0,0,.45);pointer-events:none"
 )
 _SPIN = (
-    '<span style="display:inline-block;width:10px;height:10px;margin-right:7px;'
-    "border:2px solid #5B8DEF;border-top-color:transparent;border-radius:50%;"
-    'animation:amrpspin .8s linear infinite;vertical-align:-1px"></span>'
+    '<span style="display:block;width:56px;height:56px;border:5px solid #2A3B5F;'
+    'border-top-color:#5B8DEF;border-radius:50%;animation:amrpspin .9s linear infinite"></span>'
 )
 _KEYFRAMES = "<style>@keyframes amrpspin{to{transform:rotate(360deg)}}</style>"
+
+LABEL = "Loading…"  # single label everywhere; status text is never shown
 
 _slot: Any = None
 
 
 def pill_html(text: str) -> str:
     return (
-        f'{_KEYFRAMES}<div class="amrp-loading" style="{_STYLE}">{_SPIN}{html.escape(text)}</div>'
+        f'{_KEYFRAMES}<div class="amrp-loading" style="{_STYLE}">{_SPIN}<span>{html.escape(LABEL)}</span></div>'
     )
 
 

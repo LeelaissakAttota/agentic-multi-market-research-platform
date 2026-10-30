@@ -7,6 +7,8 @@ from typing import Any
 
 import streamlit as st
 
+import loading as ld  # type: ignore[import-not-found]
+
 from amrp.application.outcome_memory import OutcomeMemory, PriceSeries, parse_price
 from amrp.control.secrets_store import default_config_dir
 from amrp.dashboard.market_live import fetch_daily
@@ -42,7 +44,7 @@ def memory_page() -> None:
     )
     mem = memory()
     if st.button("Settle due calls now", type="primary"):
-        with st.spinner("Fetching closing prices..."):
+        with ld.loading():
             n = mem.settle(yahoo_prices)
         st.success(f"Settled {n} call(s).")
     s = mem.stats()

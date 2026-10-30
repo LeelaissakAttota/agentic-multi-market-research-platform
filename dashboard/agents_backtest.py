@@ -4,6 +4,8 @@ from __future__ import annotations
 
 import streamlit as st
 
+import loading as ld  # type: ignore[import-not-found]
+
 from amrp.application.point_in_time import backtest
 from amrp.dashboard.market_live import fetch_daily
 
@@ -22,7 +24,7 @@ def backtest_page() -> None:
     rng = c3.selectbox("History", ["1y", "2y", "5y"], index=1)
     if not st.button("Run backtest", type="primary"):
         return
-    with st.spinner(f"Fetching {rng} of {ticker} closes..."):
+    with ld.loading():
         daily = fetch_daily(ticker.strip().upper(), range_=rng)
     if daily is None or len(daily.bars) < 80:
         st.error("Not enough price history for this ticker.")
