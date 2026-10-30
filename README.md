@@ -21,9 +21,11 @@ Indian 🇮🇳 (NSE/BSE) and US 🇺🇸 (NASDAQ/NYSE) equities · 🥇 Commodi
 
 ## 🎬 Demo video
 
-[![AMRP demo video — every page, live data](docs/images/home.png)](docs/media/AMRP-Demo-720p.mp4)
+[![AMRP demo video on YouTube - every page, live data](https://img.youtube.com/vi/4opvKApHvvE/maxresdefault.jpg)](https://youtu.be/4opvKApHvvE)
 
-**[▶️ Watch the full demo (15:46, every page with live data)](docs/media/AMRP-Demo-720p.mp4)** — click *View raw* / *Download* on GitHub to play it.
+**[▶️ Watch the full demo on YouTube (15:46, every page with live data)](https://youtu.be/4opvKApHvvE)**
+
+📥 Prefer a file? [Download the 720p MP4](docs/media/AMRP-Demo-720p.mp4) (22.8 MB) - click *View raw* / *Download* on GitHub.
 
 The walkthrough covers Home, Research, Comprehensive Research (Auto and Manual), Workflow Approvals, the Research Report and PDF export, All Reports, Watchlist, the Commodity / Forex / Crypto markets, Provider Health, Agent Memory, Agent Backtest and Settings.
 
