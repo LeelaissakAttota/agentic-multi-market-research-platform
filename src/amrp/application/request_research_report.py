@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import threading
+import time
 from collections.abc import Callable
 from dataclasses import dataclass
 from datetime import UTC, datetime
@@ -16,6 +18,7 @@ from amrp.application.report_findings import (
     ReportFindings,
     ReportFindingsCollector,
     company_query_from_workflow,
+    sections_for,
 )
 from amrp.application.workflow_report_rendering import (
     render_workflow_json,
@@ -81,9 +84,18 @@ class RequestResearchReport:
         self._report_store = report_store
         self._clock = clock or (lambda: datetime.now(UTC))
         self._requests: dict[str, ReportRequest] = {}
+        # The dashboard asks for json and then markdown of the same workflow back to back;
+        # both renders share one findings collection (live fetches + LLM summary).
+        self._findings_memo: dict[tuple[object, ...], tuple[float, ReportFindings | None]] = {}
+        self._memo_lock = threading.Lock()
+        self._memo_ttl_seconds = 120.0
 
     def execute(
-        self, workflow_id: WorkflowId, *, report_format: str | None = None
+        self,
+        workflow_id: WorkflowId,
+        *,
+        report_format: str | None = None,
+        sections: tuple[str, ...] | None = None,
     ) -> ReportOperationResult:
         """Record a report request; render and store it when ``report_format`` is given.
 
@@ -121,7 +133,7 @@ class RequestResearchReport:
                 evaluated_at=now,
             )
         if report_format is not None:
-            return self._render(workflow_id, report_format, now)
+            return self._render(workflow_id, report_format, now, sections)
         report = ReportRequest(
             request_id=ReportRequestId.new(),
             workflow_id=workflow_id,
@@ -143,14 +155,18 @@ class RequestResearchReport:
         )
 
     def _render(
-        self, workflow_id: WorkflowId, report_format: str, now: datetime
+        self,
+        workflow_id: WorkflowId,
+        report_format: str,
+        now: datetime,
+        sections: tuple[str, ...] | None = None,
     ) -> ReportOperationResult:
         workflow = self._store.get_workflow(workflow_id)
         assert workflow is not None  # checked by execute()
         checkpoint = self._store.get_latest_checkpoint(workflow_id)
         memory = self._memory.list_for_workflow(workflow_id, limit=500) if self._memory else ()
         renderer = render_workflow_json if report_format == "json" else render_workflow_markdown
-        content = renderer(workflow, checkpoint, memory, self._collect(workflow))
+        content = renderer(workflow, checkpoint, memory, self._collect(workflow, sections))
         request_id = ReportRequestId.new()
         stored = StoredWorkflowReport(
             report_id=request_id,
@@ -180,7 +196,33 @@ class RequestResearchReport:
             stored_report=stored,
         )
 
-    def _collect(self, workflow: object) -> ReportFindings | None:
+    def _collect(
+        self, workflow: object, sections: tuple[str, ...] | None = None
+    ) -> ReportFindings | None:
+        if self._findings is None:
+            return None
+        wf = workflow.to_dict()  # type: ignore[attr-defined]
+        key = (
+            wf.get("workflow_id"),
+            wf.get("status"),
+            wf.get("updated_at"),
+            tuple(sections) if sections else None,
+        )
+        now = time.monotonic()
+        with self._memo_lock:
+            hit = self._findings_memo.get(key)
+            if hit is not None and now - hit[0] < self._memo_ttl_seconds:
+                return hit[1]
+        findings = self._collect_uncached(workflow, sections)
+        with self._memo_lock:
+            if len(self._findings_memo) > 32:
+                self._findings_memo.clear()
+            self._findings_memo[key] = (time.monotonic(), findings)
+        return findings
+
+    def _collect_uncached(
+        self, workflow: object, sections: tuple[str, ...] | None = None
+    ) -> ReportFindings | None:
         if self._findings is None:
             return None
         wf = workflow.to_dict()  # type: ignore[attr-defined]
@@ -196,4 +238,5 @@ class RequestResearchReport:
             f"{objective.capitalize()}: what do the latest market data, financials, "
             "news and regulatory items say about this company?"
         )
-        return self._findings.collect(company_query, question)
+        sections = sections or sections_for([str(wf.get("objective") or "")])
+        return self._findings.collect(company_query, question, sections=sections)

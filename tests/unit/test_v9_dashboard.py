@@ -30,7 +30,7 @@ def test_agent_grid_wraps_and_keeps_pill_inside_card() -> None:
 
 def test_search_box_is_above_suggested_companies() -> None:
     body = APP.split("def research_page", 1)[1]
-    assert body.index('search_box("research"') < body.index("suggested_companies(obj)")
+    assert body.index('search_box("research"') < body.index("suggested_companies(args")
 
 
 def test_reports_nav_renamed() -> None:

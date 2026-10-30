@@ -20,6 +20,8 @@ class StepGateOutcome:
     task: ResearchTask
     stopped: bool = False
     handle: object | None = None
+    #: Operator chose Skip: the task is not run and is reported as skipped.
+    skipped: bool = False
 
     @property
     def approved(self) -> bool:

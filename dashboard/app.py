@@ -10,12 +10,21 @@ from __future__ import annotations
 
 import json
 import time
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta, timezone
 from typing import Any
 
 import altair as alt
+import loading as ld  # type: ignore[import-not-found]
 import pandas as pd
 import streamlit as st
+from agents_backtest import backtest_page  # type: ignore[import-not-found]
+from agents_debate import (  # type: ignore[import-not-found]
+    deliberation_tab,
+    ensure_deliberation,
+    rating_badge,
+)
+from agents_memory import memory_page  # type: ignore[import-not-found]
+from agents_ui import agent_llm_settings  # type: ignore[import-not-found]
 from theme import (  # type: ignore[import-not-found]  # dashboard/theme.py
     CSS,
     NAV_ICON_CSS,
@@ -30,16 +39,21 @@ from theme import (  # type: ignore[import-not-found]  # dashboard/theme.py
     table,
 )
 
+from amrp.application.deliberation import append_to_report
 from amrp.dashboard import commodity as cm
 from amrp.dashboard import market_live as ml
 from amrp.dashboard import markets as mk
+from amrp.dashboard import setup_guide as sg
+from amrp.dashboard import trend as tr
 from amrp.dashboard.client import (
     ApiError,
     JsonClient,
     candidate_choices,
     probe,
     probe_json,
-    resolve_company,
+    resolve_any,
+    resolved_symbol,
+    yahoo_symbol,
 )
 from amrp.dashboard.intent import parse_intent
 from amrp.dashboard.prefs import (
@@ -60,16 +74,24 @@ from amrp.dashboard.providers import (
     models_request,
     parse_model_ids,
 )
+from amrp.dashboard.report_export import (
+    markdown_to_pdf,
+    pdf_available,
+    report_filename,
+)
 from amrp.dashboard.report_view import (
     badge_markdown,
     build_report_view,
     origin_badge,
 )
 from amrp.dashboard.views import (
+    ALL_SECTIONS,
     OBJECTIVE_HINTS,
     OBJECTIVE_LABELS,
     REPORT_TABS,
     RESEARCH_AGENTS,
+    SECTION_LABELS,
+    STATUS_HELP,
     STEP_MODE_HELP,
     add_to_watchlist,
     agent_states,
@@ -81,6 +103,7 @@ from amrp.dashboard.views import (
     history_as_workflows,
     latest_close,
     latest_run_logs,
+    list_saved_reports,
     load_history,
     load_saved_report,
     load_watchlist,
@@ -91,7 +114,10 @@ from amrp.dashboard.views import (
     provider_cards,
     record_history,
     remove_from_watchlist,
+    research_args,
+    research_status,
     revenue_profit_series,
+    run_summary,
     save_report,
     split_approvals,
     step_mode_company,
@@ -149,6 +175,7 @@ def start_research(
     pick: dict[str, str] | None = None,
     objective: str = "",
     auto_approve: bool = False,
+    sections: tuple[str, ...] | None = None,
 ) -> None:
     for key in ("result", "pending", "choices"):
         ss.pop(key, None)
@@ -156,13 +183,14 @@ def start_research(
     ss.question, ss.intent = question, intent
     chosen = objective or intent.objective
     ss.objective_used = chosen
+    ss.sections_used = tuple(sections) if sections else None
     body: dict[str, Any] = {"objective": chosen, "objective_text": question[:512]}
     if pick:
         body.update(q=pick["q"], ticker=pick["ticker"] or None, exchange=pick["exchange"] or None)
         company = pick["label"]
     else:
-        with st.spinner("Finding the company…"):
-            res = resolve_company(API, intent.candidates)
+        with ld.loading():
+            res = resolve_any(API, question, intent.candidates)
         if res is None:
             ss.error = (
                 "I couldn't find a listed company in that question. Try e.g. 'Apple' or "
@@ -176,6 +204,9 @@ def start_research(
         comp = res.get("company") or {}
         company = str(comp.get("display_name") or res["matched_phrase"])
         body["q"] = res["matched_phrase"]
+        if res.get("auto_picked"):
+            body.update(ticker=res["pick_ticker"], exchange=res["pick_exchange"])
+        ss.resolved = resolution_note(question, company, res.get("resolved_symbol", ""))
     ss.company = company
     created = API.post("/research/workflows", body)
     if created.get("approval_status") == "pending" and auto_approve:
@@ -193,14 +224,28 @@ def start_research(
                 "status": "created",
                 "approval_status": "pending",
                 "created_at": created.get("evaluated_at"),
+                "sections": list(sections) if sections else None,
             }
         )
         return
-    run_workflow(created["workflow_id"], company)
+    run_workflow(created["workflow_id"], company, sections=sections)
 
 
-def run_workflow(workflow_id: str, company: str) -> None:
-    with st.spinner(f"Researching {company}… (live sources can take up to a minute)"):
+def _history_sections(workflow_id: str) -> tuple[str, ...] | None:
+    for h in load_history():
+        if h.get("workflow_id") == workflow_id and h.get("sections"):
+            return tuple(h["sections"])
+    return None
+
+
+def _report_params(sections: tuple[str, ...] | None) -> dict[str, str]:
+    return {"sections": ",".join(sections)} if sections else {}
+
+
+def run_workflow(workflow_id: str, company: str, sections: tuple[str, ...] | None = None) -> None:
+    sections = sections or _history_sections(workflow_id)
+    qp = _report_params(sections)
+    with ld.loading():
         try:
             executed = RUNNER.post(f"/research/workflows/{workflow_id}/execute")
         except ApiError as exc:
@@ -218,11 +263,15 @@ def run_workflow(workflow_id: str, company: str) -> None:
                 f"Research for {company} did not finish ({exc.message}). Live sources may be "
                 "offline — check your connection or turn off live data in Settings, then retry.",
             ) from None
-        rep = API.post(f"/research/workflows/{workflow_id}/report", format="json")
-        md = API.post(f"/research/workflows/{workflow_id}/report", format="markdown")
+        rep = API.post(f"/research/workflows/{workflow_id}/report", format="json", **qp)
+        md = API.post(f"/research/workflows/{workflow_id}/report", format="markdown", **qp)
     wf = executed.get("workflow") or {}
     content = rep["stored_report"]["content"]
+    data = json.loads(content) if isinstance(content, str) else (content or {})
+    rstatus, missing = research_status(data.get("findings") or {}, sections)
     ss.result = {
+        "research_status": rstatus,
+        "missing_sections": missing,
         "view": build_report_view(content, company),
         "raw": content,
         "markdown": md["stored_report"]["content"],
@@ -240,6 +289,9 @@ def run_workflow(workflow_id: str, company: str) -> None:
             "status": wf.get("status"),
             "approval_status": wf.get("approval_status"),
             "created_at": wf.get("created_at"),
+            "sections": list(sections) if sections else None,
+            "research_status": rstatus,
+            "missing_sections": missing,
         }
     )
 
@@ -260,10 +312,16 @@ def open_report(workflow_id: str, company: str) -> None:
 
 def _open_report_api(workflow_id: str, company: str) -> dict[str, Any]:
     wf = API.get(f"/research/workflows/{workflow_id}")
-    rep = API.post(f"/research/workflows/{workflow_id}/report", format="json")
-    md = API.post(f"/research/workflows/{workflow_id}/report", format="markdown")
+    sections = _history_sections(workflow_id)
+    qp = _report_params(sections)
+    rep = API.post(f"/research/workflows/{workflow_id}/report", format="json", **qp)
+    md = API.post(f"/research/workflows/{workflow_id}/report", format="markdown", **qp)
     content = rep["stored_report"]["content"]
+    data = json.loads(content) if isinstance(content, str) else (content or {})
+    rstatus, missing = research_status(data.get("findings") or {}, sections)
     result = {
+        "research_status": rstatus,
+        "missing_sections": missing,
         "view": build_report_view(content, company),
         "raw": content,
         "markdown": md["stored_report"]["content"],
@@ -293,7 +351,27 @@ def decide(workflow_id: str, company: str, decision: str) -> None:
         ss.info = f"Rejected. Nothing was run for {company}."
 
 
+def resolution_note(text: str, company: str, symbol: str) -> str:
+    sym = f" ({symbol})" if symbol else ""
+    return f"Resolved \u201c{text.strip()}\u201d \u2192 {company}{sym}"
+
+
+def resolve_for_control(text: str) -> tuple[str, str]:
+    """Bare ticker/name -> (query the API resolves, UI note). Falls back to the raw text."""
+
+    q = text.strip()
+    res = safe(resolve_any, API, q, parse_intent(q).candidates)
+    if not res or res.get("status") != "RESOLVED":
+        return q, ""
+    comp = res.get("company") or {}
+    name = str(comp.get("display_name") or res["matched_phrase"])
+    q_out = res.get("pick_ticker") or res["matched_phrase"]
+    return str(q_out), resolution_note(q, name, res.get("resolved_symbol", ""))
+
+
 def flash() -> None:
+    if "resolved" in ss:
+        st.success(ss.pop("resolved"), icon=":material/check_circle:")
     for key in ("error", "info"):
         if key in ss:
             getattr(st, key)(ss.pop(key))
@@ -352,7 +430,12 @@ def price_chart(series: list[tuple[str, float]]) -> Any:
     )
 
 
-def search_box(key: str, button: str = "Start Research", objective: str = "") -> None:
+def search_box(
+    key: str,
+    button: str = "Start Research",
+    args: dict[str, Any] | None = None,
+    require_pick: bool = False,
+) -> None:
     with st.form(f"ask_{key}", clear_on_submit=False, border=False):
         c1, c2 = st.columns([5, 1])
         q = c1.text_input(
@@ -363,21 +446,24 @@ def search_box(key: str, button: str = "Start Research", objective: str = "") ->
             key=f"askin_{key}",
         )
         sent = c2.form_submit_button(button, type="primary", width="stretch")
+    if sent and require_pick and not args:
+        st.warning("Select at least one research objective below before searching.")
+        return
     if sent and q.strip():
         try:
-            start_research(q.strip(), objective=objective)
+            start_research(q.strip(), **(args or {}))
             go("Research Report" if "result" in ss else "Research")
             st.rerun()
         except ApiError as exc:
             st.error(f"Something went wrong: {exc.message}")
 
 
-def chips(names: list[tuple[str, str]], key: str, objective: str = "") -> None:
+def chips(names: list[tuple[str, str]], key: str, args: dict[str, Any] | None = None) -> None:
     cols = st.columns(len(names))
     for col, (label, prompt) in zip(cols, names, strict=True):
         if col.button(label, key=f"{key}_{label}", width="stretch"):
             try:
-                start_research(prompt, objective=objective)
+                start_research(prompt, **(args or {}))
                 go("Research Report" if "result" in ss else "Research")
             except ApiError as exc:
                 ss.error = exc.message
@@ -568,7 +654,7 @@ SUGGESTED_REGIONS = (
 )
 
 
-def _suggested_list(region: str, items: list[ml.Daily], obj: str) -> None:
+def _suggested_list(region: str, items: list[ml.Daily], args: dict[str, Any]) -> None:
     if not items:
         st.markdown(f'<div class="na">{NA}</div>', unsafe_allow_html=True)
     for d in items:
@@ -584,14 +670,14 @@ def _suggested_list(region: str, items: list[ml.Daily], obj: str) -> None:
         )
         if c2.button("View", key=f"sug_{region}_{d.symbol}"):
             try:
-                start_research(d.symbol, objective=obj)
+                start_research(d.symbol, **args)
                 go("Research Report" if "result" in ss else "Research")
             except ApiError as exc:
                 ss.error = exc.message
             st.rerun()
 
 
-def suggested_companies(obj: str) -> None:
+def suggested_companies(args: dict[str, Any]) -> None:
     """Full-width 'Suggested Companies': US and India top-5 in two side-by-side boxes."""
 
     trend = live_trending()
@@ -605,7 +691,7 @@ def suggested_companies(obj: str) -> None:
                 f"{note}</div>",
                 unsafe_allow_html=True,
             )
-            _suggested_list(region, trend.get(region) or [], obj)
+            _suggested_list(region, trend.get(region) or [], args)
 
 
 # ---------------------------------------------------------------- pages
@@ -620,7 +706,8 @@ def home_page() -> None:
         unsafe_allow_html=True,
     )
     with st.container(key="herorow"):
-        search_box("home")
+        # Home always runs FULL research (every objective) and opens the complete report.
+        search_box("home", args=FULL_RESEARCH)
     flash()
     wfs = all_workflows()
     stats = workflow_stats(wfs)
@@ -654,6 +741,13 @@ def home_page() -> None:
         top_news()
 
 
+FULL_RESEARCH: dict[str, Any] = {
+    "objective": "comprehensive_equity_research",
+    "sections": ALL_SECTIONS,
+    "auto_approve": True,
+}
+
+
 def objective_rows(keys: list[str]) -> list[list[str]]:
     """Objective cards: four on the first row, the rest on a centred second row."""
 
@@ -661,11 +755,12 @@ def objective_rows(keys: list[str]) -> list[list[str]]:
 
 
 def research_page() -> None:
-    obj = ss.get("objective_pick", "")
+    picks: list[str] = list(ss.get("objective_picks", []))
+    args = research_args(picks)
     st.markdown("#### Start New Research")
-    search_box("research", "Search", objective=obj)
+    search_box("research", "Search", args=args, require_pick=True)
     st.write("")
-    suggested_companies(obj)
+    suggested_companies(args or FULL_RESEARCH)
     st.write("")
     with st.container():
         st.markdown("#### Research Objective")
@@ -675,7 +770,7 @@ def research_page() -> None:
             # row 2 (3 cards) is centred under row 1 with the same card width
             cols = st.columns(4) if len(row) == 4 else st.columns([1, 2, 2, 2, 1])[1:4]
             for col, k in zip(cols, row, strict=False):
-                picked = ss.get("objective_pick") == k
+                picked = k in picks
                 ckey = f"objc_{k}__sel" if picked else f"objc_{k}"
                 with col.container(border=True, key=ckey):
                     st.markdown(
@@ -688,9 +783,16 @@ def research_page() -> None:
                         key=f"obj_{k}",
                         type="primary" if picked else "secondary",
                     ):
-                        ss.objective_pick = "" if picked else k
+                        ss.objective_picks = [x for x in picks if x != k] if picked else [*picks, k]
                         st.rerun()
-        st.caption("No objective selected = auto-detect from your question.")
+        if picks:
+            st.caption(
+                "Selected: "
+                + ", ".join(OBJECTIVE_LABELS[k] for k in picks)
+                + ". The report will contain only these sections."
+            )
+        else:
+            st.caption("Select one or more objectives, then Search.")
         flash()
         if "intent" in ss and ("pending" in ss or "choices" in ss):
             used = ss.get("objective_used") or ss.intent.objective
@@ -699,7 +801,7 @@ def research_page() -> None:
             st.warning("More than one company matches. Which one did you mean?")
             for i, ch in enumerate(ss.choices):
                 if st.button(ch["label"], key=f"pick{i}"):
-                    start_research(ss.question, pick=ch, objective=obj)
+                    start_research(ss.question, pick=ch, **args)
                     go("Research Report" if "result" in ss else "Research")
                     st.rerun()
         if "pending" in ss:
@@ -718,10 +820,20 @@ def research_page() -> None:
                     decide(p["workflow_id"], p["company"], "rejected")
                     st.rerun()
         with st.container(border=True):
-            st.markdown('<div class="panel-t">Recent Searches</div>', unsafe_allow_html=True)
+            st.markdown(
+                f'<div class="panel-t">Recent Searches <span title="{esc(STATUS_HELP)}" '
+                'style="cursor:help;color:#8FA3C7">&#9432;</span></div>',
+                unsafe_allow_html=True,
+            )
+            st.caption(STATUS_HELP)
             rows = workflow_rows(all_workflows())[:8]
             for r in rows:
-                r["StatusH"] = status_pill(r["Status"])
+                tip = f"Missing: {r['Missing']}" if r.get("Missing") else STATUS_HELP
+                r["StatusH"] = f'<span title="{esc(tip)}">{status_pill(r["Status"])}</span>' + (
+                    f'<br><small class="s-mut">missing: {esc(r["Missing"])}</small>'
+                    if r.get("Missing")
+                    else ""
+                )
             st.markdown(
                 table(rows, ["Company", "Objective", "Created", "StatusH"], ["StatusH"]).replace(
                     "<th>StatusH</th>", "<th>Status</th>"
@@ -870,37 +982,135 @@ def _rows_table(rows: list[dict[str, Any]]) -> None:
 def _items(rows: list[dict[str, Any]]) -> None:
     for r in rows[:10]:
         link = f" [link]({r['url']})" if r.get("url") else ""
+        detail = f" · _{r['detail']}_" if r.get("detail") else ""
         st.markdown(
-            f"- **[{r.get('tag')}]** {r.get('date') or ''} — {r.get('title')} "
+            f"- **[{r.get('tag')}]** {r.get('date') or ''} — {r.get('title')}{detail} "
             f"{badge_markdown(r.get('data_origin'))}{link}"
         )
 
 
-def report_page() -> None:
+def report_downloads(res: dict[str, Any], company: str, key: str) -> None:
+    """Single export: one button that downloads the formatted PDF."""
+
+    md = str(res.get("markdown") or "")
+    if not md.strip():
+        st.warning("This report has no document content yet. Re-open it from Reports.")
+        return
+    title = f"{company} research report"
+    if pdf_available():
+        try:
+            pdf = markdown_to_pdf(md, title)
+        except Exception as exc:  # never break the page because of the export
+            st.caption(f"PDF export failed ({type(exc).__name__}). Re-open the report and retry.")
+        else:
+            st.download_button(
+                "\u2b07 Export PDF",
+                pdf,
+                file_name=report_filename(company, "pdf"),
+                mime="application/pdf",
+                type="primary",
+                width="stretch",
+                key=f"{key}_pdf",
+            )
+    else:
+        st.caption("Install fpdf2 for PDF export.")
+
+
+def _report_choices() -> list[tuple[str, str]]:
+    """(workflow_id, label) for this session's reports plus saved ones, newest first."""
+
+    seen: dict[str, str] = {}
+    for wid, r in reversed(list(ss.get("reports", {}).items())):
+        v = r.get("view")
+        seen[wid] = f"{getattr(v, 'company', '?')} · this session"
+    for r in list_saved_reports():
+        if r["workflow_id"] not in seen:
+            when = r["saved_at"].astimezone(tr.IST).strftime("%d %b %H:%M IST")
+            status = str(r.get("research_status") or "").capitalize()
+            seen[r["workflow_id"]] = (
+                f"{r['company']} · {objective_label(r.get('objective'))} · {when}"
+                + (f" · {status}" if status else "")
+            )
+    return list(seen.items())
+
+
+def _load_report(wid: str) -> dict[str, Any] | None:
     reports: dict[str, Any] = ss.get("reports", {})
-    if not reports:
+    if wid in reports:
+        return dict(reports[wid])
+    saved = load_saved_report(wid)
+    if saved is None:
+        return None
+    company = str(saved.get("company") or "")
+    res = {**saved, "workflow": saved.get("workflow") or {}, "workflow_id": wid}
+    res["view"] = build_report_view(saved["raw"], company)
+    res["markdown"] = saved.get("markdown") or ""
+    ss.reports = {**reports, wid: res}
+    return res
+
+
+def report_page() -> None:
+    choices = _report_choices()
+    if not choices:
         st.markdown("#### Research Report")
         st.info(
-            "No report in this session yet. Run research from Home or Research, or open "
-            "one from the Reports page."
+            "No report yet. Run research from Home or Research, or open one from the Reports page."
         )
         return
-    wid = ss.get("selected_report") or ss.get("result", {}).get("workflow_id")
-    if wid not in reports:
-        wid = list(reports)[-1]
+    ids = [w for w, _ in choices]
+    want = ss.get("selected_report") or ss.get("result", {}).get("workflow_id")
+    wid = want if want in ids else ids[0]
+    if len(ids) > 1:
+        labels = dict(choices)
+        ss.rp_pick = wid  # follows reports opened elsewhere (Home, Research, Reports page)
+
+        def _picked() -> None:
+            ss.selected_report = ss.rp_pick
+
+        wid = st.selectbox(
+            "Report",
+            ids,
+            format_func=lambda w: labels[w],
+            key="rp_pick",
+            on_change=_picked,
+            help="Latest completed report is shown first; pick an earlier one here.",
+        )
+    loaded = _load_report(wid)
+    if loaded is None:
+        st.warning("That report could not be loaded. Re-run the research to rebuild it.")
+        return
+    reports: dict[str, Any] = ss.get("reports", {})
     res = reports[wid]
     view, wf = res["view"], res["workflow"]
+    if "ticker" not in res:
+        cq = wf.get("company_query") or {}
+        res["ticker"] = str(cq.get("ticker") or "") or watch_ticker(view.company)
+    if "symbol" not in res:
+        res["symbol"] = resolved_symbol(
+            safe(API.get, "/companies/resolve", q=view.company, default={}) or {}
+        )
+    agents = ensure_deliberation(res, view.company, res["ticker"])
+    res["markdown"] = append_to_report(res["markdown"], agents)
     raw = res.get("raw")
     data = json.loads(raw) if isinstance(raw, str) else (raw or {})
     findings = data.get("findings") or {}
     by = {s.title: s for s in view.sections}
+    if "resolved" in ss:
+        st.success(ss.pop("resolved"), icon=":material/check_circle:")
     origins = {s.origin for s in view.sections if s.origin}
     head, dl = st.columns([4, 1])
     head.markdown(
         '<div style="font-size:.75rem;color:#8FA3C7">Research &rsaquo; Reports &rsaquo; '
         f"{esc(view.company)}"
         f'</div><div style="font-size:1.35rem;font-weight:700;color:#fff">{esc(view.company)} '
-        + status_pill(str(wf.get("status", "?")).capitalize())
+        + (
+            f'<span style="font-size:.9rem;color:#8FA3C7">({esc(res["symbol"])})</span> '
+            if res.get("symbol")
+            else ""
+        )
+        + status_pill(str(res.get("research_status") or wf.get("status", "?")).capitalize())
+        + " "
+        + rating_badge(agents)
         + " "
         + " ".join(origin_pill(o) for o in sorted(origins))
         + f'</div><div style="font-size:.75rem;color:#8FA3C7">'
@@ -908,15 +1118,24 @@ def report_page() -> None:
         f"{esc(wf.get('evidence_count', '-'))} evidence items</div>",
         unsafe_allow_html=True,
     )
-    dl.download_button(
-        "⬇ Download Report",
-        res["markdown"],
-        file_name=f"AMRP-{view.company.replace(' ', '_')}.md",
-        mime="text/markdown",
-        type="primary",
-        width="stretch",
-    )
-    tabs = st.tabs(list(REPORT_TABS))
+    if res.get("missing_sections"):
+        st.warning(
+            "Partial: no content for " + ", ".join(res["missing_sections"]) + ". " + STATUS_HELP
+        )
+    with dl:
+        report_downloads(res, view.company, key=f"rp_{wid}")
+    selected = set(findings.get("sections") or ALL_SECTIONS)
+
+    def _na(name: str, sec: Any) -> None:
+        if name not in selected:
+            st.caption(
+                f"{SECTION_LABELS[name]}: not part of this research (objective not selected)."
+            )
+            return
+        msg = f" ({sec.message})" if sec is not None and sec.message else ""
+        st.caption(f"{SECTION_LABELS[name]}: {NA}{msg}.")
+
+    tabs = st.tabs([*REPORT_TABS, "Debate & Rating"])
     with tabs[0]:
         c1, c2, c3 = st.columns([1, 1.5, 1])
         mrows = findings.get("market_figures") or []
@@ -993,7 +1212,7 @@ def report_page() -> None:
             st.markdown(badge_markdown(sec.origin, sec.status))
             _rows_table(sec.rows)
         else:
-            st.caption(f"Financials: {NA} for this objective.")
+            _na("financial", sec)
         msec = by.get("Market")
         if msec and msec.rows:
             st.markdown("**Market** " + badge_markdown(msec.origin, msec.status))
@@ -1022,19 +1241,31 @@ def report_page() -> None:
         if sec and sec.rows:
             _items([r for r in sec.rows if r not in recs])
         else:
-            st.caption(f"News: {NA}.")
+            _na("news", sec)
     with tabs[3]:
-        st.caption(
-            f"Industry analysis section: {NA} in this report (run the Industry Analysis objective)."
-        )
+        sec = by.get("Industry")
+        if sec and sec.rows:
+            st.markdown(badge_markdown(sec.origin, sec.status) + f" {sec.message or ''}")
+            figs = [r for r in sec.rows if "label" in r]
+            peers = [r for r in sec.rows if "title" in r]
+            if figs:
+                _rows_table(figs)
+            if peers:
+                st.markdown("**Peer comparison (1-year return)**")
+                _items(peers)
+        else:
+            _na("industry", sec)
     with tabs[4]:
         sec = by.get("Regulatory")
         if sec and sec.rows:
+            st.markdown(badge_markdown(sec.origin, sec.status) + f" {sec.message or ''}")
             _items(sec.rows)
         else:
-            st.caption(f"Regulatory: {NA}.")
+            _na("regulatory", sec)
     with tabs[5]:
         st.markdown(res["markdown"])
+    with tabs[-1]:
+        deliberation_tab(res, view.company, key=f"dl_{wid}")
     with tabs[6]:
         refs = evidence_refs(data)
         if refs:
@@ -1067,6 +1298,29 @@ def reports_page() -> None:
         width="stretch",
     )
     reports = ss.get("reports", {})
+    done = [r for r in shown if r["Status"] in ("Completed", "Partial")]
+    if done:
+        with st.expander(
+            "\u2b07 Download a report document (PDF / HTML / Markdown)", expanded=True
+        ):
+            labels = {f"{r['Company']} \u00b7 {r['Created'][:16]}": r for r in done}
+            pick = st.selectbox("Report", list(labels), key="dl_pick")
+            r = labels[pick]
+            wid = r["workflow_id"]
+            if wid not in reports and st.button("Prepare document", key="dl_prepare"):
+                try:
+                    open_report(wid, r["Company"])
+                    reports = ss.get("reports", {})
+                except ApiError as exc:
+                    st.error(f"Report not available ({exc.message})")
+            if wid in reports:
+                cols3 = st.columns(3)
+                res = reports[wid]
+                company = getattr(res.get("view"), "company", None) or r["Company"]
+                with cols3[0]:
+                    report_downloads(res, company, key=f"rl_{wid}")
+            else:
+                st.caption("Click Prepare document to build the files for this report.")
     with st.container(border=True):
         cols = [1.6, 1.6, 2, 1.3, 1, 1]
         h = st.columns(cols)
@@ -1086,7 +1340,7 @@ def reports_page() -> None:
                 f'<span style="color:#7FB0FF">{esc(r["Objective"])}</span>', unsafe_allow_html=True
             )
             d.markdown(status_pill(r["Status"]), unsafe_allow_html=True)
-            e.write("MD / JSON")
+            e.write("PDF / HTML / MD")
             wid = r["workflow_id"]
             if wid in reports:
                 if f.button("View", key=f"view_{wid}"):
@@ -1115,6 +1369,15 @@ def reports_page() -> None:
                 f.write("-")
 
 
+def _watchlist_ticker(name: str) -> str | None:
+    """Resolve a watchlist entry to its ticker (market symbols map to themselves)."""
+    if tr.is_market_symbol(name):
+        return name.strip().upper()
+    snap = safe(API.get, "/market/snapshot", q=name, default=None)
+    listing = (snap or {}).get("listing") or {}
+    return str(listing.get("ticker") or "").strip().upper() or None
+
+
 def watchlist_page() -> None:
     h1, h2 = st.columns([3, 2])
     h1.markdown("#### My Watchlist")
@@ -1124,30 +1387,49 @@ def watchlist_page() -> None:
     with h2, st.form("wl", border=False):
         c1, c2 = st.columns([3, 1.3])
         name = c1.text_input(
-            "Add", placeholder="Company name or ticker", label_visibility="collapsed"
+            "Add",
+            placeholder="Company, or GC=F / EURUSD=X / BTC-USD",
+            label_visibility="collapsed",
         )
         if c2.form_submit_button("+ Add to Watchlist", type="primary") and name.strip():
-            add_to_watchlist(name)
+            add_to_watchlist(name, ticker_of=_watchlist_ticker)
             st.rerun()
     items = load_watchlist()
     if not items:
-        st.info("Your watchlist is empty. Add Reliance, TCS or Apple to start.")
+        st.info(
+            "Your watchlist is empty. Add a company (Reliance, TCS, Apple) or a market symbol: "
+            "GC=F (gold), EURUSD=X (EUR/USD), BTC-USD (bitcoin)."
+        )
         return
     with st.container(border=True):
-        cols = [2.2, 1.6, 1.6, 1.2, 1.6, 1, 1]
+        cols = [2, 1.5, 1.5, 1.7, 1.3, 1.4, 1, 1]
         h = st.columns(cols)
         for col, t in zip(
-            h, ["Company", "Ticker", "Last Price", "Change", "Source", "", ""], strict=True
+            h,
+            ["Name", "Ticker", "Last Price", "Change (today)", "Source", "Market", "", ""],
+            strict=True,
         ):
             if t:
                 col.markdown(
                     f'<div style="color:#9FB2D6;font-size:.8rem">{t}</div>', unsafe_allow_html=True
                 )
         for it in items:
-            snap = safe(API.get, "/market/snapshot", q=it, default=None)
-            price, cur, origin = latest_close(snap)
-            series = close_series(snap)
+            market = tr.is_market_symbol(it)
+            snap = None if market else safe(API.get, "/market/snapshot", q=it, default=None)
+            price, cur, origin = (None, "", "live") if market else latest_close(snap)
+            series = [] if market else close_series(snap)
             listing = (snap or {}).get("listing") or {}
+            ysym = (
+                it.strip().upper()
+                if market
+                else yahoo_symbol(
+                    str(listing.get("ticker") or ""), str(listing.get("exchange") or "")
+                )
+            )
+            bars = safe(_live_5d, ysym, default=[]) if ysym else []
+            move = tr.day_move(bars or [])
+            if market and move:
+                price, cur = move[0], ""
             c = st.columns(cols)
             c[0].markdown(
                 f'<div class="co" style="border:none;padding:0"><div class="lg" '
@@ -1155,25 +1437,42 @@ def watchlist_page() -> None:
                 f'<div class="n"><b>{esc(it)}</b></div></div>',
                 unsafe_allow_html=True,
             )
-            c[1].write(
-                f"{listing.get('ticker', '')} · {listing.get('exchange', '')}" if listing else NA
-            )
-            c[2].write(f"{cur} {price:,.2f}" if price is not None else NA)
-            if price is not None and len(series) > 1 and series[0][1]:
+            if market:
+                c[1].write(ysym)
+            else:
+                c[1].write(
+                    f"{listing.get('ticker', '')} \u00b7 {listing.get('exchange', '')}"
+                    if listing
+                    else NA
+                )
+            nd = tr.price_decimals(price) if price is not None else 2
+            c[2].write(f"{cur} {price:,.{nd}f}".strip() if price is not None else NA)
+            if move:
+                _, d_abs, d_pct = move
+                tone = "s-green" if d_abs >= 0 else "s-red"
+                c[3].markdown(
+                    f'<span class="{tone}">{d_abs:+,.{nd}f} ({d_pct:+.2%})</span>',
+                    unsafe_allow_html=True,
+                )
+            elif price is not None and len(series) > 1 and series[0][1]:
                 chg = (price - series[0][1]) / series[0][1]
                 tone = "s-green" if chg >= 0 else "s-red"
-                c[3].markdown(f'<span class="{tone}">{chg:+.2%}</span>', unsafe_allow_html=True)
+                c[3].markdown(
+                    f'<span class="{tone}">{price - series[0][1]:+,.2f} ({chg:+.2%})</span>',
+                    unsafe_allow_html=True,
+                )
             else:
                 c[3].write(NA)
             c[4].markdown(
                 origin_pill(origin) if price is not None else pill("NOT AVAILABLE", "gray"),
                 unsafe_allow_html=True,
             )
-            if c[5].button("Research", key=f"wr_{it}"):
+            c[5].markdown(tr.inline_html(tr.from_bars(bars or [])), unsafe_allow_html=True)
+            if not market and c[6].button("Research", key=f"wr_{it}"):
                 start_research(it)
                 go("Research Report" if "result" in ss else "Research")
                 st.rerun()
-            if c[6].button("Remove", key=f"wd_{it}"):
+            if c[7].button("Remove", key=f"wd_{it}"):
                 remove_from_watchlist(it)
                 st.rerun()
 
@@ -1254,7 +1553,7 @@ def steps_mode() -> None:
         q = st.text_input(
             "Company",
             value=step_mode_company(ss.get("company")),
-            placeholder="Company name or ticker, e.g. RELIANCE.NS or AAPL",
+            placeholder="Company name or ticker, e.g. RELIANCE, TCS or AAPL (no suffix needed)",
             help="Type any company name, or a ticker such as RELIANCE.NS, TCS.NS or AAPL.",
         )
         objective = st.selectbox(
@@ -1266,7 +1565,9 @@ def steps_mode() -> None:
             st.warning("Enter a company name or ticker first.")
             start = False
         if start:
-            q = q.strip()
+            q, note = resolve_for_control(q)
+            if note:
+                ss.resolved = note
             CONTROL.put(
                 "/control/settings", {"approval_mode": True, "auto_approve_low_risk": False}
             )
@@ -1322,7 +1623,14 @@ def steps_mode() -> None:
 def settings_page() -> None:
     st.markdown("#### Settings")
     st.caption("Configure providers, models, security and preferences.")
-    t1, t2, t3, t4, t5 = st.tabs(["Providers", "Model", "Data keys", "Live data", "Security"])
+    with st.expander("\U0001f4d8 Setup guide for new installs (which keys you need)"):
+        st.markdown("\n".join(f"{i}. {t}" for i, t in enumerate(sg.STEPS, 1)))
+        st.markdown(table(sg.GUIDE, list(sg.GUIDE[0])), unsafe_allow_html=True)
+        st.caption("Key values are never shown here; configured keys appear masked.")
+    t1, t2, t3, t4, t5, t6 = st.tabs(
+        ["Providers", "Model", "AI agents", "Data keys", "Live data", "Security"]
+    )
+    t3, t4, t5, t6 = t4, t5, t6, t3
     masked: dict[str, Any] = {}
     try:
         masked = CONTROL.get("/control/keys").get("keys", {}) if CONTROL.token else {}
@@ -1427,6 +1735,8 @@ def settings_page() -> None:
         cfg = safe(CONTROL.get, "/control/settings", default=None) if CONTROL.token else None
         if cfg:
             st.json(cfg, expanded=False)
+    with t6:
+        agent_llm_settings()
 
 
 RESTART_NOTE = (
@@ -1624,183 +1934,330 @@ def _step_label(state: str) -> str:
 
 
 def _control_ready() -> bool:
+    """Control API reachable AND our token accepted (health alone needs no token)."""
+
     if not CONTROL.token:
         st.error("Control API token missing - start with scripts/start-dashboard.ps1.")
         return False
     try:
         CONTROL.get("/control/health")
+        CONTROL.get("/control/settings")  # authorised call: catches a stale 8712 process
     except ApiError as exc:
-        st.error(f"Control API not reachable ({exc.message}).")
+        if exc.status == 401:
+            st.error(
+                "The control service on port 8712 rejected this dashboard's token (an older "
+                "AMRP process is probably still running). Stop it and restart with "
+                "scripts/start-dashboard.ps1."
+            )
+        else:
+            st.error(f"Control API not reachable ({exc.message}).")
         return False
     return True
+
+
+MODE_HUMAN, MODE_AUTO = "Manual mode", "Auto mode"
+# Run-mode switch above Start: larger, white track, red = Manual, green = Auto, silver knob.
+COMP_TOGGLE_CSS = """<style>
+.comp-mode-lbl{text-align:center;font-weight:700;font-size:1.02rem;margin:0 0 .15rem}
+.comp-mode-lbl.manual{color:#ff6b6f}.comp-mode-lbl.auto{color:#3ddc84}
+.st-key-comp_auto{
+  display:flex !important;
+  justify-content:center;
+  width:100% !important;
+  margin:.35rem 0 .5rem}
+.st-key-comp_auto > div{display:flex;justify-content:center;width:100%}
+.st-key-comp_auto [data-testid="stCheckbox"]{
+  display:flex !important;
+  justify-content:center !important;
+  width:100% !important}
+.st-key-comp_auto label{
+  transform:scale(1.6);
+  transform-origin:center top;
+  margin:0 auto !important;
+  width:fit-content !important}
+.st-key-comp_auto [data-testid="stWidgetLabel"]{display:none}
+.st-key-comp_auto label > div:first-of-type{background:#ffffff !important;margin:0 !important;
+  border:2px solid #e5484d !important;box-shadow:0 0 0 2px rgba(229,72,77,.25)}
+.st-key-comp_auto label > div:first-of-type > div{
+  background:linear-gradient(145deg,#f4f5f7 0%,#c3c7cc 45%,#8e949b 100%) !important;
+  border:1px solid #7d838a !important;box-shadow:0 1px 3px rgba(0,0,0,.45)}
+.st-key-comp_auto label:has(input:checked) > div:first-of-type{
+  border-color:#2fbf71 !important;box-shadow:0 0 0 2px rgba(47,191,113,.3)}
+</style>"""
+_TERMINAL_RUN = ("succeeded", "completed", "failed", "partial", "stopped")
 
 
 def comprehensive_page() -> None:
     st.markdown("#### Comprehensive Research")
     st.caption(
-        "Five research agents analyse one company. Every agent step waits for your "
-        "approval; you see live progress and logs, and can retry a failed step."
+        "Five research agents analyse one company. Manual mode: each agent step waits "
+        "for Approve or Skip. Auto mode: every step runs without prompts to the final report."
     )
-    run: dict[str, Any] | None = None
-    if _control_ready() and ss.get("comp_run"):
-        run = safe(CONTROL.get, f"/control/runs/{ss.comp_run}", default=None)
-    steps: list[dict[str, Any]] = (run or {}).get("steps", [])
-    states = agent_states(steps)
-    st.markdown(
-        agent_grid([(n, _step_label(states[k]), w) for k, n, w in RESEARCH_AGENTS]),
-        unsafe_allow_html=True,
-    )
-    if not CONTROL.token:
-        return
+    ready = _control_ready()
+    st.markdown(COMP_TOGGLE_CSS, unsafe_allow_html=True)
     st.markdown('<div class="comp-gap"></div>', unsafe_allow_html=True)
-    st.markdown('<div class="panel-t">Start a run</div>', unsafe_allow_html=True)
+    # Run-mode block: label on top, switch centred below, just above the company input row.
+    mcol, _ = st.columns([1, 6])
+    with mcol:
+        auto_now = bool(ss.get("comp_auto"))
+        st.markdown(
+            f'<div class="comp-mode-lbl {"auto" if auto_now else "manual"}">'
+            f"{MODE_AUTO if auto_now else MODE_HUMAN}</div>",
+            unsafe_allow_html=True,
+        )
+        auto_on = st.toggle(
+            "Run mode",
+            value=False,
+            key="comp_auto",
+            label_visibility="collapsed",
+            help="Off (left) = Manual mode (default): approve or skip each agent step. "
+            "On (right) = Auto mode: all steps run automatically through to the finished report.",
+        )
+    mode = MODE_AUTO if auto_on else MODE_HUMAN
     with st.form("comp_start"):
         c1, c2 = st.columns([4, 1])
         q = c1.text_input(
             "Company",
             value="",
-            placeholder="Company name or ticker, e.g. RELIANCE.NS or AAPL",
+            placeholder="Company name or ticker, e.g. RELIANCE, TCS or AAPL (no suffix needed)",
             label_visibility="collapsed",
         )
         start = c2.form_submit_button(
             "Start Comprehensive Research", type="primary", width="stretch"
         )
-    try:
-        if start and not q.strip():
-            st.warning("Enter a company name or ticker first.")
-        elif start:
-            CONTROL.put(
-                "/control/settings", {"approval_mode": True, "auto_approve_low_risk": False}
-            )
+    if start and not q.strip():
+        st.warning("Enter a company name or ticker first.")
+    elif start and ready:
+        rq, note = resolve_for_control(q)
+        ss.comp_resolved = note
+        try:
             created = CONTROL.post(
                 "/control/runs",
-                {"params": {"q": q.strip(), "objective": "comprehensive_equity_research"}},
+                {
+                    "params": {
+                        "q": rq,
+                        "objective": "comprehensive_equity_research",
+                        "approval_mode": mode == MODE_HUMAN,
+                    }
+                },
             )
-            ss.comp_run, ss.comp_company = created["run_id"], q.strip()
-            st.rerun()
-        if run is None:
-            st.info("Start a run to see the approval gate, per-step progress and live logs.")
-            return
-        status = str(run.get("status"))
-        done = sum(1 for s in steps if s.get("state") in ("succeeded", "failed", "rejected"))
-        total = max(len(steps), len(RESEARCH_AGENTS))
+            ss.comp_run, ss.comp_company, ss.comp_mode_used = (
+                created["run_id"],
+                rq,
+                mode,
+            )
+            ss.pop("comp_report_done", None)
+        except ApiError as exc:
+            st.error(exc.message)
+    if not ready or not CONTROL.token:
+        return
+    if not ss.get("comp_run"):
         st.markdown(
-            f"**{esc(ss.get('comp_company', ''))}** · run `{ss.comp_run[:8]}` · "
-            f"status **{status}** · {done}/{total} steps finished"
+            agent_grid([(n, _step_label("waiting"), w) for _, n, w in RESEARCH_AGENTS]),
+            unsafe_allow_html=True,
         )
-        st.progress(min(1.0, done / total) if total else 0.0)
-        waiting = pending_steps(steps)
-        if waiting:
-            with st.container(key="comp_pending"):
-                st.markdown(
-                    f'<div class="banner-amber">⏸ <b>Approval needed</b> - {len(waiting)} '
-                    "step(s) are waiting for you. Nothing runs until you approve.</div>",
-                    unsafe_allow_html=True,
-                )
-        for step in steps:
-            sid, state = step["step_id"], str(step["state"])
-            with st.container(border=True):
-                head, b1, b2, b3 = st.columns([6, 1, 1, 1])
-                head.markdown(
-                    f"{_step_label(state)} **{esc(str(step.get('kind') or ''))}** - "
-                    f"{esc(str(step.get('name') or ''))[:140]}",
-                    unsafe_allow_html=True,
-                )
-                out = step.get("output") or {}
-                if out.get("summary"):
-                    head.caption(str(out["summary"])[:400])
-                if step.get("error"):
-                    head.caption(f"error: {step['error']}")
-                if state == "pending_approval":
-                    if b1.button("Approve", key=f"ca{sid}", type="primary"):
-                        CONTROL.post(f"/control/runs/{ss.comp_run}/steps/{sid}/approve", {})
-                        st.rerun()
-                    if b2.button("Reject", key=f"cr{sid}"):
-                        CONTROL.post(f"/control/runs/{ss.comp_run}/steps/{sid}/reject", {})
-                        st.rerun()
-                if state in ("failed", "rejected") and b3.button("Retry", key=f"ct{sid}"):
-                    CONTROL.post(f"/control/runs/{ss.comp_run}/steps/{sid}/retry", {})
-                    st.rerun()
-        logs = CONTROL.get(f"/control/runs/{ss.comp_run}/logs").get("logs", [])
-        st.markdown("**Live log**")
+        st.markdown('<div style="height:1.25rem"></div>', unsafe_allow_html=True)
+        st.info("Start a run to see per-agent progress, approvals and live logs.")
+        return
+    _comp_run_panel()
+
+
+@st.fragment(run_every=2)
+def _comp_run_panel() -> None:
+    """Live run panel; refreshes itself every 2 s so Approve/Skip appear as soon as a step
+    is waiting (no full-page sleep/rerun loop)."""
+
+    run_id = str(ss.get("comp_run") or "")
+    try:
+        run = CONTROL.get(f"/control/runs/{run_id}")
+    except ApiError as exc:
+        st.error(
+            f"Could not load run {run_id[:8]} from the control service ({exc.message}). "
+            "If the control service was restarted the run is gone - start a new one."
+        )
+        if st.button("Clear run", key="comp_clear"):
+            ss.pop("comp_run", None)
+            st.rerun()
+        return
+    steps: list[dict[str, Any]] = run.get("steps", [])
+    states = agent_states(steps)
+    st.markdown(
+        agent_grid([(n, _step_label(states[k]), w) for k, n, w in RESEARCH_AGENTS]),
+        unsafe_allow_html=True,
+    )
+    status = str(run.get("status"))
+    auto = not run.get("approval_mode", True)
+    done = sum(1 for s in steps if s.get("state") in ("succeeded", "failed", "rejected", "skipped"))
+    total = max(len(steps), len(RESEARCH_AGENTS))
+    st.markdown(
+        (f"{esc(ss['comp_resolved'])}  \n" if ss.get("comp_resolved") else "")
+        + f"**{esc(ss.get('comp_company', ''))}** · run `{run_id[:8]}` · "
+        f"{MODE_AUTO if auto else MODE_HUMAN} · status **{status}** · "
+        f"{done}/{total} steps finished"
+    )
+    st.progress(min(1.0, done / total) if total else 0.0)
+    waiting = pending_steps(steps)
+    if waiting:
+        st.markdown(
+            f'<div class="banner-amber">⏸ <b>Approval needed</b> - {len(waiting)} '
+            "step(s) are waiting. Approve runs the step; Skip moves on and marks the "
+            "section skipped.</div>",
+            unsafe_allow_html=True,
+        )
+    terminal = status in _TERMINAL_RUN
+    for step in steps:
+        sid, state = step["step_id"], str(step["state"])
+        with st.container(border=True):
+            head, b1, b2 = st.columns([6, 1, 1])
+            head.markdown(
+                f"{_step_label(state)} **{esc(str(step.get('kind') or ''))}** - "
+                f"{esc(str(step.get('name') or ''))[:140]}",
+                unsafe_allow_html=True,
+            )
+            out = step.get("output") or {}
+            if out.get("summary"):
+                head.caption(str(out["summary"])[:400])
+            if step.get("error"):
+                head.caption(f"error: {step['error']}")
+            if state == "pending_approval":
+                if b1.button("Approve", key=f"ca{sid}", type="primary"):
+                    CONTROL.post(f"/control/runs/{run_id}/steps/{sid}/approve", {})
+                    st.rerun(scope="fragment")
+                if b2.button("Skip", key=f"cs{sid}"):
+                    CONTROL.post(f"/control/runs/{run_id}/steps/{sid}/skip", {})
+                    st.rerun(scope="fragment")
+    logs = safe(CONTROL.get, f"/control/runs/{run_id}/logs", default={}) or {}
+    with st.expander("Live log", expanded=not terminal):
         st.code(
-            "\n".join(f"{x.get('level', 'info'):5} {x.get('message')}" for x in logs[-40:])
+            "\n".join(
+                f"{x.get('level', 'info'):5} {x.get('message')}"
+                for x in (logs.get("logs") or [])[-40:]
+            )
             or "(no logs yet)"
         )
-        if status in ("succeeded", "completed", "failed", "partial", "stopped"):
-            res = run.get("result") or {}
-            st.success(
-                f"Run finished: {res.get('status', status)} · "
-                f"{res.get('completed_count', '?')} agents completed, "
-                f"{len(res.get('evidence_refs') or [])} evidence references."
+    if terminal:
+        _comp_final(run, steps, run_id)
+
+
+def _comp_final(run: dict[str, Any], steps: list[dict[str, Any]], run_id: str) -> None:
+    res = run.get("result") or {}
+    if run.get("error"):
+        st.error(f"Run failed: {run['error']}")
+    summary = run_summary(steps, res if isinstance(res, dict) else {})
+    lines = [
+        f"- **{esc(f['agent'])}** failed: {esc(f['reason'] or 'no reason reported')}"
+        for f in summary["failed"]
+    ] + [f"- **{esc(s['agent'])}** skipped: {esc(s['reason'])}" for s in summary["skipped"]]
+    if summary["status"] == "Completed":
+        st.success(
+            f"✅ **Completed** - all {len(RESEARCH_AGENTS)} agents produced results "
+            f"({len(res.get('evidence_refs') or [])} evidence references)."
+        )
+    else:
+        st.warning("⚠️ **Partial** - some agents did not produce results:\n" + "\n".join(lines))
+    for f in summary["failed"]:
+        if st.button(f"Retry {f['agent']}", key=f"ct{f['step_id']}"):
+            try:
+                CONTROL.post(f"/control/runs/{run_id}/steps/{f['step_id']}/retry", {})
+            except ApiError as exc:
+                st.error(exc.message)
+            st.rerun(scope="fragment")
+    if st.button("📄 Open the finished report", type="primary", key="comp_report"):
+        skipped = {s["kind"] for s in summary["skipped"]}
+        kind_section = {
+            "market_intelligence": "market",
+            "financial_intelligence": "financial",
+            "news_event_intelligence": "news",
+            "industry_intelligence": "industry",
+            "regulatory_intelligence": "regulatory",
+        }
+        sections = tuple(s for k, s in kind_section.items() if k not in skipped) or ALL_SECTIONS
+        try:
+            start_research(
+                str(ss.get("comp_company", "")),
+                objective="comprehensive_equity_research",
+                auto_approve=True,
+                sections=sections,
             )
-            if st.button("📄 Open the finished report", type="primary", key="comp_report"):
-                try:
-                    start_research(
-                        str(ss.get("comp_company", "")),
-                        objective="comprehensive_equity_research",
-                        auto_approve=True,
-                    )
-                except ApiError as exc:
-                    ss.error = exc.message
-                if ss.get("result"):
-                    ss.nav = "Research Report"
-                    st.rerun()
-            st.caption(
-                "The formatted report (tabs, charts, evidence tags) is built by the REST API "
-                "from a comprehensive workflow for the same company."
-            )
-        elif status in ("running", "queued") and not waiting:
-            time.sleep(1.5)
+        except ApiError as exc:
+            ss.error = exc.message
+        if ss.get("result"):
+            ss.nav = "Research Report"
             st.rerun()
-    except ApiError as exc:
-        st.error(exc.message)
+    st.caption(
+        "The formatted report (tabs, charts, evidence tags) is built by the REST API "
+        "from a comprehensive workflow for the same company; skipped agents are left out."
+    )
 
 
 # ---------------------------------------------------------------- commodity market
-@st.cache_data(ttl=900, show_spinner=False)
-def commodity_series(name: str, india: bool) -> ml.Daily | None:
-    return cm.price_series(cm.COMMODITIES[name], india)
+class _NoData(Exception):
+    """Raised inside cached fetchers so failed/empty results are never cached."""
+
+
+@st.cache_data(ttl=60, show_spinner=False)
+def _commodity_series_cached(name: str) -> ml.Daily:
+    d = cm.price_series(cm.COMMODITIES[name])
+    if d is None or not d.bars:
+        raise _NoData(name)
+    return d
 
 
 @st.cache_data(ttl=900, show_spinner=False)
-def commodity_news(name: str, india: bool) -> list[ml.NewsItem]:
-    return cm.related_news(cm.COMMODITIES[name], india)
+def _commodity_news_cached(name: str) -> list[ml.NewsItem]:
+    items = cm.related_news(cm.COMMODITIES[name])
+    if not items:
+        raise _NoData(name)
+    return items
+
+
+def commodity_series(name: str, retries: int = 2) -> ml.Daily | None:
+    """US futures series; failures are not cached and are retried."""
+    for _ in range(retries):
+        try:
+            return _commodity_series_cached(name)
+        except _NoData:
+            continue
+    return None
+
+
+def commodity_news(name: str, retries: int = 2) -> list[ml.NewsItem]:
+    for _ in range(retries):
+        try:
+            return _commodity_news_cached(name)
+        except _NoData:
+            continue
+    return []
 
 
 def commodity_page() -> None:
     st.markdown("#### Commodity Market")
-    st.caption("Live futures prices, a 1-month graph and the latest related news.")
-    # Keyed container -> CSS class ``st-key-cm_selectors`` so the compact pill
-    # sizing below applies only here and keeps all five commodities (incl.
-    # Copper) on one line at laptop widths down to ~1100px.
+    st.caption("Live US futures prices (COMEX/NYMEX, USD), a 1-month graph and related news.")
+    # Keyed container -> CSS class ``st-key-cm_selectors``; pills wrap on narrow windows.
     with st.container(key="cm_selectors"):
-        c1, c2 = st.columns([1, 1.75], gap="small")
-        market = c1.radio("Market", cm.MARKETS, horizontal=True, key="cm_market")
-        name = c2.radio("Commodity", list(cm.COMMODITIES), horizontal=True, key="cm_name")
-    india = market.startswith("India")
+        name = st.radio("Commodity", list(cm.COMMODITIES), horizontal=True, key="cm_name")
     com = cm.COMMODITIES[name]
-    with st.spinner("Loading live prices…"):
-        d = commodity_series(name, india)
+    with ld.loading():
+        d = commodity_series(name)
     left, right = st.columns([2.2, 1])
     with left.container(border=True, key="cm_price"):
         if d is None:
             st.markdown(
-                f'<div class="na">{esc(name)} price: {NA} (Yahoo Finance / USD-INR '
-                "unreachable)</div>",
+                f'<div class="na">{esc(name)} price: {NA} (Yahoo Finance unreachable)</div>',
                 unsafe_allow_html=True,
             )
         else:
             last = d.bars[-1].close
             day = (last / d.bars[-2].close - 1) if len(d.bars) > 1 and d.bars[-2].close else None
-            unit = f"₹ per {com.mcx_unit}" if india else f"US$ per {com.us_unit}"
-            cur = "₹" if india else "$"
+            unit = f"US$ per {com.us_unit}"
+            cur = "$"
             tone = "s-green" if (day or 0) >= 0 else "s-red"
             mtone = "s-green" if (d.change or 0) >= 0 else "s-red"
-            st.markdown(
+            hl, hr = st.columns([3, 1], vertical_alignment="center")
+            hl.markdown(
                 f'<div class="cm-h"><div><b>{esc(name)}</b> '
                 f"{pill('LIVE', 'green')} <small>{esc(com.symbol)} · {esc(com.exchange)}"
-                f"{' → INR' if india else ''} · as of {_ist(d.as_of)}</small></div>"
+                f" · as of {_ist(d.as_of)}</small></div>"
                 f'<div class="cm-v">{cur}{last:,.2f} <small>{esc(unit)}</small></div>'
                 f'<div><span class="{tone}">{day:+.2%} 1d</span> · '
                 f'<span class="{mtone}">{(d.change or 0):+.2%} 1m</span></div></div>'
@@ -1808,18 +2265,13 @@ def commodity_page() -> None:
                 else f"<b>{esc(name)}</b> {cur}{last:,.2f} {esc(unit)}",
                 unsafe_allow_html=True,
             )
+            with hr:
+                trend_badge(com.symbol)
+            st.markdown(tf_chip("1 month \u00b7 daily closes"), unsafe_allow_html=True)
             st.altair_chart(area_chart(d, height=260, month=True), width="stretch")
-            if india:
-                st.markdown(
-                    f'<div class="banner-amber">Approx. from international futures, not the '
-                    f"MCX quote: {esc(com.symbol)} ({esc(com.exchange)}) x live USD/INR "
-                    f"(USDINR=X), converted to {esc(com.mcx_unit)}. MCX prices include import "
-                    "duty and differ.</div>",
-                    unsafe_allow_html=True,
-                )
             st.caption("Daily closes, last 1 month · source: Yahoo Finance (cached 15 min)")
     with right.container(border=True, key="cm_news"):
-        items = commodity_news(name, india)
+        items = commodity_news(name)
         body = (
             "".join(
                 f'<div class="rr"><div class="n"><b><a href="{esc(n.link)}" target="_blank">'
@@ -1832,44 +2284,40 @@ def commodity_page() -> None:
         st.markdown(
             f'<div class="panel-t">Latest {esc(name)} news</div>{body}', unsafe_allow_html=True
         )
-        st.caption("Yahoo Finance + Google News RSS" + (" (India edition)" if india else ""))
-    k = 1.0
-    if india:
-        rate = usd_inr_rate()
-        k = com.to_mcx_unit * rate if rate else 0.0
-    if k:
-        dbars, ex = session_charts(com.symbol, "cmx", k, 2)
-        unit = f"INR per {com.mcx_unit} (approx.)" if india else f"USD per {com.us_unit}"
-        ai_panel(
-            "commodity",
-            f"{name} ({'India' if india else 'US'})",
-            mk.build_evidence(name, unit, dbars, ex, items, 2),
-            "cmx",
-        )
-    else:
-        st.markdown(
-            f'<div class="na">Session charts: {NA} (USD/INR unavailable)</div>',
-            unsafe_allow_html=True,
-        )
+        st.caption("Yahoo Finance + Google News RSS")
+    dbars, ex = session_charts(com.symbol, "cmx", 1.0, 2)
+    ai_panel(
+        "commodity",
+        f"{name} (US)",
+        mk.build_evidence(name, f"USD per {com.us_unit}", dbars, ex, items, 2),
+        "cmx",
+    )
 
 
 # ---------------------------------------------------------------- sessions + AI (v7)
 SESSION_COLORS = {"Asia/Tokyo": "#A78BFA", "London": "#38BDF8", "New York": "#F59E0B"}
 
 
-@st.cache_data(ttl=600, show_spinner=False)
+@st.cache_data(ttl=60, show_spinner=False)
 def intraday(symbol: str, range_: str, interval: str) -> list[mk.IBar]:
     return mk.fetch_intraday(symbol, range_, interval)
+
+
+@st.cache_data(ttl=55, show_spinner=False)
+def _live_5d(symbol: str) -> list[mk.IBar]:
+    return mk.fetch_intraday(symbol, "5d", "15m")
+
+
+@st.fragment(run_every=60)
+def trend_badge(symbol: str) -> None:
+    """Live daily trend badge; refetches (<=60 s cache) and recomputes every 60 s."""
+    sig = tr.from_bars(_live_5d(symbol))
+    st.markdown(tr.badge_html(sig, datetime.now(UTC)), unsafe_allow_html=True)
 
 
 @st.cache_data(ttl=900, show_spinner=False)
 def instrument_news(kind: str, key: str) -> list[ml.NewsItem]:
     return mk.news_for((mk.FOREX if kind == "fx" else mk.CRYPTO)[key])
-
-
-@st.cache_data(ttl=900, show_spinner=False)
-def usd_inr_rate() -> float | None:
-    return mk.usd_inr()
 
 
 def session_chart(bars: list[mk.IBar], height: int, fmt: str, week: bool) -> Any:
@@ -2010,6 +2458,15 @@ def extremes_table(ex: list[mk.Extreme], fmt: str) -> None:
     )
 
 
+def tf_chip(text: str) -> str:
+    """Visible chart timeframe label, e.g. 'Timeframe: 1 month \u00b7 daily closes'."""
+    return (
+        '<span class="tf-chip" style="display:inline-block;padding:2px 10px;border-radius:12px;'
+        "background:rgba(91,141,239,.16);border:1px solid #5B8DEF;color:#C9D6EE;"
+        f'font-size:.75rem;font-weight:600">\u23f1 Timeframe: {esc(text)}</span>'
+    )
+
+
 def session_charts(
     symbol: str, key: str, k: float = 1.0, decimals: int = 2
 ) -> tuple[list[mk.IBar], list[mk.Extreme]]:
@@ -2024,7 +2481,8 @@ def session_charts(
     a, b = st.columns(2)
     with a.container(border=True, key=f"{key}_day"):
         st.markdown(
-            '<div class="panel-t">Day-wise · 15-min bars, last trading day (UTC)</div>',
+            '<div class="panel-t">Day-wise view</div>'
+            + tf_chip("1 day \u00b7 15-minute bars (UTC)"),
             unsafe_allow_html=True,
         )
         if len(day) > 2:
@@ -2033,7 +2491,8 @@ def session_charts(
             st.markdown(f'<div class="na">Intraday data: {NA}</div>', unsafe_allow_html=True)
     with b.container(border=True, key=f"{key}_week"):
         st.markdown(
-            '<div class="panel-t">Week-wise · hourly bars, last 7 days (UTC)</div>',
+            '<div class="panel-t">Week-wise view</div>'
+            + tf_chip("7 days \u00b7 hourly bars (UTC)"),
             unsafe_allow_html=True,
         )
         if len(week_bars) > 2:
@@ -2074,7 +2533,7 @@ def ai_panel(market: str, name: str, evidence: list[dict[str, str]], key: str) -
             "model (Settings > Model; free model by default, paid only if you opted in)."
         )
         if st.button("✨ Analyze with AI", key=f"{key}_ai_btn", disabled=not evidence):
-            with st.spinner("Asking the model…"):
+            with ld.loading():
                 try:
                     ss[f"{key}_ai_res"] = CONTROL.post(
                         "/control/analyze",
@@ -2130,19 +2589,23 @@ def forex_page() -> None:
     st.caption("Live FX rates, session high/low charts, related news and AI analysis.")
     pair = st.radio("Pair", list(mk.FOREX), horizontal=True, key="fx_pair")
     inst = mk.FOREX[pair]
-    with st.spinner("Loading live rates…"):
+    with ld.loading():
         day = mk.last_day(intraday(inst.symbol, "5d", "15m"))
     left, right = st.columns([2.2, 1])
     left_box = left.container()
     with left_box.container(border=True, key="fx_price"):
-        instrument_header(
-            pair,
-            inst.symbol,
-            day,
-            "",
-            pair.split("/")[1] + " per " + pair.split("/")[0],
-            inst.decimals,
-        )
+        hl, hr = st.columns([3, 1], vertical_alignment="center")
+        with hl:
+            instrument_header(
+                pair,
+                inst.symbol,
+                day,
+                "",
+                pair.split("/")[1] + " per " + pair.split("/")[0],
+                inst.decimals,
+            )
+        with hr:
+            trend_badge(inst.symbol)
     with right.container(border=True, key="fx_news", height=NEWS_HEIGHT):
         news = instrument_news("fx", pair)
         news_panel(news, f"Latest {pair} news")
@@ -2160,29 +2623,20 @@ def forex_page() -> None:
 def crypto_page() -> None:
     st.markdown("#### Crypto Market")
     st.caption("Live crypto prices (24/7), session high/low charts, news and AI analysis.")
-    c1, c2 = st.columns([3, 1])
-    coin = c1.radio("Coin", list(mk.CRYPTO), horizontal=True, key="cr_coin")
-    cur = c2.radio("Currency", ("USD", "INR"), horizontal=True, key="cr_cur")
+    coin = st.radio("Coin", list(mk.CRYPTO), horizontal=True, key="cr_coin")
+    # Prices are shown in USD only (the INR conversion helper was removed).
+    cur, sym, k = "USD", "$", 1.0
     inst = mk.CRYPTO[coin]
-    k = 1.0
-    if cur == "INR":
-        rate = usd_inr_rate()
-        if rate is None:
-            st.markdown(
-                f'<div class="na">USD/INR rate: {NA}; showing USD.</div>', unsafe_allow_html=True
-            )
-            cur = "USD"
-        else:
-            k = rate
-    sym = "₹" if cur == "INR" else "$"
-    with st.spinner("Loading live prices…"):
+    with ld.loading():
         day = mk.scale(mk.last_day(intraday(inst.symbol, "5d", "15m")), k)
     left, right = st.columns([2.2, 1])
     left_box = left.container()
     with left_box.container(border=True, key="cr_price"):
-        instrument_header(f"{inst.name} ({coin})", inst.symbol, day, sym, cur, inst.decimals)
-        if k != 1.0:
-            st.caption(f"INR = USD price x latest USD/INR close ({k:,.3f}, USDINR=X).")
+        hl, hr = st.columns([3, 1], vertical_alignment="center")
+        with hl:
+            instrument_header(f"{inst.name} ({coin})", inst.symbol, day, sym, cur, inst.decimals)
+        with hr:
+            trend_badge(inst.symbol)
     with right.container(border=True, key="cr_news", height=NEWS_HEIGHT):
         news = instrument_news("crypto", coin)
         news_panel(news, f"Latest {inst.name} news")
@@ -2210,6 +2664,8 @@ PAGES = {
     "Forex Market": ("forex", forex_page),
     "Crypto Market": ("crypto", crypto_page),
     "Provider Health": ("health", health_page),
+    "Agent Memory": ("memory", memory_page),
+    "Agent Backtest": ("backtest", backtest_page),
     "Settings": ("settings", settings_page),
 }
 ss.setdefault("nav", "Home")
@@ -2227,4 +2683,10 @@ with st.sidebar:
             ss.nav = name
             st.rerun()
 
-PAGES[ss.nav][1]()
+    _load_slot = st.empty()  # end of sidebar: the fixed pill never shifts the main page
+ld.attach(_load_slot)
+ld.show("Loading…")
+try:
+    PAGES[ss.nav][1]()
+finally:
+    ld.clear()

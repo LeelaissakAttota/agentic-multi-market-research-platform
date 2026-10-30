@@ -19,6 +19,7 @@ PAGES = [
     "Watchlist",
     "Provider Health",
     "Settings",
+    "Crypto Market",
 ]
 
 
@@ -42,3 +43,32 @@ def test_page_renders_with_api_down(
     at.session_state["nav"] = page
     at.run()
     assert not at.exception, [e.value for e in at.exception]
+
+
+def test_crypto_page_has_no_inr_option(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    monkeypatch.setenv("AMRP_API_URL", "http://127.0.0.1:9")
+    monkeypatch.setenv("AMRP_CONTROL_URL", "http://127.0.0.1:9")
+    monkeypatch.setenv("APPDATA", str(tmp_path))
+    at = AppTest.from_file(APP, default_timeout=30)
+    at.session_state["nav"] = "Crypto Market"
+    at.run()
+    assert not at.exception
+    labels = [r.label for r in at.radio]
+    assert "Currency" not in labels
+
+
+def test_comprehensive_mode_toggle(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    monkeypatch.setenv("AMRP_API_URL", "http://127.0.0.1:9")
+    monkeypatch.setenv("AMRP_CONTROL_URL", "http://127.0.0.1:9")
+    monkeypatch.setenv("APPDATA", str(tmp_path))
+    at = AppTest.from_file(APP, default_timeout=30)
+    at.session_state["nav"] = "Comprehensive Research"
+    at.run()
+    assert not at.exception
+    assert not [r for r in at.radio if r.label == "Run mode"]
+    toggle = at.toggle(key="comp_auto")
+    assert toggle.value is False
+    assert any("Manual mode" in m.value for m in at.markdown)
+    toggle.set_value(True).run()
+    assert at.toggle(key="comp_auto").value is True
+    assert any("comp-mode-lbl auto" in m.value and "Auto mode" in m.value for m in at.markdown)

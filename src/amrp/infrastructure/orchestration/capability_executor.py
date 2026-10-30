@@ -2,6 +2,9 @@
 
 from __future__ import annotations
 
+from datetime import UTC, datetime
+from typing import Any
+
 from amrp.application.capability_result_adapters import (
     adapt_financial_result,
     adapt_industry_result,
@@ -22,9 +25,11 @@ from amrp.application.news_event_snapshot import GetNewsEventSnapshot
 from amrp.application.regulatory_contracts import RegulatorySnapshotQuery
 from amrp.application.regulatory_snapshot import GetRegulatorySnapshot
 from amrp.application.resolve_company import ResolveCompany
+from amrp.domain.data_origin import DataOrigin
 from amrp.domain.identity import CompanyIdentity
 from amrp.domain.orchestration import (
     ResearchTask,
+    TaskEvidenceRef,
     TaskExecutionResult,
     TaskResultStatus,
     TaskType,
@@ -51,6 +56,7 @@ class Phase6CapabilityExecutor:
         get_news_event_snapshot: GetNewsEventSnapshot,
         get_industry_snapshot: GetIndustryContextSnapshot,
         get_regulatory_snapshot: GetRegulatorySnapshot,
+        live_context: Any | None = None,
     ) -> None:
         self._resolve_company = resolve_company
         self._market = get_market_snapshot
@@ -58,6 +64,9 @@ class Phase6CapabilityExecutor:
         self._news = get_news_event_snapshot
         self._industry = get_industry_snapshot
         self._regulatory = get_regulatory_snapshot
+        # Optional free/no-key live fallback (Yahoo/SEC/news) used when the
+        # fixture-backed industry/regulatory snapshot has nothing for a company.
+        self._live = live_context
 
     def execute_task(
         self,
@@ -127,7 +136,8 @@ class Phase6CapabilityExecutor:
             or task.task_type is TaskType.INDUSTRY_INTELLIGENCE
         ):
             industry = self._industry.execute(IndustrySnapshotQuery(company_query=company_query))
-            return adapt_industry_result(task.task_id, expected=expected, result=industry)
+            adapted = adapt_industry_result(task.task_id, expected=expected, result=industry)
+            return self._live_fallback(task, adapted, company, company_query, kind="industry")
         if (
             capability == "regulatory_intelligence"
             or task.task_type is TaskType.REGULATORY_INTELLIGENCE
@@ -135,11 +145,71 @@ class Phase6CapabilityExecutor:
             regulatory = self._regulatory.execute(
                 RegulatorySnapshotQuery(company_query=company_query)
             )
-            return adapt_regulatory_result(task.task_id, expected=expected, result=regulatory)
+            adapted = adapt_regulatory_result(task.task_id, expected=expected, result=regulatory)
+            return self._live_fallback(task, adapted, company, company_query, kind="regulatory")
         return TaskExecutionResult(
             task_id=task.task_id,
             status=TaskResultStatus.FAILED,
             message=f"unknown capability_id={capability}",
             retryable=False,
             error_code="unknown_capability",
+        )
+
+    def _live_fallback(
+        self,
+        task: ResearchTask,
+        adapted: TaskExecutionResult,
+        company: CompanyIdentity,
+        company_query: CompanyQuery,
+        *,
+        kind: str,
+    ) -> TaskExecutionResult:
+        """Replace an unavailable/failed fixture result with free live data when possible."""
+
+        if self._live is None or adapted.status in {
+            TaskResultStatus.SUCCESS,
+            TaskResultStatus.PARTIAL,
+            TaskResultStatus.BLOCKED,
+        }:
+            return adapted
+        exchange = company_query.exchange.as_text() if company_query.exchange else None
+        ticker = company_query.ticker.as_text() if company_query.ticker else ""
+        if not ticker:
+            for security in company.securities:
+                for listing in security.listings:
+                    exchange, ticker = listing.exchange.as_text(), listing.ticker.as_text()
+                    break
+                if ticker:
+                    break
+        if not ticker:
+            return adapted
+        name = getattr(company, "legal_name", None) or getattr(company, "display_name", "") or ""
+        try:
+            if kind == "industry":
+                data = self._live.industry(exchange=exchange, ticker=ticker, name=str(name))
+            else:
+                data = self._live.regulatory(exchange=exchange, ticker=ticker, company=company)
+        except Exception as exc:  # live fallback is best effort
+            logger.warning(
+                "live_fallback_failed",
+                extra={"kind": kind, "error_type": exc.__class__.__name__},
+            )
+            return adapted
+        if not isinstance(data, dict) or data.get("status") != "ok":
+            return adapted
+        count = len(data.get("items") or []) + len(data.get("figures") or [])
+        return TaskExecutionResult(
+            task_id=task.task_id,
+            status=TaskResultStatus.SUCCESS,
+            message=f"{kind} from free live sources: {data.get('message') or count}"[:1000],
+            evidence_refs=(
+                TaskEvidenceRef(
+                    company_id=company.company_id,
+                    data_origin=DataOrigin.LIVE,
+                    retrieved_at=datetime.now(UTC),
+                ),
+            ),
+            output_summary=(
+                f"{kind} status=ok_live provider={data.get('provider_name')} items={count}"
+            ),
         )

@@ -61,3 +61,9 @@ docs/reports/generated/
 # Tool-specific local state
 .langgraph_api/
 .streamlit/secrets.toml
+
+# Local-only archive merged from AMRP-local (never commit)
+/archive/
+/media/
+secrets/
+.amrp/

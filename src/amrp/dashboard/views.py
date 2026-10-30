@@ -12,7 +12,7 @@ import io
 import json
 import re
 import threading
-from collections.abc import Iterable
+from collections.abc import Callable, Iterable
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from pathlib import Path
@@ -79,6 +79,8 @@ def workflow_stats(workflows: Iterable[dict[str, Any]]) -> WorkflowStats:
 
 
 def status_label(workflow: dict[str, Any]) -> str:
+    if workflow.get("research_status"):
+        return str(workflow["research_status"])
     if workflow.get("approval_status") == "pending":
         return "Pending approval"
     if workflow.get("approval_status") == "rejected":
@@ -109,6 +111,7 @@ def workflow_rows(workflows: Iterable[dict[str, Any]]) -> list[dict[str, str]]:
                 "Objective": objective_label(w.get("objective")),
                 "Status": status_label(w),
                 "Created": short_time(w.get("created_at")),
+                "Missing": ", ".join(w.get("missing_sections") or []),
                 "workflow_id": str(w.get("workflow_id") or ""),
             }
         )
@@ -273,14 +276,38 @@ def load_watchlist(path: Path | None = None) -> list[str]:
     return [str(x) for x in _read_list(path) if isinstance(x, str) and x.strip()]
 
 
-def add_to_watchlist(name: str, path: Path | None = None) -> list[str]:
+def _symbol_key(name: str, ticker_of: Callable[[str], str | None] | None) -> str:
+    """Identity of a watchlist entry: its resolved ticker when known, else the name."""
+    resolved = None
+    if ticker_of is not None:
+        try:
+            resolved = ticker_of(name)
+        except Exception:
+            resolved = None
+    return (resolved or name).strip().upper()
+
+
+def add_to_watchlist(
+    name: str,
+    path: Path | None = None,
+    ticker_of: Callable[[str], str | None] | None = None,
+) -> list[str]:
+    """Add ``name`` unless the same symbol is already listed.
+
+    ``ticker_of`` optionally resolves a name to its ticker so that, for example,
+    "Apple" and "AAPL" are treated as the same entry.
+    """
     path = path or _store("dashboard_watchlist.json")
     clean = name.strip()[:64]
     with _LOCK:
         items = load_watchlist(path)
-        if clean and clean.lower() not in {i.lower() for i in items}:
-            items.append(clean)
-            _write_list(path, items)
+        if not clean or clean.lower() in {i.lower() for i in items}:
+            return items
+        key = _symbol_key(clean, ticker_of)
+        if ticker_of is not None and key in {_symbol_key(i, ticker_of) for i in items}:
+            return items
+        items.append(clean)
+        _write_list(path, items)
     return items
 
 
@@ -320,6 +347,9 @@ def history_as_workflows(history: Iterable[dict[str, Any]]) -> list[dict[str, An
                 "approval_status": h.get("approval_status"),
                 "created_at": h.get("created_at") or h.get("recorded_at"),
                 "company_query": {"raw_query": h.get("company")},
+                "research_status": h.get("research_status"),
+                "missing_sections": h.get("missing_sections") or [],
+                "sections": h.get("sections"),
             }
         )
     return out
@@ -336,7 +366,14 @@ def merge_workflows(
             merged[str(w["workflow_id"])] = w
     for w in api:
         if isinstance(w, dict) and w.get("workflow_id"):
-            merged[str(w["workflow_id"])] = w
+            key = str(w["workflow_id"])
+            prev = merged.get(key) or {}
+            extra = {
+                k: prev[k]
+                for k in ("research_status", "missing_sections", "sections")
+                if prev.get(k)
+            }
+            merged[key] = {**w, **extra}
     return list(merged.values())
 
 
@@ -546,7 +583,10 @@ def save_report(workflow_id: str, report: dict[str, Any], base: Path | None = No
     """Persist a finished report locally so it can be reopened after a restart."""
 
     path = _report_path(workflow_id, base)
-    keep = {k: report.get(k) for k in ("raw", "markdown", "workflow", "workflow_id", "company")}
+    keys = ("raw", "markdown", "workflow", "workflow_id", "company")
+    keep: dict[str, Any] = {k: report.get(k) for k in keys}
+    keep["research_status"] = report.get("research_status")
+    keep["missing_sections"] = list(report.get("missing_sections") or [])
     with _LOCK:
         path.parent.mkdir(parents=True, exist_ok=True)
         path.write_text(json.dumps(keep, default=str), encoding="utf-8")
@@ -558,3 +598,132 @@ def load_saved_report(workflow_id: str, base: Path | None = None) -> dict[str, A
     except (FileNotFoundError, json.JSONDecodeError):
         return None
     return data if isinstance(data, dict) and data.get("raw") is not None else None
+
+
+def list_saved_reports(base: Path | None = None, limit: int = 50) -> list[dict[str, Any]]:
+    """Saved finished reports, newest first: id, company, objective, saved time, status."""
+
+    folder = base or _store("dashboard_reports")
+    try:
+        files = sorted(folder.glob("*.json"), key=lambda f: f.stat().st_mtime, reverse=True)
+    except OSError:
+        return []
+    out: list[dict[str, Any]] = []
+    for f in files[:limit]:
+        try:
+            data = json.loads(f.read_text(encoding="utf-8"))
+        except (OSError, json.JSONDecodeError):
+            continue
+        if not isinstance(data, dict) or data.get("raw") is None:
+            continue
+        wf = data.get("workflow") or {}
+        out.append(
+            {
+                "workflow_id": str(data.get("workflow_id") or f.stem),
+                "company": str(data.get("company") or "?"),
+                "objective": wf.get("objective"),
+                "saved_at": datetime.fromtimestamp(f.stat().st_mtime, tz=UTC),
+                "research_status": data.get("research_status") or wf.get("status"),
+            }
+        )
+    return out
+
+
+# ------------------------------------------------------------ section status
+ALL_SECTIONS: tuple[str, ...] = ("market", "financial", "news", "industry", "regulatory")
+SECTION_LABELS: dict[str, str] = {
+    "market": "Market",
+    "financial": "Financials",
+    "news": "News",
+    "industry": "Industry",
+    "regulatory": "Regulatory",
+}
+OBJECTIVE_SECTIONS: dict[str, tuple[str, ...]] = {
+    "company_overview": ("market", "financial", "news"),
+    "market_analysis": ("market",),
+    "financial_analysis": ("financial",),
+    "news_and_events": ("news",),
+    "industry_analysis": ("industry",),
+    "regulatory_analysis": ("regulatory",),
+    "comprehensive_equity_research": ALL_SECTIONS,
+}
+STATUS_HELP = (
+    "Completed = every selected objective produced report content. "
+    "Partial = at least one selected section is missing or its data source failed "
+    "(the missing sections are listed). Status only counts the objectives you selected."
+)
+
+
+def sections_for(objectives: Iterable[str]) -> tuple[str, ...]:
+    wanted: set[str] = set()
+    for o in objectives:
+        wanted |= set(OBJECTIVE_SECTIONS.get(str(o), ()))
+    return tuple(s for s in ALL_SECTIONS if s in wanted) or ALL_SECTIONS
+
+
+def research_args(picks: Iterable[str]) -> dict[str, Any]:
+    """start_research kwargs for the selected objective cards (one or many)."""
+
+    keys = [k for k in picks if k in OBJECTIVE_SECTIONS]
+    if not keys:
+        return {}
+    if len(keys) == 1:
+        return {"objective": keys[0], "sections": sections_for(keys)}
+    return {
+        "objective": "comprehensive_equity_research",
+        "sections": sections_for(keys),
+        "auto_approve": True,
+    }
+
+
+def _section_rows(findings: dict[str, Any], name: str) -> list[Any]:
+    rows: list[Any] = []
+    for suffix in ("_figures", "_items"):
+        value = findings.get(name + suffix)
+        if isinstance(value, list):
+            rows.extend(value)
+    return rows
+
+
+def research_status(
+    findings: dict[str, Any], sections: Iterable[str] | None = None
+) -> tuple[str, list[str]]:
+    """('Completed'|'Partial', missing section labels) relative to the selected sections."""
+
+    wanted = [
+        s for s in (sections or findings.get("sections") or ALL_SECTIONS) if s in SECTION_LABELS
+    ]
+    missing = [SECTION_LABELS[s] for s in wanted if not _section_rows(findings, s)]
+    return ("Partial" if missing else "Completed"), missing
+
+
+# ------------------------------------------------------- comprehensive run summary
+def run_summary(steps: list[dict[str, Any]], result: dict[str, Any] | None) -> dict[str, Any]:
+    """Final banner data: Completed/Partial plus failed (retryable) and skipped agents.
+
+    A failed step counts as resolved once a later re-run of the same task succeeded.
+    """
+
+    names = {k: n for k, n, _ in RESEARCH_AGENTS}
+    latest: dict[str, dict[str, Any]] = {}
+    for step in steps:
+        task = str((step.get("inputs") or {}).get("task_id") or step.get("kind") or "")
+        latest[task] = step
+    failed, skipped = [], []
+    for step in latest.values():
+        state = str(step.get("state") or "")
+        kind = str(step.get("kind") or "")
+        entry = {
+            "step_id": step.get("step_id"),
+            "kind": kind,
+            "agent": names.get(kind, kind.replace("_", " ").title()),
+            "reason": str(step.get("error") or step.get("note") or "")[:300],
+        }
+        if state == "failed":
+            failed.append(entry)
+        elif state in ("skipped", "rejected"):
+            entry["reason"] = entry["reason"] or "skipped by operator"
+            skipped.append(entry)
+    res_status = str((result or {}).get("status") or "")
+    ok = not failed and not skipped and res_status != "failed"
+    return {"status": "Completed" if ok else "Partial", "failed": failed, "skipped": skipped}

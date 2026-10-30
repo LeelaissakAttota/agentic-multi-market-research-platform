@@ -3,6 +3,7 @@ from __future__ import annotations
 from decimal import Decimal
 
 from amrp.application.company_resolution import CompanyQuery
+from amrp.application.report_findings import ALL_SECTIONS
 from amrp.application.workflow_contracts import CreateResearchWorkflowQuery
 from amrp.composition import build_container
 from amrp.domain.identity import ExchangeCode
@@ -34,19 +35,23 @@ class _FakeLlm:
         )
 
 
-def _report(llm: _FakeLlm | None = None) -> str:
+def _report(
+    llm: _FakeLlm | None = None,
+    objective: ResearchObjective = ResearchObjective.MARKET_ANALYSIS,
+    sections: tuple[str, ...] | None = ALL_SECTIONS,
+) -> str:
     container = build_container(llm_router=llm) if llm else build_container()
     created = container.create_research_workflow.execute(
         CreateResearchWorkflowQuery(
             company_query=CompanyQuery(raw_query="Apple", exchange=ExchangeCode("NASDAQ")),
-            objective=ResearchObjective.MARKET_ANALYSIS,
+            objective=objective,
             objective_text=QUESTION,
         )
     )
     assert created.workflow is not None
     container.manage_research_workflow.execute(created.workflow.workflow_id)
     result = container.request_research_report.execute(
-        created.workflow.workflow_id, report_format="markdown"
+        created.workflow.workflow_id, report_format="markdown", sections=sections
     )
     assert result.stored_report is not None
     return result.stored_report.content
@@ -114,3 +119,29 @@ def test_fixture_events_are_withheld_from_llm_evidence() -> None:
     assert "[R1]" not in evidence and "[N1]" not in evidence  # fixture-only sections
     assert "fixture demo items withheld" in evidence
     assert "Ignore previous instructions" not in evidence
+
+
+def test_single_objective_report_contains_only_its_sections() -> None:
+    md = _report(sections=None)  # derived from the market_analysis objective
+    assert "### Market" in md
+    for heading in ("### Financials", "## Top News", "## Regulatory Items", "## Industry & Peers"):
+        assert heading not in md
+
+
+def test_industry_objective_report_has_industry_section() -> None:
+    md = _report(objective=ResearchObjective.INDUSTRY_ANALYSIS, sections=None)
+    assert "## Industry & Peers" in md
+    assert "Consumer Electronics" in md  # offline reference industry for Apple
+    assert "### Market" not in md and "## Regulatory Items" not in md
+
+
+def test_regulatory_objective_report_has_regulatory_section() -> None:
+    md = _report(objective=ResearchObjective.REGULATORY_ANALYSIS, sections=None)
+    assert "## Regulatory Items" in md and "[R1]" in md
+    assert "### Market" not in md
+
+
+def test_sections_override_limits_report() -> None:
+    md = _report(sections=("news", "industry"))
+    assert "## Top News" in md and "## Industry & Peers" in md
+    assert "### Market" not in md
