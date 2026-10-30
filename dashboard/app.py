@@ -1369,6 +1369,15 @@ def reports_page() -> None:
                 f.write("-")
 
 
+def _watchlist_ticker(name: str) -> str | None:
+    """Resolve a watchlist entry to its ticker (market symbols map to themselves)."""
+    if tr.is_market_symbol(name):
+        return name.strip().upper()
+    snap = safe(API.get, "/market/snapshot", q=name, default=None)
+    listing = (snap or {}).get("listing") or {}
+    return str(listing.get("ticker") or "").strip().upper() or None
+
+
 def watchlist_page() -> None:
     h1, h2 = st.columns([3, 2])
     h1.markdown("#### My Watchlist")
@@ -1383,7 +1392,7 @@ def watchlist_page() -> None:
             label_visibility="collapsed",
         )
         if c2.form_submit_button("+ Add to Watchlist", type="primary") and name.strip():
-            add_to_watchlist(name)
+            add_to_watchlist(name, ticker_of=_watchlist_ticker)
             st.rerun()
     items = load_watchlist()
     if not items:

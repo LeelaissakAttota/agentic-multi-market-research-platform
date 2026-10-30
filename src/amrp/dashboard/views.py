@@ -12,7 +12,7 @@ import io
 import json
 import re
 import threading
-from collections.abc import Iterable
+from collections.abc import Callable, Iterable
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from pathlib import Path
@@ -276,14 +276,38 @@ def load_watchlist(path: Path | None = None) -> list[str]:
     return [str(x) for x in _read_list(path) if isinstance(x, str) and x.strip()]
 
 
-def add_to_watchlist(name: str, path: Path | None = None) -> list[str]:
+def _symbol_key(name: str, ticker_of: Callable[[str], str | None] | None) -> str:
+    """Identity of a watchlist entry: its resolved ticker when known, else the name."""
+    resolved = None
+    if ticker_of is not None:
+        try:
+            resolved = ticker_of(name)
+        except Exception:
+            resolved = None
+    return (resolved or name).strip().upper()
+
+
+def add_to_watchlist(
+    name: str,
+    path: Path | None = None,
+    ticker_of: Callable[[str], str | None] | None = None,
+) -> list[str]:
+    """Add ``name`` unless the same symbol is already listed.
+
+    ``ticker_of`` optionally resolves a name to its ticker so that, for example,
+    "Apple" and "AAPL" are treated as the same entry.
+    """
     path = path or _store("dashboard_watchlist.json")
     clean = name.strip()[:64]
     with _LOCK:
         items = load_watchlist(path)
-        if clean and clean.lower() not in {i.lower() for i in items}:
-            items.append(clean)
-            _write_list(path, items)
+        if not clean or clean.lower() in {i.lower() for i in items}:
+            return items
+        key = _symbol_key(clean, ticker_of)
+        if ticker_of is not None and key in {_symbol_key(i, ticker_of) for i in items}:
+            return items
+        items.append(clean)
+        _write_list(path, items)
     return items
 
 

@@ -148,3 +148,33 @@ def test_revenue_profit_series_needs_two_periods_each() -> None:
     assert len(out) == 4
     assert revenue_profit_series(rows[:3]) == []
     assert revenue_profit_series([]) == []
+
+
+def test_add_to_watchlist_rejects_same_symbol_under_another_name(tmp_path):
+    from amrp.dashboard.views import add_to_watchlist, load_watchlist
+
+    store = tmp_path / "wl.json"
+    tickers = {"apple": "AAPL", "aapl": "AAPL", "gc=f": "GC=F"}
+
+    def resolve(n):
+        return tickers.get(n.strip().lower())
+
+    add_to_watchlist("Apple", store, ticker_of=resolve)
+    add_to_watchlist("AAPL", store, ticker_of=resolve)
+    add_to_watchlist("aapl", store, ticker_of=resolve)
+    add_to_watchlist("GC=F", store, ticker_of=resolve)
+    assert load_watchlist(store) == ["Apple", "GC=F"]
+
+
+def test_add_to_watchlist_resolver_failure_falls_back_to_name(tmp_path):
+    from amrp.dashboard.views import add_to_watchlist, load_watchlist
+
+    store = tmp_path / "wl.json"
+
+    def boom(_n):
+        raise RuntimeError("offline")
+
+    add_to_watchlist("TCS", store, ticker_of=boom)
+    add_to_watchlist("tcs", store, ticker_of=boom)
+    add_to_watchlist("Infosys", store, ticker_of=boom)
+    assert load_watchlist(store) == ["TCS", "Infosys"]
