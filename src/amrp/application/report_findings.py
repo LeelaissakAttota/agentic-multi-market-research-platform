@@ -14,6 +14,7 @@ from __future__ import annotations
 
 import re
 from collections.abc import Callable, Iterable, Mapping, Sequence
+from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass, field, replace
 from decimal import Decimal, InvalidOperation
 from typing import Any, Protocol
@@ -253,7 +254,7 @@ def _label(name: str) -> str:
 
 def _first_line(text: object, limit: int = 220) -> str:
     raw = " ".join(str(text or "").split())
-    return raw if len(raw) <= limit else raw[: limit - 1] + "…"
+    return raw if len(raw) <= limit else raw[: limit - 1] + "â€¦"
 
 
 # ---------------------------------------------------------------- collection
@@ -323,46 +324,36 @@ class ReportFindingsCollector:
                 errors.append(f"{name}: unavailable ({type(exc).__name__})")
                 return None
 
-        market = (
-            None
-            if "market" not in wanted
-            else run(
-                "market",
-                lambda: self._market.execute(
-                    MarketSnapshotQuery(company_query=company_query)
-                ).to_dict(),
-            )
+        jobs: dict[str, Callable[[], dict[str, Any]]] = {
+            "market": lambda: self._market.execute(
+                MarketSnapshotQuery(company_query=company_query)
+            ).to_dict(),
+            "financial": lambda: self._financial.execute(
+                FinancialSnapshotQuery(company_query=company_query)
+            ).to_dict(),
+            "news": lambda: self._news.execute(
+                NewsEventSnapshotQuery(company_query=company_query, limit=20)
+            ).to_dict(),
+            "regulatory": lambda: self._regulatory.execute(
+                RegulatorySnapshotQuery(company_query=company_query)
+            ).to_dict(),
+        }
+        picked = [name for name in jobs if name in wanted]
+        # The sections are independent network fetches: run them side by side.
+        results: dict[str, dict[str, Any] | None] = dict.fromkeys(jobs)
+        if picked:
+            with ThreadPoolExecutor(max_workers=len(picked)) as pool:
+                futures = {name: pool.submit(run, name, jobs[name]) for name in picked}
+                for name in picked:
+                    results[name] = futures[name].result()
+        order = list(jobs)
+        errors.sort(
+            key=lambda e: order.index(e.split(":", 1)[0]) if e.split(":", 1)[0] in order else 99
         )
-        financial = (
-            None
-            if "financial" not in wanted
-            else run(
-                "financial",
-                lambda: self._financial.execute(
-                    FinancialSnapshotQuery(company_query=company_query)
-                ).to_dict(),
-            )
-        )
-        news = (
-            None
-            if "news" not in wanted
-            else run(
-                "news",
-                lambda: self._news.execute(
-                    NewsEventSnapshotQuery(company_query=company_query, limit=20)
-                ).to_dict(),
-            )
-        )
-        regulatory = (
-            None
-            if "regulatory" not in wanted
-            else run(
-                "regulatory",
-                lambda: self._regulatory.execute(
-                    RegulatorySnapshotQuery(company_query=company_query)
-                ).to_dict(),
-            )
-        )
+        market = results["market"]
+        financial = results["financial"]
+        news = results["news"]
+        regulatory = results["regulatory"]
         regulatory = self._live_regulatory(regulatory, company_query, wanted, errors)
         industry, industry_figs, industry_items = self._collect_industry(
             company_query, wanted, errors, run
@@ -618,7 +609,7 @@ def _clean_summary(text: str) -> str:
     # A token-limited answer can stop mid-sentence; keep only complete sentences.
     if cleaned and cleaned[-1] not in ".!?)]\"'":
         cut = max(cleaned.rfind(". "), cleaned.rfind(".\n"), cleaned.rfind("] "))
-        cleaned = cleaned[: cut + 1] if cut > 0 else cleaned + " …"
+        cleaned = cleaned[: cut + 1] if cut > 0 else cleaned + " â€¦"
     return cleaned.strip()
 
 
@@ -647,7 +638,7 @@ def evidence_block(findings: ReportFindings) -> str:
                 continue
             lines.append(
                 f"[{item.tag}] {item.date} ({item.data_origin or 'unknown'} origin): "
-                f"{item.title} — {_first_line(item.detail, 200)}"
+                f"{item.title} â€” {_first_line(item.detail, 200)}"
             )
     return "\n".join(lines)
 

@@ -11,6 +11,7 @@ from __future__ import annotations
 
 import re
 from collections.abc import Callable, Sequence
+from concurrent.futures import ThreadPoolExecutor
 from datetime import UTC, date, datetime
 from typing import Protocol
 
@@ -226,15 +227,27 @@ class LiveCompanyEventAdapter:
                 wanted = EventType(event_type)
             except ValueError:
                 return None
-        collected: list[QualitativeEvent] = []
-        for source in self._sources:
+
+        def fetch(source: CompanyEventSource) -> Sequence[QualitativeEvent]:
             try:
-                collected.extend(source.fetch(company))
+                return tuple(source.fetch(company))
             except Exception as exc:  # a broken source must not break the others
                 logger.warning(
                     "live_event_source_failure",
                     extra={"source": source.name, "error_type": type(exc).__name__},
                 )
+                return ()
+
+        collected: list[QualitativeEvent] = []
+        if len(self._sources) > 1:
+            # Independent hosts (GDELT, Google News, Finnhub, IR feeds): fetch side by side,
+            # keeping the source order for ranking.
+            with ThreadPoolExecutor(max_workers=len(self._sources)) as pool:
+                for events in pool.map(fetch, self._sources):
+                    collected.extend(events)
+        else:
+            for source in self._sources:
+                collected.extend(fetch(source))
         ranked = rank_and_dedupe(collected, source_rank=self._rank)
         if wanted is not None:
             ranked = [e for e in ranked if e.event_type is wanted]

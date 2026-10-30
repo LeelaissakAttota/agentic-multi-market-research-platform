@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import threading
+import time
 from collections.abc import Callable
 from dataclasses import dataclass
 from datetime import UTC, datetime
@@ -82,6 +84,11 @@ class RequestResearchReport:
         self._report_store = report_store
         self._clock = clock or (lambda: datetime.now(UTC))
         self._requests: dict[str, ReportRequest] = {}
+        # The dashboard asks for json and then markdown of the same workflow back to back;
+        # both renders share one findings collection (live fetches + LLM summary).
+        self._findings_memo: dict[tuple[object, ...], tuple[float, ReportFindings | None]] = {}
+        self._memo_lock = threading.Lock()
+        self._memo_ttl_seconds = 120.0
 
     def execute(
         self,
@@ -190,6 +197,30 @@ class RequestResearchReport:
         )
 
     def _collect(
+        self, workflow: object, sections: tuple[str, ...] | None = None
+    ) -> ReportFindings | None:
+        if self._findings is None:
+            return None
+        wf = workflow.to_dict()  # type: ignore[attr-defined]
+        key = (
+            wf.get("workflow_id"),
+            wf.get("status"),
+            wf.get("updated_at"),
+            tuple(sections) if sections else None,
+        )
+        now = time.monotonic()
+        with self._memo_lock:
+            hit = self._findings_memo.get(key)
+            if hit is not None and now - hit[0] < self._memo_ttl_seconds:
+                return hit[1]
+        findings = self._collect_uncached(workflow, sections)
+        with self._memo_lock:
+            if len(self._findings_memo) > 32:
+                self._findings_memo.clear()
+            self._findings_memo[key] = (time.monotonic(), findings)
+        return findings
+
+    def _collect_uncached(
         self, workflow: object, sections: tuple[str, ...] | None = None
     ) -> ReportFindings | None:
         if self._findings is None:

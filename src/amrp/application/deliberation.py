@@ -7,7 +7,10 @@ with a confidence score. Research only - never an order or advice.
 
 from __future__ import annotations
 
+import time
 from collections.abc import Callable, Mapping, Sequence
+from concurrent.futures import ThreadPoolExecutor
+from concurrent.futures import TimeoutError as FuturesTimeout
 from dataclasses import asdict, dataclass, field
 from datetime import UTC, datetime
 from enum import StrEnum
@@ -92,6 +95,8 @@ def risk_flags(items: Sequence[EvidenceItem]) -> list[str]:
     return flags
 
 
+RISK_LLM_DEADLINE_SECONDS = 20.0
+
 _STANCE = {
     "aggressive": ("favours upside capture and tolerates volatility", 0.15, 0.4),
     "neutral": ("balances upside against the risk flags", 0.0, 1.0),
@@ -109,8 +114,10 @@ def run_risk_panel(
 ) -> RiskPanel:
     flags = risk_flags(items)
     penalty = 0.08 * len(flags)
-    views: list[RiskView] = []
-    for stance, (desc, bias, pen_mult) in _STANCE.items():
+
+    def one(
+        stance: str, desc: str, bias: float, pen_mult: float, router: LlmRouterPort | None = quick
+    ) -> RiskView:
         anchor = max(-1.0, min(1.0, debate.verdict.score + bias - penalty * pen_mult))
         view = RiskView(
             stance,
@@ -120,7 +127,7 @@ def run_risk_panel(
             "deterministic",
         )
         text = ask_llm(
-            quick,
+            router,
             f"You are the {stance.upper()} risk analyst; you {desc}. Research only. JSON only.",
             f"Company: {company}\nJudge verdict: {debate.verdict.leaning} "
             f"({debate.verdict.score:+.2f}) - {debate.verdict.rationale}\nRisk flags:\n"
@@ -138,7 +145,27 @@ def run_risk_panel(
             view = RiskView(
                 stance, round(score, 3), str(data.get("comment") or view.comment)[:400], quick_label
             )
-        views.append(view)
+        return view
+
+    stances = list(_STANCE.items())
+    if quick is None:
+        views = [one(st, *spec) for st, spec in stances]
+    else:
+        # The three risk analysts are independent LLM calls: ask them in parallel.
+        # A slow free-model reply (30 s+ seen live) must not hold up the whole report:
+        # past the deadline that stance keeps its deterministic, evidence-anchored view.
+        pool = ThreadPoolExecutor(max_workers=len(stances))
+        try:
+            futures = [pool.submit(one, st, *spec) for st, spec in stances]
+            deadline = time.monotonic() + RISK_LLM_DEADLINE_SECONDS
+            views = []
+            for (st, spec), fut in zip(stances, futures, strict=True):
+                try:
+                    views.append(fut.result(timeout=max(0.0, deadline - time.monotonic())))
+                except FuturesTimeout:
+                    views.append(one(st, *spec, router=None))
+        finally:
+            pool.shutdown(wait=False, cancel_futures=True)
     level = classify_step("analysis")
     execution = (
         "LOW - read-only analysis; no orders, messages or writes (control/risk.py)"

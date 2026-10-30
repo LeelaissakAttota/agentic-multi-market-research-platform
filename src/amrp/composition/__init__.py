@@ -509,7 +509,16 @@ def _live_news_sources(
         if "gdelt" in enabled:
             sources.append(
                 GdeltDocSource(
-                    _live_http(resolved),
+                    # GDELT is slow (15-25 s seen live) and only one of several news
+                    # sources; cap it so it cannot hold up the whole run.
+                    BoundedHttpClient(
+                        UrlLibHttpTransport(
+                            max_response_bytes=resolved.market_data_max_response_bytes
+                        ),
+                        timeout_seconds=min(float(resolved.market_data_timeout_seconds), 8.0),
+                        max_retries=0,
+                        user_agent=BROWSER_USER_AGENT,
+                    ),
                     rate_limiter=gdelt_limiter,
                     cache_ttl_seconds=ttl,
                     lookback_days=days,
